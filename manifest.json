@@ -1,0 +1,27 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "SenseiGG",
+    "version": "1.0.0.0",
+    "minimum-overwolf-version": "0.195.0",
+    "author": "Sensei",
+    "description": "AI Companion",
+    "icon": "icon.png"
+  },
+  "data": {
+    "start_window": "desktop",
+    "debug_url": "http://127.0.0.1:4173",
+    "windows": {
+      "desktop": {
+        "file": "index.html",
+        "transparent": true,
+        "resizable": true,
+        "size": {
+          "width": 1200,
+          "height": 700
+        }
+      }
+    }
+  }
+}
