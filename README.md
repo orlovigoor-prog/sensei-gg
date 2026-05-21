@@ -1,4 +1,4 @@
-npm run dev# Sensei GG - AI League of Legends Coach
+# Sensei GG - League of Legends Overlay Assistant
 
 **Русский** | **English**
 
@@ -6,22 +6,22 @@ npm run dev# Sensei GG - AI League of Legends Coach
 
 ## 🎮 О проекте
 
-**Sensei GG** — это персональный AI-тренер для League of Legends, который работает как оверлей в приложении Overwolf:
+**Sensei GG** — это оверлей-помощник для League of Legends на базе Overwolf с упором на безопасную аналитику и постматч-разбор:
 
-- **Real-time анализ матча** — мгновенные советы во время игры
-- **Трекер лобби 5x5** — полная информация о союзниках и противниках
+- **Постматч AI-анализ** — разбор завершённой игры и рекомендации для роста
+- **Трекер лобби 5x5** — безопасная информация о составе лобби
 - **Поиск игроков** — статистика по любому игроку из всех регионов
-- **AI-анализ** — умные рекомендации на основе текущей ситуации
+- **Профиль и история** — базовые метрики и история недавних матчей
 - **Настраиваемые горячие клавиши** — открывайте приложение по Ctrl+X в любой момент
 
 ---
 
 ## 🌟 Основные функции
 
-### ⚡ ИИ-анализ в реальном времени
-- Анализ текущей ситуации на карте
-- Рекомендации по фарму, позиционированию, таргетам
-- KDA и CS мониторинг
+### ⚡ Постматч AI-анализ
+- Разбор завершённого матча после окончания игры
+- Короткие рекомендации по KDA, фарму и участию в боях
+- Фокус на обучении игрока, а не на live-подсказках во время матча
 
 ### 🔍 Поиск игроков
 - Статистика по всем регионам (RU, EUW, NA, KR, и др.)
@@ -29,9 +29,9 @@ npm run dev# Sensei GG - AI League of Legends Coach
 - Чемпион-мастерство и пиковые способности
 
 ### 🎯 Трекер лобби
-- 5x5 лобби в реальном времени
-- Информация о рангах и винрейте
-- Детали чемпионов и способностей
+- 5x5 лобби с безопасной сводкой по игрокам
+- Информация о рангах и винрейте там, где это допустимо
+- Нейтральные данные по чемпионам без запрещённых live-callouts
 
 ### ⌨️ Горячие клавиши
 - **Ctrl + X** — Открыть/закрыть оверлей в игре
@@ -39,7 +39,7 @@ npm run dev# Sensei GG - AI League of Legends Coach
 - Работает даже когда LoL активна
 
 ### 🖥️ Компактный оверлей
-- Размер окна: 800x600px (как Porofessor)
+- Несколько пресетов размера окна
 - Полупрозрачный фон
 - Не перекрывает игровой интерфейс
 
@@ -133,6 +133,8 @@ sensei-gg/
 - Для production нужен серверный или платформенный способ хранения ключа
 - Нет отправки данных на сторонние сервера
 - Все данные получаются напрямую из Riot API
+- AI-блок используется для постматч-разбора, а не для live-советов во время активной игры
+- В Ranked Solo/Duo в champ select нельзя раскрывать имена непартийных союзников
 - Соответствие [Riot Games Developer Policy](https://developer.riotgames.com/policies/general)
 
 ---
@@ -171,7 +173,7 @@ sensei-gg/
 ## 🎯 Roadmap
 
 - [x] Базовое приложение
-- [x] ИИ-анализ матча
+- [x] Постматч AI-анализ
 - [x] Трекер лобби
 - [x] Поиск игроков
 - [x] Оверлей для Overwolf
@@ -183,33 +185,4 @@ sensei-gg/
 
 ---
 
-Made with ❤️ for the League of Legends community
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Создано для игроков League of Legends, которым нужен аккуратный разбор без лишнего шума.

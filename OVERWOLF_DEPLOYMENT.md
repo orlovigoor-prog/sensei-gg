@@ -35,7 +35,7 @@ dist/
     "version": "1.0.0.0",
     "minimum-overwolf-version": "0.195.0",
     "author": "Sensei",
-    "description": "AI-powered League of Legends coach",
+    "description": "League of Legends overlay with post-match analysis",
     "icon": "icon.png"
   },
   "data": {
@@ -77,7 +77,7 @@ dist/
    - **App Name**: SenseiGG
    - **App Type**: Overlay / Game Companion
    - **Game**: League of Legends
-   - **Description**: AI-powered LoL coach with real-time match analysis
+   - **Description**: LoL overlay with safe lobby tools and post-match analysis
 
 ### Шаг 3: Загрузи файлы
 

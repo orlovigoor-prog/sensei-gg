@@ -12,14 +12,14 @@ git init
 git add .
 
 # Первый коммит
-git commit -m "Initial commit: Sensei GG - AI League of Legends Coach"
+git commit -m "Initial commit: Sensei GG overlay assistant"
 ```
 
 ### 1.2 Создай репозиторий на GitHub
 
 1. Перейди на https://github.com/new
 2. Имя репозитория: `sensei-gg`
-3. Description: `AI-powered League of Legends coach with real-time match analysis`
+3. Description: `League of Legends overlay with safe lobby tools and post-match analysis`
 4. Visibility: **Public** (обязательно!)
 5. Не создавай README (.gitignore и LICENSE уже есть)
 6. Нажми **"Create repository"**
@@ -54,15 +54,15 @@ Sensei GG
 
 #### Application Description:
 ```
-Sensei GG is a personal AI coach application for League of Legends that provides real-time match analysis, lobby tracking, and player statistics. The app uses advanced AI to give players instant advice during games, helps them track lobby information for 5x5 matches, and allows searching for any player's statistics across all regions.
+Sensei GG is a personal League of Legends companion app built on Overwolf. It focuses on safe lobby tracking, player statistics, and post-match analysis to help players improve after each game.
 
 Key Features:
-- Real-time AI analysis during matches
-- 5x5 lobby tracking with player information
+- Post-match AI analysis after completed games
+- 5x5 lobby tracking with safe player information
 - Player search and statistics across all regions
 - Champion mastery and ability details
 
-The application is built for personal use and educational purposes to help League of Legends players improve their gameplay through AI-powered insights.
+The application is built for personal use and educational purposes to help League of Legends players improve through review, pattern recognition, and safer data presentation.
 ```
 
 #### URL to your application:
@@ -73,17 +73,17 @@ https://github.com/ваш-ник/sensei-gg
 #### How will you use the Riot API?
 ```
 The application will use Riot API to:
-1. Fetch real-time match data to provide AI-powered advice during games
-2. Retrieve lobby information to help players understand their opponents and teammates
-3. Allow users to search for player statistics and track their progress
-4. Display champion information and mastery data
+1. Retrieve lobby information where policy allows it
+2. Allow users to search for player statistics and track their progress
+3. Display champion information and mastery data
+4. Support post-match review and player improvement flows after a game is finished
 
 All API calls are made directly from the client to Riot API servers. No data is stored or transmitted to third-party servers. The application respects all rate limits and follows Riot Games Developer Policy.
 ```
 
 #### How will you share the data with users?
 ```
-Data is displayed exclusively to the authenticated user who requested it. The application does not store, share, or publish any Riot API data. All information is shown in real-time and is not persisted on any server. User data remains private and is only visible to the user themselves.
+Data is displayed exclusively to the user who requested it. The application does not store, share, or publish Riot API data to third-party services. Match-related insights are shown inside the app for review purposes, and user data remains private and visible only to that user.
 ```
 
 #### Why do you need production access?
