@@ -1,13 +1,52 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Summoner, RankedStats } from '../../services/riotApi';
 
 export function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [region, setRegion] = useState<'euw' | 'eune' | 'ru' | 'tr' | 'na' | 'br' | 'la1' | 'la2' | 'kr' | 'jp'>('ru');
+  const [region, setRegion] = useState<'ru' | 'euw' | 'eune' | 'tr' | 'na' | 'br' | 'la1' | 'la2' | 'kr' | 'jp'>('ru');
   const [loading, setLoading] = useState(false);
   const [summoner, setSummoner] = useState<Summoner | null>(null);
   const [rankedStats, setRankedStats] = useState<RankedStats | null>(null);
   const [error, setError] = useState('');
+  const [autoSearch, setAutoSearch] = useState<string | null>(null);
+
+  // Авто-поиск при передаче summonerName
+  useEffect(() => {
+    if (autoSearch && autoSearch.trim()) {
+      setSearchQuery(autoSearch);
+      // Имитируем отправку формы
+      setTimeout(() => {
+        const form = document.querySelector('form') as HTMLFormElement;
+        if (form) {
+          form.dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+      }, 300);
+      setAutoSearch(null);
+    }
+  }, [autoSearch]);
+
+  // Обработка внешнего запроса на поиск
+  useEffect(() => {
+    const handleExternalSearch = (event: CustomEvent) => {
+      const { summonerName, targetRegion } = event.detail;
+      if (summonerName) {
+        setSearchQuery(summonerName);
+        if (targetRegion) {
+          setRegion(targetRegion);
+        }
+        // Триггерим поиск
+        setTimeout(() => {
+          const form = document.querySelector('form') as HTMLFormElement;
+          if (form) {
+            form.dispatchEvent(new Event('submit', { cancelable: true }));
+          }
+        }, 100);
+      }
+    };
+
+    window.addEventListener('sensei-search-player' as any, handleExternalSearch as any);
+    return () => window.removeEventListener('sensei-search-player' as any, handleExternalSearch as any);
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,10 +57,15 @@ export function SearchScreen() {
     setSummoner(null);
     setRankedStats(null);
 
-    // Получаем API ключ из localStorage или хардкод
-    const apiKey = localStorage.getItem('riot_api_key') || 
-                   'RGAPI-f56d4d57-d63b-4e85-b9ea-b370d5d0a4fb';
-    console.log('Using API key:', apiKey.substring(0, 20) + '...');
+    const apiKey = import.meta.env.VITE_RIOT_API_KEY as string | undefined;
+
+    if (!apiKey) {
+      setError('Поиск временно недоступен: Riot API ключ не настроен на стороне приложения.');
+      setLoading(false);
+      return;
+    }
+
+    console.log('Using configured Riot API key');
 
     try {
       console.log('Search region:', region, 'Query:', searchQuery);
@@ -57,7 +101,7 @@ export function SearchScreen() {
 
       if (!response.ok) {
         if (response.status === 403) {
-          setError('❌ API ключ не активен или невалиден.\n\nВозможные причины:\n• Ключ только что создан (ждём 5-10 мин)\n• Ключ отозван\n• Ключ не имеет доступа к этому региону\n\nПопробуй сгенерировать новый ключ на developer.riotgames.com');
+          setError('Riot API временно недоступен или не настроен корректно.');
         } else if (response.status === 404) {
           setError('Игрок не найден');
         } else if (response.status === 429) {
@@ -115,32 +159,32 @@ export function SearchScreen() {
   };
 
   return (
-    <div style={{ padding: '30px', color: '#e0e6ed' }}>
-      <h2 style={{ color: '#00ffcc', marginBottom: '30px', fontSize: '28px' }}>
+    <div style={{ padding: '15px', color: '#e0e6ed', height: '100%', overflow: 'auto' }}>
+      <h2 style={{ color: '#00ffcc', marginBottom: '20px', fontSize: '20px', marginBlockStart: '0' }}>
         🔍 Поиск игроков
       </h2>
 
       {/* Форма поиска */}
       <form onSubmit={handleSearch} style={{ 
         display: 'flex', 
-        gap: '15px', 
-        marginBottom: '30px',
+        gap: '10px', 
+        marginBottom: '20px',
         flexWrap: 'wrap'
       }}>
-        <div style={{ flex: 1, minWidth: '250px' }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Введите никнейм игрока..."
+            placeholder="Никнейм игрока..."
             style={{
               width: '100%',
-              padding: '15px',
+              padding: '10px 12px',
               background: '#161d2a',
               border: '1px solid #1f2937',
-              borderRadius: '8px',
+              borderRadius: '6px',
               color: '#fff',
-              fontSize: '16px',
+              fontSize: '14px',
               outline: 'none'
             }}
           />
@@ -150,44 +194,44 @@ export function SearchScreen() {
           value={region}
           onChange={(e) => setRegion(e.target.value as any)}
           style={{
-            padding: '15px',
+            padding: '10px 12px',
             background: '#161d2a',
             border: '1px solid #1f2937',
-            borderRadius: '8px',
+            borderRadius: '6px',
             color: '#fff',
-            fontSize: '16px',
+            fontSize: '14px',
             cursor: 'pointer',
-            minWidth: '120px'
+            minWidth: '100px'
           }}
         >
-          <option value="ru">RU (Россия)</option>
-          <option value="euw">EUW (Европа)</option>
-          <option value="eune">EUNE (Восточная Европа)</option>
-          <option value="tr">TR (Турция)</option>
-          <option value="na">NA (Северная Америка)</option>
-          <option value="br">BR (Бразилия)</option>
-          <option value="la1">LAN (Латинская Америка Север)</option>
-          <option value="la2">LAS (Латинская Америка Юг)</option>
-          <option value="kr">KR (Корея)</option>
-          <option value="jp">JP (Япония)</option>
+          <option value="ru">RU</option>
+          <option value="euw">EUW</option>
+          <option value="eune">EUNE</option>
+          <option value="tr">TR</option>
+          <option value="na">NA</option>
+          <option value="br">BR</option>
+          <option value="la1">LAN</option>
+          <option value="la2">LAS</option>
+          <option value="kr">KR</option>
+          <option value="jp">JP</option>
         </select>
 
         <button
           type="submit"
           disabled={loading || !searchQuery.trim()}
           style={{
-            padding: '15px 30px',
+            padding: '10px 20px',
             background: loading ? '#6b7280' : '#00ffcc',
             color: '#0f131a',
             border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
+            borderRadius: '6px',
+            fontSize: '14px',
             fontWeight: 'bold',
             cursor: loading ? 'not-allowed' : 'pointer',
-            minWidth: '120px'
+            minWidth: '80px'
           }}
         >
-          {loading ? 'Поиск...' : 'Найти'}
+          {loading ? '...' : 'Найти'}
         </button>
       </form>
 

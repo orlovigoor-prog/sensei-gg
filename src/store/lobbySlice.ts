@@ -20,12 +20,16 @@ export interface PlayerInfo {
     k: number;
     d: number;
     a: number;
+    gameType?: 'RANKED' | 'NORMAL';
   }[];
 }
 
+export type GameMode = 'RANKED_FLEX_SR' | 'RANKED_SOLO_5x5' | 'NORMAL_5x5_BLIND' | 'NORMAL_5x5_DRAFT' | 'ARAM';
+export type LobbyPhase = 'champ-select' | 'loading' | 'in-game' | 'post-game';
+
 interface LobbyState {
   isInLobby: boolean;
-  gameMode: 'RANKED_FLEX_SR' | 'RANKED_SOLO_5x5' | 'NORMAL_5x5_BLIND' | 'NORMAL_5x5_DRAFT' | 'ARAM';
+  gameMode: GameMode;
   players: {
     allies: PlayerInfo[];
     enemies: PlayerInfo[];
@@ -33,6 +37,8 @@ interface LobbyState {
   selectedChampion: string | null;
   pickOrder: string[];
   loading: boolean;
+  phase: LobbyPhase;
+  partyMembers: string[];
 }
 
 const initialState: LobbyState = {
@@ -44,7 +50,9 @@ const initialState: LobbyState = {
   },
   selectedChampion: null,
   pickOrder: [],
-  loading: false
+  loading: false,
+  phase: 'champ-select',
+  partyMembers: []
 };
 
 const lobbySlice = createSlice({
@@ -52,20 +60,47 @@ const lobbySlice = createSlice({
   initialState,
   reducers: {
     setLobby: (state, action: PayloadAction<{
-      gameMode: LobbyState['gameMode'];
+      gameMode: GameMode;
       allies: PlayerInfo[];
       enemies: PlayerInfo[];
+      phase?: LobbyPhase;
+      partyMembers?: string[];
     }>) => {
       state.isInLobby = true;
       state.gameMode = action.payload.gameMode;
       state.players.allies = action.payload.allies;
       state.players.enemies = action.payload.enemies;
+      state.phase = action.payload.phase || 'champ-select';
+      state.partyMembers = action.payload.partyMembers || [];
     },
     setSelectedChampion: (state, action: PayloadAction<string>) => {
       state.selectedChampion = action.payload;
     },
     setPickOrder: (state, action: PayloadAction<string[]>) => {
       state.pickOrder = action.payload;
+    },
+    setLobbyPhase: (state, action: PayloadAction<LobbyPhase>) => {
+      state.phase = action.payload;
+    },
+    setPartyMembers: (state, action: PayloadAction<string[]>) => {
+      state.partyMembers = action.payload;
+    },
+    syncLobbyLifecycle: (state, action: PayloadAction<{
+      phase: LobbyPhase;
+      isInLobby?: boolean;
+      gameMode?: GameMode;
+      partyMembers?: string[];
+    }>) => {
+      state.phase = action.payload.phase;
+      if (action.payload.isInLobby !== undefined) {
+        state.isInLobby = action.payload.isInLobby;
+      }
+      if (action.payload.gameMode) {
+        state.gameMode = action.payload.gameMode;
+      }
+      if (action.payload.partyMembers) {
+        state.partyMembers = action.payload.partyMembers;
+      }
     },
     updatePlayerStats: (state, action: PayloadAction<{ 
       team: 'allies' | 'enemies';
@@ -88,6 +123,8 @@ const lobbySlice = createSlice({
       state.players.enemies = [];
       state.selectedChampion = null;
       state.pickOrder = [];
+      state.phase = 'champ-select';
+      state.partyMembers = [];
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
@@ -99,6 +136,9 @@ export const {
   setLobby, 
   setSelectedChampion, 
   setPickOrder, 
+  setLobbyPhase,
+  setPartyMembers,
+  syncLobbyLifecycle,
   updatePlayerStats, 
   clearLobby,
   setLoading 

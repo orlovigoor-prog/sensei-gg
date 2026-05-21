@@ -6,7 +6,8 @@
     "version": "1.0.0.0",
     "minimum-overwolf-version": "0.195.0",
     "author": "Sensei",
-    "description": "AI Companion"
+    "description": "AI Companion",
+    "icon": "icon.png"
   },
   "data": {
     "start_window": "background",
@@ -22,8 +23,12 @@
         "resizable": true,
         "use_in_game_coordinates": true,
         "size": {
-          "width": 1200,
-          "height": 700
+          "width": 1280,
+          "height": 720
+        },
+        "min_size": {
+          "width": 800,
+          "height": 600
         }
       }
     }

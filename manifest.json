@@ -1,27 +1,40 @@
 {
-  "manifest_version": 1,
-  "type": "WebApp",
+  "manifest_version": 2,
+  "type": "web-app",
   "meta": {
     "name": "SenseiGG",
     "version": "1.0.0.0",
     "minimum-overwolf-version": "0.195.0",
     "author": "Sensei",
-    "description": "AI Companion",
+    "description": "AI-powered League of Legends coach with real-time match analysis",
     "icon": "icon.png"
   },
   "data": {
     "start_window": "desktop",
-    "debug_url": "http://127.0.0.1:4173",
     "windows": {
       "desktop": {
         "file": "index.html",
         "transparent": true,
         "resizable": true,
         "size": {
-          "width": 1200,
-          "height": 700
-        }
+          "width": 1280,
+          "height": 720
+        },
+        "min_size": {
+          "width": 800,
+          "height": 600
+        },
+        "start_size": {
+          "width": 1280,
+          "height": 720
+        },
+        "start_position": "centered"
       }
     }
-  }
+  },
+  "required_capabilities": ["windows"],
+  "overwolf_apis": [
+    "Windows",
+    "KeyboardShortcuts"
+  ]
 }

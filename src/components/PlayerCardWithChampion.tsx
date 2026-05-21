@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PlayerInfo } from '../store/lobbySlice';
 import { ChampionDetail } from './ChampionDetail';
 import { lcuService } from '../services/riotApi';
+import { getRankColor, getRankIconUrl } from '../services/rankAssets';
 
 interface PlayerCardWithChampionProps {
   player: PlayerInfo;
@@ -12,22 +13,6 @@ interface PlayerCardWithChampionProps {
 
 export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSelectChampion }: PlayerCardWithChampionProps) {
   const [showChampionDetail, setShowChampionDetail] = useState(false);
-
-  const getRankColor = (tier: string) => {
-    const colors: Record<string, string> = {
-      IRON: '#5C606C',
-      BRONZE: '#7C4D3B',
-      SILVER: '#9EA7B3',
-      GOLD: '#C9B037',
-      PLATINUM: '#59C8DE',
-      EMERALD: '#2ECC71',
-      DIAMOND: '#2E98CC',
-      MASTER: '#9B59B6',
-      GRANDMASTER: '#E74C3C',
-      CHALLENGER: '#F1C40F'
-    };
-    return colors[tier] || '#6b7280';
-  };
 
   const roleIcons: Record<string, string> = {
     TOP: '🗡️',
@@ -66,8 +51,31 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
+      <div style={{ marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div title={player.summonerName} style={{ fontWeight: 'bold', color: '#fff', fontSize: '16px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2 as number, WebkitBoxOrient: 'vertical' as const }}>
+              {player.summonerName}
+            </div>
+          </div>
+          {player.isPro && (
+            <span style={{
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: '#000',
+              flexShrink: 0
+            }}>
+              ⭐ PRO
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Верхняя часть */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* Роль */}
           <div style={{
@@ -79,24 +87,10 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
             {roleIcons[player.mainRole]}
           </div>
           
-          {/* Имя */}
+          {/* Краткая информация */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 'bold', color: '#fff', fontSize: '15px' }}>
-                {player.summonerName}
-              </span>
-              {player.isPro && (
-                <span style={{
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  color: '#000'
-                }}>
-                  ⭐ PRO
-                </span>
-              )}
+            <div style={{ color: '#9ca3af', fontSize: '12px', fontWeight: 'bold' }}>
+              {player.mainRole}
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
               <span style={{ color: '#9ca3af', fontSize: '11px' }}>
@@ -111,16 +105,19 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
 
         {/* Ранг */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{
-            background: getRankColor(player.tier),
-            color: player.tier === 'IRON' ? '#fff' : '#000',
-            padding: '4px 12px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            display: 'inline-block'
-          }}>
-            {player.tier} {player.rank}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+            <img
+              src={getRankIconUrl(player.tier)}
+              alt={player.tier}
+              style={{ width: '28px', height: '28px', objectFit: 'contain', display: 'block' }}
+            />
+            <div style={{
+              color: getRankColor(player.tier),
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}>
+              {player.tier} {player.rank}
+            </div>
           </div>
           <div style={{ color: '#00ffcc', fontSize: '13px', fontWeight: 'bold', marginTop: '2px' }}>
             {player.lp} LP
@@ -203,7 +200,7 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
 
       {/* История матчей */}
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        {player.recentMatches.slice(0, 5).map((match: any, idx: number) => (
+        {player.recentMatches.slice(0, 5).map((match, idx: number) => (
           <div
             key={idx}
             style={{

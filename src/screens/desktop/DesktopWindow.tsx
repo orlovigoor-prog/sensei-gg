@@ -1,61 +1,135 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import type { RootState } from '../../store';
+import type { AppDispatch, RootState } from '../../store';
 import { startGame, mutateStats, endGame, setAiLoading, setAiAdvice } from '../../store/gameSlice';
-import { LobbyPanel } from '../lobby/LobbyPanel';
 import { SearchScreen } from '../search/SearchScreen';
-import { setLobby, type PlayerInfo } from '../../store/lobbySlice';
-import { lcuService } from '../../services/riotApi';
+import { SettingsScreen } from '../settings/SettingsScreen';
+import { MatchScreen } from '../match/MatchScreen';
+import { setLobby, setLobbyPhase, type LobbyPhase, type PlayerInfo } from '../../store/lobbySlice';
+import { useOverwolfBridge } from '../../hooks/useOverwolfBridge';
+import { DevSimulationPanel } from '../../components/DevSimulationPanel';
+import { createMockPlayers } from '../../services/mockLobby';
+import { getStoredWindowSizePreset, getWindowSizeOption, type WindowSizePreset } from '../../services/windowSize';
+
+const riotLegalText = "Sensei GG не одобрен Riot Games и не отражает взгляды или мнения Riot Games или лиц, официально связанных с производством или управлением продуктами Riot Games. Riot Games и все связанные свойства являются товарными знаками или зарегистрированными товарными знаками Riot Games, Inc.";
+
+const complianceHighlights = [
+  'Без таймеров ультимейтов, заклинаний призывателя и способностей врага.',
+  'Без live-команд в активном матче.',
+  'Фокус на постматч-разборе и нейтральной аналитике.'
+];
+
+const phaseLabels: Record<LobbyPhase, string> = {
+  'champ-select': 'Лобби',
+  loading: 'В игре',
+  'in-game': 'В игре',
+  'post-game': 'Итоги'
+};
+
+const DESIGN_WIDTH = 1600;
+const DESIGN_HEIGHT = 900;
 
 export function DesktopWindow() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   
-  const { championName, kills, deaths, assists, cs, aiAdvice, isLoadingAi, isInGame } = useSelector(
+  const { kills, deaths, assists, cs, aiAdvice, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
     (state: RootState) => state.game
   );
+  const { isInLobby, phase } = useSelector((state: RootState) => state.lobby);
 
-  const [activeTab, setActiveTab] = useState<'match' | 'profile' | 'ai' | 'lobby' | 'search'>('match');
+  const [activeTab, setActiveTab] = useState<'match' | 'search' | 'profile' | 'ai' | 'settings'>('match');
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
-  const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
-  const [customApiKey, setCustomApiKey] = useState<string>('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
+  const [windowSizePreset, setWindowSizePreset] = useState<WindowSizePreset>(getStoredWindowSizePreset());
+  const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
-  // Проверка API ключа при загрузке
-  useEffect(() => {
-    const checkApiKey = async () => {
-      try {
-        // Проверяем, загружается ли переменная окружения
-        const apiKey = import.meta.env.VITE_RIOT_API_KEY;
-        console.log('API Key loaded from env:', !!apiKey);
-        
-        // Временный хардкод для тестирования (удалить перед продакшеном)
-        const testApiKey = localStorage.getItem('riot_api_key') || 
-                          'RGAPI-f56d4d57-d63b-4e85-b9ea-b370d5d0a4fb';
-        console.log('Active API key:', testApiKey.substring(0, 20) + '...');
-        
-        // Простая проверка - ключ загружен
-        setApiStatus('connected');
-        console.log('Riot API ключ загружен успешно');
-      } catch (error) {
-        console.error('Ошибка проверки API:', error);
-        setApiStatus('disconnected');
-      }
-    };
-    
-    checkApiKey();
-    const interval = setInterval(checkApiKey, 60000);
-    return () => clearInterval(interval);
+  const lobbyStatusLabel = !isInLobby
+    ? 'Лобби не загружено'
+    : phaseLabels[phase];
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
+
+  const handleBridgeGameStart = useCallback(() => {
+    setActiveTab('match');
   }, []);
+
+  useOverwolfBridge(handleBridgeGameStart);
+
+  const handleSimulatePhase = (nextPhase: LobbyPhase) => {
+    dispatch(setLobbyPhase(nextPhase));
+
+    if (nextPhase === 'in-game' && !isInGame) {
+      dispatch(startGame('Jinx'));
+    }
+
+    if (nextPhase === 'post-game' && isInGame) {
+      dispatch(endGame());
+    }
+  };
+
+  const handleSimulateLobby = () => {
+    const mockPlayers: PlayerInfo[] = createMockPlayers();
+    dispatch(setLobby({
+      gameMode: 'RANKED_SOLO_5x5',
+      allies: mockPlayers.slice(0, 5),
+      enemies: mockPlayers.slice(5, 10),
+      phase: 'champ-select',
+      partyMembers: ['Player1', 'Player2']
+    }));
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+      console.log('Key pressed:', e.key, 'Ctrl:', e.ctrlKey, 'Shift:', e.shiftKey);
+      
+      if (e.ctrlKey && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Toggle minimized');
+        setIsMinimized(prev => !prev);
+      }
+      if (e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'z' || e.code === 'KeyZ')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Toggle dev panel');
         setShowDevPanel(prev => !prev);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, []);
+
+  // Слушатель события переключения на вкладку поиска игрока
+  useEffect(() => {
+    const handleSearchPlayer = () => {
+      setActiveTab('search');
+    };
+    window.addEventListener('sensei-search-player', handleSearchPlayer);
+    return () => window.removeEventListener('sensei-search-player', handleSearchPlayer);
+  }, []);
+
+  useEffect(() => {
+    const handleWindowSizeUpdated = (event: Event) => {
+      const nextPreset = (event as CustomEvent<WindowSizePreset>).detail;
+
+      if (nextPreset === '800x600' || nextPreset === '1280x720' || nextPreset === '1600x900') {
+        setWindowSizePreset(nextPreset);
+        return;
+      }
+
+      setWindowSizePreset(getStoredWindowSizePreset());
+    };
+
+    window.addEventListener('sensei-window-size-updated', handleWindowSizeUpdated);
+    return () => window.removeEventListener('sensei-window-size-updated', handleWindowSizeUpdated);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Исходные данные истории матчей и фарма для графика (CS в минуту)
@@ -143,217 +217,180 @@ export function DesktopWindow() {
 
   }, [activeTab]);
 
-  const handleAskDeepSeek = async () => {
-    const API_KEY = "sk-7d11f71dfbc64d444ff464d444ff464d"; 
+  const handleAskDeepSeek = () => {
     dispatch(setAiLoading(true));
 
-    const prompt = `Ты — профессиональный киберспортивный тренер по League of Legends. Игрок сейчас находится внутри активного матча. Его чемпион: ${championName}. Его текущая статистика: Убийства: ${kills}, Смерти: ${deaths}, Содействия: ${assists}, Фарм (CS): ${cs}. Дай ОДИН очень короткий совет (максимум 2 предложения), что ему делать прямо сейчас, чтобы выиграть. Пиши на русском языке без приветствий.`;
-
-    try {
-      const response = await fetch("https://deepseek.com", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY.replace(/[^\x00-\x7F]/g, "").trim()}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat', 
-          messages: [
-            { role: 'system', content: 'Ты краткий игровой аналитик.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.6
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        dispatch(setAiAdvice(`Ошибка сервера (${response.status}): ${errorData.slice(0, 100)}`));
+    window.setTimeout(() => {
+      if (isInGame) {
+        dispatch(setAiAdvice('Во время активной игры постматч-разбор недоступен. Sensei GG не дает live-команды, чтобы соответствовать политике Riot.'));
         return;
       }
 
-      const data = await response.json();
-      if (data?.choices?.[0]?.message) {
-        dispatch(setAiAdvice(data.choices[0].message.content));
+      if (!lastCompletedMatch) {
+        dispatch(setAiAdvice('Постматч-разбор появится после первого завершенного матча.'));
+        return;
       }
-    } catch (error: any) {
-      dispatch(setAiAdvice(`Ошибка сети: ${error.message || "Неизвестный сбой"}`));
-    }
+
+      const { championName: reviewedChampion, kills: reviewedKills, deaths: reviewedDeaths, assists: reviewedAssists, cs: reviewedCs } = lastCompletedMatch;
+      const safeDeaths = reviewedDeaths <= 4;
+      const strongFarm = reviewedCs >= 180;
+      const teamPlay = reviewedAssists >= reviewedKills;
+      const highDeaths = reviewedDeaths >= 7;
+      const lowFarm = reviewedCs < 160;
+      const soloSkew = reviewedKills > reviewedAssists + 3;
+
+      const strength = safeDeaths && strongFarm
+        ? `на ${reviewedChampion} ты держал чистый темп: мало смертей и стабильный фарм`
+        : safeDeaths
+          ? `на ${reviewedChampion} ты аккуратно сохранял темп и не отдавал лишние смерти`
+          : teamPlay
+            ? 'ты регулярно подключался к командным розыгрышам и не выпадал из общих действий'
+            : strongFarm
+              ? 'ты не просел по фарму и сохранил себе стабильный доход по игре'
+              : 'матч прошел без явного провала по одной метрике, база для роста есть';
+
+      const risk = highDeaths
+        ? 'частые смерти ломали темп и отдавали сопернику слишком много пространства'
+        : lowFarm
+          ? 'просадка по фарму оставляла тебя без стабильного золота в спокойные отрезки'
+          : soloSkew
+            ? 'слишком много игры шло через личные входы, а не через общий темп команды'
+            : 'не хватило более чистой конвертации давления в безопасное преимущество';
+
+      const nextFocus = highDeaths
+        ? 'до середины игры входи только в драки с численным преимуществом или сильной позицией'
+        : lowFarm
+          ? 'в тихие окна между драками добирай фарм до стабильного темпа, а не форсируй лишние размены'
+          : teamPlay
+            ? 'сохрани командный темп, но после удачных розыгрышей быстрее переводи его в объекты'
+            : 'после первого преимущества играй от следующей волны и ближайшей цели, а не от случайного файта';
+
+      const advice = [
+        `Сильная сторона: ${strength}.`,
+        `Главный риск: ${risk}.`,
+        `Фокус на следующую игру: ${nextFocus}.`
+      ].join('\n');
+
+      dispatch(setAiAdvice(advice));
+    }, 350);
   };
 
+  const selectedWindowSize = getWindowSizeOption(windowSizePreset);
+  const frameWidth = Math.min(selectedWindowSize.width, viewportSize.width);
+  const frameHeight = Math.min(selectedWindowSize.height, viewportSize.height);
+  const frameInset = 8;
+  const interfaceScale = Math.min((frameWidth - frameInset) / DESIGN_WIDTH, (frameHeight - frameInset) / DESIGN_HEIGHT);
+  const scaledWidth = DESIGN_WIDTH * interfaceScale;
+  const scaledHeight = DESIGN_HEIGHT * interfaceScale;
+
   return (
-    <div style={{ padding: '30px', color: '#e0e6ed', backgroundColor: '#0f131a', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      
-      {showDevPanel && (
-        <div style={{ background: '#1c1917', border: '1px dashed #ea580c', padding: '15px', borderRadius: '10px', marginBottom: '25px' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#ea580c' }}>🛠️ Скрытый пульт симуляции событий LoL</h4>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button onClick={() => dispatch(startGame('Jinx'))} style={{ background: '#ea580c', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>▶️ Симулировать Пик: Jinx</button>
-            <button onClick={() => dispatch(startGame('Yasuo'))} style={{ background: '#ea580c', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>▶️ Симулировать Пик: Yasuo</button>
-            <button onClick={() => dispatch(mutateStats({ kills: kills + 1, deaths, assists, cs: cs + 12 }))} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>⚔️ Убийство (+1 Килл)</button>
-            <button onClick={() => dispatch(mutateStats({ kills, deaths: deaths + 1, assists, cs }))} style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>💀 Смерть (+1 Смерть)</button>
-            <button onClick={handleAskDeepSeek} disabled={!isInGame || isLoadingAi} style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '6px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-              {isLoadingAi ? 'Сэнсэй думает...' : '🤖 Запросить ИИ'}
-            </button>
-            <button onClick={() => dispatch(endGame())} style={{ background: '#4b5563', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>⏹️ Сбросить матч</button>
-            <button onClick={() => {
-              const mockPlayers: PlayerInfo[] = Array(10).fill(null).map((_, i) => ({
-                summonerName: `Player${i + 1}`,
-                rank: `${Math.floor(Math.random() * 100)}`,
-                tier: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND'][Math.floor(Math.random() * 5)] as any,
-                lp: Math.floor(Math.random() * 100),
-                wins: Math.floor(Math.random() * 100) + 20,
-                losses: Math.floor(Math.random() * 100) + 20,
-                winRate: Math.floor(Math.random() * 40) + 40,
-                mainRole: ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'][i % 5] as any,
-                championMastery: Math.floor(Math.random() * 500000),
-                championPoints: Math.floor(Math.random() * 500000),
-                isPro: false,
-                recentMatches: Array(5).fill(null).map(() => ({
-                  result: Math.random() > 0.5 ? 'W' : 'L' as any,
-                  champion: ['Yasuo', 'Zed', 'Lee Sin', 'Jinx', 'Thresh'][Math.floor(Math.random() * 5)],
-                  kda: `${Math.floor(Math.random() * 15)} / ${Math.floor(Math.random() * 5)} / ${Math.floor(Math.random() * 15)}`,
-                  k: Math.floor(Math.random() * 15),
-                  d: Math.floor(Math.random() * 5),
-                  a: Math.floor(Math.random() * 15)
-                }))
-              }));
-              dispatch(setLobby({
-                gameMode: 'RANKED_SOLO_5x5',
-                allies: mockPlayers.slice(0, 5),
-                enemies: mockPlayers.slice(5, 10)
-              }));
-            }} style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>🎮 Симулировать Лобби 5x5</button>
+    <div style={{ 
+      width: `${frameWidth}px`,
+      height: `${frameHeight}px`,
+      margin: '0 auto',
+      position: 'relative',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'flex-start'
+    }}>
+      <div style={{
+        width: `${scaledWidth}px`,
+        height: `${scaledHeight}px`,
+        position: 'relative',
+        flexShrink: 0,
+        borderRadius: `${12 * interfaceScale}px`
+      }}>
+      <div style={{
+        width: `${DESIGN_WIDTH}px`,
+        height: `${DESIGN_HEIGHT}px`,
+        transform: `scale(${interfaceScale})`,
+        transformOrigin: 'top left',
+        padding: '16px 16px 24px',
+        color: '#e0e6ed',
+        background: 'linear-gradient(180deg, rgba(18, 23, 32, 0.98), rgba(15, 19, 26, 0.96) 22%, rgba(15, 19, 26, 0.95) 100%)',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        borderRadius: '12px',
+        border: '1px solid #1f2937',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -18px 28px rgba(0, 0, 0, 0.12), inset 12px 0 18px rgba(255, 255, 255, 0.015)',
+        zIndex: 1
+      }}>
+        
+        {/* Мини-версия при сворачивании */}
+        {isMinimized && (
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            zIndex: 1000,
+            background: '#00ffcc',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0, 255, 204, 0.3)',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={() => setIsMinimized(false)}
+          >
+            <span style={{ color: '#0f131a', fontWeight: 'bold', fontSize: '14px' }}>
+              🎮 Sensei
+            </span>
           </div>
-        </div>
+        )}
+
+      {showDevPanel && (
+        <DevSimulationPanel
+          kills={kills}
+          deaths={deaths}
+          assists={assists}
+          cs={cs}
+          isLoadingAi={isLoadingAi}
+          currentPhase={phase}
+          onSimulatePick={(championName) => dispatch(startGame(championName))}
+          onMutateStats={(stats) => dispatch(mutateStats(stats))}
+          onAskAi={handleAskDeepSeek}
+          onResetMatch={() => dispatch(endGame())}
+          onSimulateLobby={handleSimulateLobby}
+          onSetPhase={handleSimulatePhase}
+          getPhaseLabel={(phaseKey) => phaseLabels[phaseKey]}
+        />
       )}
 
       {/* ШАПКА */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '1px solid #1f2937', paddingBottom: '15px' }}>
-        <div>
-          <h1 style={{ color: '#00ffcc', margin: 0, fontSize: '28px', letterSpacing: '1px' }}>SENSEI . GG</h1>
-          <small style={{ color: '#6b7280' }}>Твой персональный ИИ-тренер League of Legends</small>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #1f2937', paddingBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
+          <img
+            src="/brand-mark.svg"
+            alt="Sensei logo"
+            style={{ width: '38px', height: '38px', flexShrink: 0, display: 'block', marginTop: '-2px' }}
+          />
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ color: '#f3efe7', margin: 0, fontSize: '28px', letterSpacing: '0.08em', lineHeight: 1 }}>SENSEI.GG</h1>
+            <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>аналитика без лишнего шума</small>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* Статус API */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '6px', 
-            padding: '6px 12px', 
-            background: apiStatus === 'connected' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-            borderRadius: '6px',
-            border: `1px solid ${apiStatus === 'connected' ? '#10b981' : '#ef4444'}`
-          }}>
-            <div style={{ 
-              width: '8px', 
-              height: '8px', 
-              borderRadius: '50%', 
-              background: apiStatus === 'connected' ? '#10b981' : '#ef4444',
-              animation: apiStatus === 'connected' ? 'pulse 2s infinite' : 'none'
-            }} />
-            <span style={{ fontSize: '12px', color: apiStatus === 'connected' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-              {apiStatus === 'connected' ? 'Riot API' : 'API Off'}
-            </span>
-          </div>
-          
-          {/* Кнопка ввода API ключа */}
-          <button 
-            onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-            style={{
-              padding: '6px 12px',
-              background: 'rgba(139, 92, 246, 0.2)',
-              color: '#a855f7',
-              border: '1px solid #a855f7',
-              borderRadius: '6px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            🔑 API Key
-          </button>
-
-          {showApiKeyInput && (
-            <div style={{
-              position: 'absolute',
-              top: '80px',
-              right: '30px',
-              background: '#1f2937',
-              padding: '20px',
-              borderRadius: '8px',
-              border: '1px solid #374151',
-              zIndex: 1000,
-              width: '400px'
-            }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#fff', fontSize: '14px' }}>Riot API Key</h4>
-              <input
-                type="password"
-                value={customApiKey}
-                onChange={(e) => setCustomApiKey(e.target.value)}
-                placeholder="RGAPI-..."
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#161d2a',
-                  border: '1px solid #374151',
-                  borderRadius: '4px',
-                  color: '#fff',
-                  marginBottom: '10px'
-                }}
-              />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => {
-                    localStorage.setItem('riot_api_key', customApiKey);
-                    setShowApiKeyInput(false);
-                    window.location.reload();
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    background: '#10b981',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Сохранить
-                </button>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('riot_api_key');
-                    window.location.reload();
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    background: '#ef4444',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Сбросить
-                </button>
-              </div>
-              <p style={{ margin: '10px 0 0 0', fontSize: '11px', color: '#9ca3af' }}>
-                Получить ключ: <a href="https://developer.riotgames.com/" target="_blank" style={{ color: '#00ffcc' }}>developer.riotgames.com</a>
-              </p>
-            </div>
-          )}
-          
           <div style={{ display: 'flex', gap: '5px', background: '#161d2a', padding: '4px', borderRadius: '8px' }}>
-            <button onClick={() => setActiveTab('match')} style={{ padding: '8px 16px', background: activeTab === 'match' ? '#00ffcc' : 'transparent', color: activeTab === 'match' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Матч</button>
-            <button onClick={() => setActiveTab('lobby')} style={{ padding: '8px 16px', background: activeTab === 'lobby' ? '#00ffcc' : 'transparent', color: activeTab === 'lobby' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Лобби</button>
-            <button onClick={() => setActiveTab('search')} style={{ padding: '8px 16px', background: activeTab === 'search' ? '#00ffcc' : 'transparent', color: activeTab === 'search' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Поиск</button>
-            <button onClick={() => setActiveTab('profile')} style={{ padding: '8px 16px', background: activeTab === 'profile' ? '#00ffcc' : 'transparent', color: activeTab === 'profile' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Профиль</button>
-            <button onClick={() => setActiveTab('ai')} style={{ padding: '8px 16px', background: activeTab === 'ai' ? '#00ffcc' : 'transparent', color: activeTab === 'ai' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>AI</button>
+            <button onClick={() => setActiveTab('match')} style={{ padding: '8px 12px', background: activeTab === 'match' ? '#00ffcc' : 'transparent', color: activeTab === 'match' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Матч</button>
+            <button onClick={() => setActiveTab('search')} style={{ padding: '8px 12px', background: activeTab === 'search' ? '#00ffcc' : 'transparent', color: activeTab === 'search' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Поиск</button>
+            <button onClick={() => setActiveTab('profile')} style={{ padding: '8px 12px', background: activeTab === 'profile' ? '#00ffcc' : 'transparent', color: activeTab === 'profile' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Профиль</button>
+            <button onClick={() => setActiveTab('ai')} style={{ padding: '8px 12px', background: activeTab === 'ai' ? '#00ffcc' : 'transparent', color: activeTab === 'ai' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>AI</button>
+            <button onClick={() => setActiveTab('settings')} style={{ padding: '8px 12px', background: activeTab === 'settings' ? '#00ffcc' : 'transparent', color: activeTab === 'settings' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>⚙️</button>
           </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ padding: '6px 10px', borderRadius: '999px', background: 'rgba(0, 255, 204, 0.08)', border: '1px solid rgba(0, 255, 204, 0.3)', color: '#00ffcc', fontSize: '12px', fontWeight: 'bold' }}>
+          {lobbyStatusLabel}
         </div>
       </div>
 
@@ -364,56 +401,26 @@ export function DesktopWindow() {
         }
       `}</style>
 
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflowX: 'hidden',
+        overflowY: activeTab === 'profile' || activeTab === 'ai' ? 'auto' : 'hidden'
+      }}>
+
       {/* ВКЛАДКА: ПОИСК */}
       {activeTab === 'search' && (
         <SearchScreen />
       )}
 
-      {/* ВКЛАДКА: ЛОББИ */}
-      {activeTab === 'lobby' && (
-        <LobbyPanel />
-      )}
-
-      {/* ВКЛАДКА: ТЕКУЩИЙ МАТЧ */}
+      {/* ВКЛАДКА: МАТЧ (Оверлей 5x5) */}
       {activeTab === 'match' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
-          <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-            <h2 style={{ marginTop: 0, color: '#fff', fontSize: '20px' }}>Мониторинг игры</h2>
-            <div style={{ display: 'flex', gap: '15px', margin: '20px 0' }}>
-              <div style={{ background: '#1f293d', padding: '15px 20px', borderRadius: '8px', flex: 1 }}>
-                <span style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Выбранный чемпион</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {championName !== 'Не в игре' ? (
-                    <>
-                      <img src={lcuService.getChampionIcon(championName)} alt={championName} style={{ width: '48px', height: '48px', borderRadius: '8px' }} />
-                      <strong style={{ fontSize: '20px', color: '#00ffcc' }}>{championName}</strong>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '20px', color: '#6b7280' }}>Не в игре</span>
-                  )}
-                </div>
-              </div>
-              <div style={{ background: '#1f293d', padding: '15px 20px', borderRadius: '8px', flex: 1 }}>
-                <span style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Текущий счет (KDA)</span>
-                <strong style={{ fontSize: '20px', color: '#ff6b6b' }}>{kills} / {deaths} / {assists}</strong>
-              </div>
-              <div style={{ background: '#1f293d', padding: '15px 20px', borderRadius: '8px', flex: 1 }}>
-                <span style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Крипы / Фарм</span>
-                <strong style={{ fontSize: '20px', color: '#ffd43b' }}>{cs}</strong>
-              </div>
-            </div>
-            <button onClick={handleAskDeepSeek} disabled={!isInGame || isLoadingAi} style={{ width: '100%', background: '#00ffcc', color: '#0f131a', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-              {isLoadingAi ? 'Сэнсэй анализирует данные матча...' : '🤖 Запросить мгновенный ИИ-анализ ситуации'}
-            </button>
-          </div>
-
-          <div style={{ background: '#1a1926', padding: '25px', borderRadius: '12px', border: '1px solid #2d2640' }}>
-            <h3 style={{ marginTop: 0, color: '#a855f7', fontSize: '18px' }}>⚡ Анализ Сэнсэя</h3>
-            <p style={{ fontStyle: 'italic', color: '#d8b4fe', lineHeight: '1.6', fontSize: '14px', whiteSpace: 'pre-wrap' }}>
-              "{aiAdvice}"
-            </p>
-          </div>
-        </div>
+        <MatchScreen
+          onRequestAiAnalysis={handleAskDeepSeek}
+          isLoadingAi={isLoadingAi}
+          aiAdvice={aiAdvice}
+          lastCompletedMatch={lastCompletedMatch}
+        />
       )}
 
       {/* ВКЛАДКА: ПРОФИЛЬ (С ГРАФИКОМ) */}
@@ -480,16 +487,93 @@ export function DesktopWindow() {
         </div>
       )}
 
+      {/* ВКЛАДКА: НАСТРОЙКИ */}
+      {activeTab === 'settings' && (
+        <SettingsScreen />
+      )}
+
       {/* ВКЛАДКА: СОВЕТЫ ИИ */}
       {activeTab === 'ai' && (
-        <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-          <h2 style={{ marginTop: 0, color: '#a855f7' }}>🤖 Полный разбор от ИИ-Аналитика</h2>
-          <div style={{ padding: '20px', background: '#0f131a', borderRadius: '8px', borderLeft: '4px solid #a855f7', fontStyle: 'italic', lineHeight: '1.7' }}>
-            {aiAdvice}
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div style={{ background: '#161d2a', padding: '20px', borderRadius: '12px', border: '1px solid #1f2937' }}>
+            <h2 style={{ marginTop: 0, marginBottom: '8px', color: '#a855f7' }}>🤖 AI Coach</h2>
+            <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px', lineHeight: 1.6 }}>
+              Этот блок намеренно ограничен безопасным сценарием: постматч-разбор и нейтральная аналитика без live-callouts во время активной игры.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            {complianceHighlights.map((item) => (
+              <div key={item} style={{ background: '#161d2a', padding: '16px', borderRadius: '12px', border: '1px solid #1f2937' }}>
+                <div style={{ color: '#00ffcc', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>SAFE</div>
+                <div style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.5 }}>{item}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px 0', color: '#fff' }}>Постматч-разбор</h3>
+                <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px' }}>
+                  После завершения матча Sensei GG собирает короткий разбор по KDA, участию в боях и объему фарма.
+                </p>
+              </div>
+              <button
+                onClick={handleAskDeepSeek}
+                disabled={isLoadingAi}
+                style={{
+                  padding: '10px 14px',
+                  background: '#a855f7',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  whiteSpace: 'nowrap',
+                  opacity: isLoadingAi ? 0.7 : 1
+                }}
+              >
+                {isLoadingAi ? 'Анализ...' : 'Сгенерировать разбор'}
+              </button>
+            </div>
+
+            {lastCompletedMatch && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Чемпион</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.championName}</div>
+                </div>
+                <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>KDA</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.kills}/{lastCompletedMatch.deaths}/{lastCompletedMatch.assists}</div>
+                </div>
+                <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>CS</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.cs}</div>
+                </div>
+                <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Завершен</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold' }}>{new Date(lastCompletedMatch.endedAt).toLocaleString('ru-RU')}</div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ padding: '20px', background: '#0f131a', borderRadius: '8px', borderLeft: '4px solid #a855f7', lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+              {aiAdvice}
+            </div>
           </div>
         </div>
       )}
 
+      </div>
+
+        <div style={{ marginTop: '10px', paddingTop: '14px', borderTop: '1px solid #1f2937', color: '#6b7280', fontSize: '11px', lineHeight: 1.6, flexShrink: 0 }}>
+          <div style={{ marginBottom: '6px', color: '#9ca3af' }}>Riot / Overwolf compliance notice</div>
+          <div>{riotLegalText}</div>
+        </div>
+      </div>
+      </div>
     </div>
   );
 }

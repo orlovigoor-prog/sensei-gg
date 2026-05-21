@@ -2,28 +2,11 @@
 const RIOT_API_BASE = 'https://americas.api.riotgames.com';
 const LCU_API_BASE = 'http://127.0.0.1:2999';
 
-// Получение API ключа из localStorage или хардкод для тестирования
+// Получение API ключа из окружения приложения
 const getApiKey = (): string | null => {
-  // Приоритет 1: ключ из localStorage (сохранённый пользователем)
-  const storedKey = localStorage.getItem('riot_api_key');
-  if (storedKey) return storedKey;
-  
-  // Приоритет 2: переменная окружения
   // @ts-ignore - VITE_ переменные доступны через import.meta.env в Vite
   const envKey = import.meta.env.VITE_RIOT_API_KEY;
-  if (envKey) return envKey;
-  
-  // Приоритет 3: временный хардкод для тестирования
-  const testKey = 'RGAPI-f56d4d57-d63b-4e85-b9ea-b370d5d0a4fb';
-  return testKey;
-};
-
-export const setRiotApiKey = (key: string) => {
-  localStorage.setItem('riot_api_key', key);
-};
-
-export const getStoredApiKey = (): string | null => {
-  return localStorage.getItem('riot_api_key');
+  return envKey || null;
 };
 
 export interface Summoner {
@@ -159,7 +142,7 @@ export class LcuService {
   async getSummonerByName(name: string): Promise<Summoner | null> {
     const apiKey = getApiKey();
     if (!apiKey) {
-      console.warn('Riot API ключ не настроен. Добавьте VITE_RIOT_API_KEY в .env файл');
+      console.warn('Riot API ключ не настроен в окружении приложения');
       return null;
     }
 
