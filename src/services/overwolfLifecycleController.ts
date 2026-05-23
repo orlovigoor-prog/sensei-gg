@@ -5,6 +5,7 @@ import {
   REQUIRED_FEATURES,
   normalizeGameMode,
   normalizeLobbyPhase,
+  readNestedNumber,
   readNestedString,
   readNumericStat,
   restoreDesktopWindow,
@@ -61,6 +62,7 @@ export const registerOverwolfLifecycleController = () => {
   let currentDeaths = 0;
   let currentAssists = 0;
   let currentCs = 0;
+  let currentGameTimeSeconds = 0;
   let currentChampionName = '';
   let currentPhase: LobbyPhase = 'champ-select';
   let sawRunningGame = false;
@@ -128,6 +130,7 @@ export const registerOverwolfLifecycleController = () => {
     const nextDeaths = readNumericStat(matchData.deaths);
     const nextAssists = readNumericStat(matchData.assists);
     const nextCs = readNumericStat(matchData.minions_killed);
+    const nextGameTimeSeconds = readNestedNumber(info.live_client_data, ['game_data', 'gameTime']);
 
     if (nextKills !== undefined) {
       currentKills = nextKills;
@@ -145,6 +148,10 @@ export const registerOverwolfLifecycleController = () => {
       currentCs = nextCs;
       statsChanged = true;
     }
+    if (nextGameTimeSeconds !== undefined) {
+      currentGameTimeSeconds = nextGameTimeSeconds;
+      statsChanged = true;
+    }
 
     if (!statsChanged) {
       return;
@@ -160,7 +167,8 @@ export const registerOverwolfLifecycleController = () => {
         kills: currentKills,
         deaths: currentDeaths,
         assists: currentAssists,
-        cs: currentCs
+        cs: currentCs,
+        gameTimeSeconds: currentGameTimeSeconds
       }
     });
   };
@@ -207,6 +215,7 @@ export const registerOverwolfLifecycleController = () => {
       currentDeaths = 0;
       currentAssists = 0;
       currentCs = 0;
+      currentGameTimeSeconds = 0;
       sawRunningGame = false;
     }
   };

@@ -1,15 +1,42 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch, RootState } from '../../store';
-import { startGame, mutateStats, endGame, setAiLoading, setAiAdvice } from '../../store/gameSlice';
-import { SearchScreen } from '../search/SearchScreen';
+import { startGame, endGame, resetGame, setAiLoading, setAiAdvice, setAiReview } from '../../store/gameSlice';
+import { ProfileScreen } from '../profile/ProfileScreen';
 import { SettingsScreen } from '../settings/SettingsScreen';
 import { MatchScreen } from '../match/MatchScreen';
-import { setLobby, setLobbyPhase, type LobbyPhase, type PlayerInfo } from '../../store/lobbySlice';
+import { clearLobby, setLobby, setLobbyPhase, type LobbyPhase, type PlayerInfo } from '../../store/lobbySlice';
 import { useOverwolfBridge } from '../../hooks/useOverwolfBridge';
 import { DevSimulationPanel } from '../../components/DevSimulationPanel';
 import { createMockPlayers } from '../../services/mockLobby';
 import { getStoredWindowSizePreset, getWindowSizeOption, type WindowSizePreset } from '../../services/windowSize';
+import { requestPostGameAnalysis } from '../../services/aiReviewGateway';
+
+const getAiSourceMeta = (source: 'provider' | 'local-server-fallback' | 'local-client-fallback') => {
+  switch (source) {
+    case 'provider':
+      return {
+        label: 'DeepSeek',
+        color: '#10b981',
+        border: 'rgba(16, 185, 129, 0.32)',
+        background: 'rgba(16, 185, 129, 0.12)'
+      };
+    case 'local-server-fallback':
+      return {
+        label: 'Server Fallback',
+        color: '#f59e0b',
+        border: 'rgba(245, 158, 11, 0.3)',
+        background: 'rgba(245, 158, 11, 0.12)'
+      };
+    default:
+      return {
+        label: 'Client Fallback',
+        color: '#60a5fa',
+        border: 'rgba(96, 165, 250, 0.3)',
+        background: 'rgba(96, 165, 250, 0.12)'
+      };
+  }
+};
 
 const riotLegalText = "Sensei GG не одобрен Riot Games и не отражает взгляды или мнения Riot Games или лиц, официально связанных с производством или управлением продуктами Riot Games. Riot Games и все связанные свойства являются товарными знаками или зарегистрированными товарными знаками Riot Games, Inc.";
 
@@ -31,17 +58,18 @@ const DESIGN_HEIGHT = 900;
 
 export function DesktopWindow() {
   const dispatch = useDispatch<AppDispatch>();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   
-  const { kills, deaths, assists, cs, aiAdvice, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
+  const { aiAdvice, aiReview, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
     (state: RootState) => state.game
   );
-  const { isInLobby, phase } = useSelector((state: RootState) => state.lobby);
+  const { isInLobby, phase, players } = useSelector((state: RootState) => state.lobby);
 
-  const [activeTab, setActiveTab] = useState<'match' | 'search' | 'profile' | 'ai' | 'settings'>('match');
+  const [activeTab, setActiveTab] = useState<'match' | 'profile' | 'ai' | 'settings'>('match');
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
+  const [isDevPanelExpanded, setIsDevPanelExpanded] = useState<boolean>(true);
   const [windowSizePreset, setWindowSizePreset] = useState<WindowSizePreset>(getStoredWindowSizePreset());
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const aiSourceMeta = aiReview ? getAiSourceMeta(aiReview.source) : null;
 
   const lobbyStatusLabel = !isInLobby
     ? 'Лобби не загружено'
@@ -77,6 +105,11 @@ export function DesktopWindow() {
     }));
   };
 
+  const handleResetReviewMode = () => {
+    dispatch(resetGame());
+    dispatch(clearLobby());
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       console.log('Key pressed:', e.key, 'Ctrl:', e.ctrlKey, 'Shift:', e.shiftKey);
@@ -90,17 +123,31 @@ export function DesktopWindow() {
       if (e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'z' || e.code === 'KeyZ')) {
         e.preventDefault();
         e.stopPropagation();
-        setShowDevPanel(prev => !prev);
+        setShowDevPanel(prev => {
+          const nextValue = !prev;
+          if (nextValue && activeTab === 'match') {
+            setIsDevPanelExpanded(true);
+          }
+          return nextValue;
+        });
       }
     };
-window.addEventListener('keydown', handleKeyDown, true);
+ window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, []);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!showDevPanel) {
+      return;
+    }
+
+    setIsDevPanelExpanded(activeTab === 'match');
+  }, [activeTab, showDevPanel]);
 
   // Слушатель события переключения на вкладку поиска игрока
   useEffect(() => {
     const handleSearchPlayer = () => {
-      setActiveTab('search');
+      setActiveTab('profile');
     };
     window.addEventListener('sensei-search-player', handleSearchPlayer);
     return () => window.removeEventListener('sensei-search-player', handleSearchPlayer);
@@ -131,95 +178,10 @@ window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Исходные данные истории матчей и фарма для графика (CS в минуту)
-  const matchHistory = [
-    { id: 1, result: 'Победа', champion: 'Jinx', kda: '12 / 3 / 8', cs: 210, csMin: 7.4, duration: '28:15', date: 'Сегодня' },
-    { id: 2, result: 'Поражение', champion: 'Yasuo', kda: '2 / 8 / 4', cs: 165, csMin: 5.1, duration: '32:40', date: 'Вчера' },
-    { id: 3, result: 'Победа', champion: 'Jinx', kda: '8 / 1 / 11', cs: 195, csMin: 7.8, duration: '25:10', date: '15 мая' },
-    { id: 4, result: 'Победа', champion: 'Jinx', kda: '5 / 2 / 9', cs: 240, csMin: 6.9, duration: '34:20', date: '12 мая' },
-    { id: 5, result: 'Поражение', champion: 'Vayne', kda: '1 / 6 / 2', cs: 130, csMin: 4.8, duration: '27:00', date: '10 мая' }
-  ];
-
-  // Рендеринг графика на чистом Canvas HTML5
-  useEffect(() => {
-    if (activeTab !== 'profile' || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Очистка перед перерисовкой
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const points = matchHistory.map(m => m.csMin).reverse(); // Хронологический порядок
-    const padding = 40;
-    const graphWidth = canvas.width - padding * 2;
-    const graphHeight = canvas.height - padding * 2;
-
-    const maxVal = 10; // Идеальный фарм 10 крипов/мин
-    const minVal = 0;
-
-    // Рисуем горизонтальную сетку
-    ctx.strokeStyle = '#1f2937';
-    ctx.lineWidth = 1;
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '10px sans-serif';
-
-    for (let i = 0; i <= 4; i++) {
-      const y = padding + (graphHeight / 4) * i;
-      const label = (maxVal - (maxVal / 4) * i).toFixed(1);
-      
-      ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(canvas.width - padding, y);
-      ctx.stroke();
-      ctx.fillText(label, padding - 25, y + 4);
-    }
-
-    // Рассчитываем координаты точек графика
-    const stepX = graphWidth / (points.length - 1);
-    const getCoords = (index: number, val: number) => {
-      const x = padding + index * stepX;
-      const y = padding + graphHeight - ((val - minVal) / (maxVal - minVal)) * graphHeight;
-      return { x, y };
-    };
-
-    // Настройка стилей линии тренда
-    ctx.strokeStyle = '#00ffcc';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-
-    points.forEach((val, i) => {
-      const { x, y } = getCoords(i, val);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-
-    // Рисуем светящиеся точки (маркеры матчей)
-    points.forEach((val, i) => {
-      const { x, y } = getCoords(i, val);
-      
-      ctx.fillStyle = '#0f131a';
-      ctx.strokeStyle = '#00ffcc';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Подпись значения над точкой
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(val.toString(), x - 8, y - 12);
-    });
-
-  }, [activeTab]);
-
-  const handleAskDeepSeek = () => {
+  const handleGeneratePostGameAnalysis = () => {
     dispatch(setAiLoading(true));
 
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
       if (isInGame) {
         dispatch(setAiAdvice('Во время активной игры постматч-разбор недоступен. Sensei GG не дает live-команды, чтобы соответствовать политике Riot.'));
         return;
@@ -230,47 +192,14 @@ window.addEventListener('keydown', handleKeyDown, true);
         return;
       }
 
-      const { championName: reviewedChampion, kills: reviewedKills, deaths: reviewedDeaths, assists: reviewedAssists, cs: reviewedCs } = lastCompletedMatch;
-      const safeDeaths = reviewedDeaths <= 4;
-      const strongFarm = reviewedCs >= 180;
-      const teamPlay = reviewedAssists >= reviewedKills;
-      const highDeaths = reviewedDeaths >= 7;
-      const lowFarm = reviewedCs < 160;
-      const soloSkew = reviewedKills > reviewedAssists + 3;
+      const review = await requestPostGameAnalysis({
+          lastCompletedMatch,
+          allies: players.allies,
+          enemies: players.enemies,
+          reviewMode: showDevPanel
+        });
 
-      const strength = safeDeaths && strongFarm
-        ? `на ${reviewedChampion} ты держал чистый темп: мало смертей и стабильный фарм`
-        : safeDeaths
-          ? `на ${reviewedChampion} ты аккуратно сохранял темп и не отдавал лишние смерти`
-          : teamPlay
-            ? 'ты регулярно подключался к командным розыгрышам и не выпадал из общих действий'
-            : strongFarm
-              ? 'ты не просел по фарму и сохранил себе стабильный доход по игре'
-              : 'матч прошел без явного провала по одной метрике, база для роста есть';
-
-      const risk = highDeaths
-        ? 'частые смерти ломали темп и отдавали сопернику слишком много пространства'
-        : lowFarm
-          ? 'просадка по фарму оставляла тебя без стабильного золота в спокойные отрезки'
-          : soloSkew
-            ? 'слишком много игры шло через личные входы, а не через общий темп команды'
-            : 'не хватило более чистой конвертации давления в безопасное преимущество';
-
-      const nextFocus = highDeaths
-        ? 'до середины игры входи только в драки с численным преимуществом или сильной позицией'
-        : lowFarm
-          ? 'в тихие окна между драками добирай фарм до стабильного темпа, а не форсируй лишние размены'
-          : teamPlay
-            ? 'сохрани командный темп, но после удачных розыгрышей быстрее переводи его в объекты'
-            : 'после первого преимущества играй от следующей волны и ближайшей цели, а не от случайного файта';
-
-      const advice = [
-        `Сильная сторона: ${strength}.`,
-        `Главный риск: ${risk}.`,
-        `Фокус на следующую игру: ${nextFocus}.`
-      ].join('\n');
-
-      dispatch(setAiAdvice(advice));
+      dispatch(setAiReview(review));
     }, 350);
   };
 
@@ -346,21 +275,27 @@ window.addEventListener('keydown', handleKeyDown, true);
         )}
 
       {showDevPanel && (
-        <DevSimulationPanel
-          kills={kills}
-          deaths={deaths}
-          assists={assists}
-          cs={cs}
-          isLoadingAi={isLoadingAi}
-          currentPhase={phase}
-          onSimulatePick={(championName) => dispatch(startGame(championName))}
-          onMutateStats={(stats) => dispatch(mutateStats(stats))}
-          onAskAi={handleAskDeepSeek}
-          onResetMatch={() => dispatch(endGame())}
-          onSimulateLobby={handleSimulateLobby}
-          onSetPhase={handleSimulatePhase}
-          getPhaseLabel={(phaseKey) => phaseLabels[phaseKey]}
-        />
+        <div
+          style={{
+            position: 'absolute',
+            top: '72px',
+            right: '16px',
+            zIndex: 20,
+            width: 'min(420px, calc(100% - 32px))'
+          }}
+        >
+          <DevSimulationPanel
+            isLoadingAi={isLoadingAi}
+            currentPhase={phase}
+            isExpanded={isDevPanelExpanded}
+            onAskAi={handleGeneratePostGameAnalysis}
+            onToggleExpanded={() => setIsDevPanelExpanded((prev) => !prev)}
+            onResetMatch={handleResetReviewMode}
+            onSimulateLobby={handleSimulateLobby}
+            onSetPhase={handleSimulatePhase}
+            getPhaseLabel={(phaseKey) => phaseLabels[phaseKey]}
+          />
+        </div>
       )}
 
       {/* ШАПКА */}
@@ -379,7 +314,6 @@ window.addEventListener('keydown', handleKeyDown, true);
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '5px', background: '#161d2a', padding: '4px', borderRadius: '8px' }}>
             <button onClick={() => setActiveTab('match')} style={{ padding: '8px 12px', background: activeTab === 'match' ? '#00ffcc' : 'transparent', color: activeTab === 'match' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Матч</button>
-            <button onClick={() => setActiveTab('search')} style={{ padding: '8px 12px', background: activeTab === 'search' ? '#00ffcc' : 'transparent', color: activeTab === 'search' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Поиск</button>
             <button onClick={() => setActiveTab('profile')} style={{ padding: '8px 12px', background: activeTab === 'profile' ? '#00ffcc' : 'transparent', color: activeTab === 'profile' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Профиль</button>
             <button onClick={() => setActiveTab('ai')} style={{ padding: '8px 12px', background: activeTab === 'ai' ? '#00ffcc' : 'transparent', color: activeTab === 'ai' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>AI</button>
             <button onClick={() => setActiveTab('settings')} style={{ padding: '8px 12px', background: activeTab === 'settings' ? '#00ffcc' : 'transparent', color: activeTab === 'settings' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>⚙️</button>
@@ -407,103 +341,21 @@ window.addEventListener('keydown', handleKeyDown, true);
         overflowY: activeTab === 'profile' || activeTab === 'ai' ? 'auto' : 'hidden'
       }}>
 
-      {/* ВКЛАДКА: ПОИСК */}
-      {activeTab === 'search' && (
-        <SearchScreen />
-      )}
-
       {/* ВКЛАДКА: МАТЧ (Оверлей 5x5) */}
       {activeTab === 'match' && (
         <MatchScreen
-          onRequestAiAnalysis={handleAskDeepSeek}
+          onRequestAiAnalysis={handleGeneratePostGameAnalysis}
           isLoadingAi={isLoadingAi}
           aiAdvice={aiAdvice}
+          aiReview={aiReview}
           lastCompletedMatch={lastCompletedMatch}
           reviewMode={showDevPanel}
         />
       )}
 
-      {/* ВКЛАДКА: ПРОФИЛЬ (С ГРАФИКОМ) */}
+      {/* ВКЛАДКА: ПРОФИЛЬ */}
       {activeTab === 'profile' && (
-        <div>
-          {showDevPanel ? (
-            <div style={{ background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px' }}>
-              <div style={{ color: '#fdba74', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '6px' }}>REVIEW MODE ONLY</div>
-              <div style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.6 }}>
-                Профиль ниже показывает демонстрационный сценарий интерфейса. Метрики, график и история матчей пока не привязаны к реальному пользовательскому хранилищу матчей.
-              </div>
-            </div>
-          ) : (
-            <div style={{ background: '#161d2a', border: '1px solid #1f2937', borderRadius: '12px', padding: '18px 20px', marginBottom: '16px' }}>
-              <div style={{ color: '#f3f4f6', fontSize: '16px', fontWeight: 'bold', marginBottom: '6px' }}>Профиль в доработке</div>
-              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: 1.6 }}>
-                Реальная история матчей и персональные метрики появятся после того, как этот раздел будет привязан к сохранённым post-game данным. Сейчас демонстрационная аналитика скрыта вне Review Mode.
-              </div>
-            </div>
-          )}
-          {showDevPanel ? (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
-                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Всего игр проанализировано</span>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', marginTop: '5px' }}>42</div>
-                </div>
-                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Средний Винрейт</span>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981', marginTop: '5px' }}>64.2%</div>
-                </div>
-                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Средний KDA тренда</span>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', marginTop: '5px' }}>3.41</div>
-                </div>
-                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Оценка ИИ (Sensei Score)</span>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00ffcc', marginTop: '5px' }}>A+</div>
-                </div>
-              </div>
-
-              {/* БЛОК ГРАФИКА ДИНАМИКИ ФАРМА */}
-              <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937', marginBottom: '25px' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '5px', color: '#fff' }}>Динамика фарма (Крипы в минуту)</h3>
-                <p style={{ color: '#6b7280', fontSize: '12px', marginTop: 0, marginBottom: '20px' }}>Целевой киберспортивный показатель — выше 7.5 CS/мин</p>
-                <div style={{ position: 'relative', background: '#0f131a', borderRadius: '8px', padding: '10px', border: '1px solid #1f2937' }}>
-                  <canvas ref={canvasRef} width={750} height={220} style={{ width: '100%', height: 'auto', display: 'block' }} />
-                </div>
-              </div>
-
-              {/* Таблица */}
-              <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#fff' }}>История недавних тренировок</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #1f2937', color: '#9ca3af', fontSize: '14px' }}>
-                      <th style={{ paddingBottom: '12px' }}>Результат</th>
-                      <th style={{ paddingBottom: '12px' }}>Чемпион</th>
-                      <th style={{ paddingBottom: '12px' }}>Итоговый KDA</th>
-                      <th style={{ paddingBottom: '12px' }}>Фарм (CS / в мин)</th>
-                      <th style={{ paddingBottom: '12px' }}>Длительность</th>
-                      <th style={{ paddingBottom: '12px' }}>Дата</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matchHistory.map((match) => (
-                      <tr key={match.id} style={{ borderBottom: '1px solid #1f2937', fontSize: '15px' }}>
-                        <td style={{ padding: '15px 0', fontWeight: 'bold', color: match.result === 'Победа' ? '#10b981' : '#ef4444' }}>
-                          {match.result === 'Победа' ? '🟢 ' : '🔴 '} {match.result}
-                        </td>
-                        <td style={{ padding: '15px 0', color: '#fff', fontWeight: '600' }}>{match.champion}</td>
-                        <td style={{ padding: '15px 0' }}>{match.kda}</td>
-                        <td style={{ padding: '15px 0', color: '#ffd43b' }}>{match.cs} <span style={{ color: '#6b7280', fontSize: '12px' }}>({match.csMin}/м)</span></td>
-                        <td style={{ padding: '15px 0', color: '#9ca3af' }}>{match.duration}</td>
-                        <td style={{ padding: '15px 0', color: '#6b7280' }}>{match.date}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : null}
-        </div>
+        <ProfileScreen reviewMode={showDevPanel} />
       )}
 
       {/* ВКЛАДКА: НАСТРОЙКИ */}
@@ -545,9 +397,16 @@ window.addEventListener('keydown', handleKeyDown, true);
                 <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px' }}>
                   После завершения матча Sensei GG собирает короткий разбор по KDA, участию в боях и объему фарма.
                 </p>
+                {aiSourceMeta && (
+                  <div style={{ marginTop: '8px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: '999px', background: aiSourceMeta.background, border: `1px solid ${aiSourceMeta.border}`, color: aiSourceMeta.color, fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.04em' }}>
+                      {aiSourceMeta.label}
+                    </span>
+                  </div>
+                )}
               </div>
               <button
-                onClick={handleAskDeepSeek}
+                onClick={handleGeneratePostGameAnalysis}
                 disabled={isLoadingAi}
                 style={{
                   padding: '10px 14px',
@@ -566,7 +425,7 @@ window.addEventListener('keydown', handleKeyDown, true);
             </div>
 
             {lastCompletedMatch && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
                   <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Чемпион</div>
                   <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.championName}</div>
@@ -580,14 +439,37 @@ window.addEventListener('keydown', handleKeyDown, true);
                   <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.cs}</div>
                 </div>
                 <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>CS/мин</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.csPerMinute !== null ? lastCompletedMatch.csPerMinute.toFixed(1) : '—'}</div>
+                </div>
+                <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
+                  <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Длительность</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold' }}>{lastCompletedMatch.gameDurationSeconds !== null ? `${Math.floor(lastCompletedMatch.gameDurationSeconds / 60)}:${Math.round(lastCompletedMatch.gameDurationSeconds % 60).toString().padStart(2, '0')}` : '—'}</div>
+                </div>
+                <div style={{ background: '#0f131a', padding: '14px', borderRadius: '10px', border: '1px solid #1f2937' }}>
                   <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Завершен</div>
                   <div style={{ color: '#fff', fontWeight: 'bold' }}>{new Date(lastCompletedMatch.endedAt).toLocaleString('ru-RU')}</div>
                 </div>
               </div>
             )}
 
-            <div style={{ padding: '20px', background: '#0f131a', borderRadius: '8px', borderLeft: `4px solid ${showDevPanel ? '#ea580c' : '#a855f7'}`, lineHeight: '1.7', whiteSpace: 'pre-line' }}>
-              {aiAdvice}
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {aiReview ? (
+                <>
+                  <div style={{ padding: '14px', background: '#0f131a', borderRadius: '8px', borderLeft: '4px solid #10b981', lineHeight: '1.6' }}>{aiReview.strength}</div>
+                  <div style={{ padding: '14px', background: '#0f131a', borderRadius: '8px', borderLeft: '4px solid #ef4444', lineHeight: '1.6' }}>{aiReview.risk}</div>
+                  <div style={{ padding: '14px', background: '#0f131a', borderRadius: '8px', borderLeft: '4px solid #a855f7', lineHeight: '1.6' }}>{aiReview.nextFocus}</div>
+                  {aiReview.evidence ? (
+                    <div style={{ padding: '14px', background: '#0f131a', borderRadius: '8px', borderLeft: `4px solid ${showDevPanel ? '#ea580c' : '#334155'}`, lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+                      {aiReview.evidence}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div style={{ padding: '20px', background: '#0f131a', borderRadius: '8px', borderLeft: `4px solid ${showDevPanel ? '#ea580c' : '#a855f7'}`, lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+                  {aiAdvice}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../store';
 import { useState } from 'react';
 import type { PlayerInfo } from '../../store/lobbySlice';
-import type { CompletedMatchSummary } from '../../store/gameSlice';
+import type { CompletedMatchSummary, StructuredAiReview } from '../../store/gameSlice';
 import { getRankColor, getRankIconUrl } from '../../services/rankAssets';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
@@ -37,6 +37,7 @@ interface MatchScreenProps {
   onRequestAiAnalysis?: () => void;
   isLoadingAi?: boolean;
   aiAdvice?: string;
+  aiReview?: StructuredAiReview | null;
   lastCompletedMatch?: CompletedMatchSummary | null;
   reviewMode?: boolean;
 }
@@ -59,6 +60,32 @@ interface LobbyChampionInsight {
   patchTier: string;
   tierColor: string;
 }
+
+const getAiSourceMeta = (source: StructuredAiReview['source']) => {
+  switch (source) {
+    case 'provider':
+      return {
+        label: 'DeepSeek',
+        color: '#10b981',
+        border: 'rgba(16, 185, 129, 0.32)',
+        background: 'rgba(16, 185, 129, 0.12)'
+      };
+    case 'local-server-fallback':
+      return {
+        label: 'Server Fallback',
+        color: '#f59e0b',
+        border: 'rgba(245, 158, 11, 0.3)',
+        background: 'rgba(245, 158, 11, 0.12)'
+      };
+    default:
+      return {
+        label: 'Client Fallback',
+        color: '#60a5fa',
+        border: 'rgba(96, 165, 250, 0.3)',
+        background: 'rgba(96, 165, 250, 0.12)'
+      };
+  }
+};
 
 const mockCounterPool = [
   'Malphite',
@@ -475,7 +502,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   );
 }
 
-export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice = '', lastCompletedMatch = null, reviewMode = false }: MatchScreenProps) {
+export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice = '', aiReview = null, lastCompletedMatch = null, reviewMode = false }: MatchScreenProps) {
   const lobbyState = useSelector((state: RootState) => state.lobby);
   const allies = lobbyState.players.allies;
   const enemies = lobbyState.players.enemies;
@@ -580,9 +607,14 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
         .map((line) => line.trim())
         .filter(Boolean)
     : [];
-  const aiInsightLines = aiAdviceLines.filter((line) => line.startsWith('Сильная сторона:') || line.startsWith('Главный риск:') || line.startsWith('Фокус на следующую игру:'));
-  const aiDetailLines = aiAdviceLines.filter((line) => !line.startsWith('Сильная сторона:') && !line.startsWith('Главный риск:') && !line.startsWith('Фокус на следующую игру:'));
+  const aiInsightLines = aiReview
+    ? [aiReview.strength, aiReview.risk, aiReview.nextFocus].filter(Boolean)
+    : aiAdviceLines.filter((line) => line.startsWith('Сильная сторона:') || line.startsWith('Главный риск:') || line.startsWith('Фокус на следующую игру:'));
+  const aiDetailLines = aiReview
+    ? [aiReview.evidence].filter(Boolean)
+    : aiAdviceLines.filter((line) => !line.startsWith('Сильная сторона:') && !line.startsWith('Главный риск:') && !line.startsWith('Фокус на следующую игру:'));
   const aiDetailText = aiDetailLines.join('\n');
+  const aiSourceMeta = aiReview ? getAiSourceMeta(aiReview.source) : null;
   const showKeySignals = reviewMode && lobbyState.phase !== 'champ-select';
   const playerCardVariant = lobbyState.phase === 'champ-select' ? 'lobby' : 'in-game';
   const allyTeamWon = allies.some((player) => player.recentMatches?.[0]?.result === 'W')
@@ -654,6 +686,16 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                   <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
                     {lastCompletedMatch.championName}
                   </span>
+                  {lastCompletedMatch.csPerMinute !== null && (
+                    <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
+                      {lastCompletedMatch.csPerMinute.toFixed(1)} CS/мин
+                    </span>
+                  )}
+                  {lastCompletedMatch.gameDurationSeconds !== null && (
+                    <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
+                      {Math.floor(lastCompletedMatch.gameDurationSeconds / 60)}:{Math.round(lastCompletedMatch.gameDurationSeconds % 60).toString().padStart(2, '0')}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -665,6 +707,13 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
               <div style={{ color: '#9ca3af', fontSize: '11px', lineHeight: 1.4 }}>
                 Три коротких тезиса без лишнего шума.
               </div>
+              {aiSourceMeta && (
+                <div style={{ marginTop: '6px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: '999px', background: aiSourceMeta.background, border: `1px solid ${aiSourceMeta.border}`, color: aiSourceMeta.color, fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.04em' }}>
+                    {aiSourceMeta.label}
+                  </span>
+                </div>
+              )}
             </div>
             <div style={{ display: 'grid', gap: '6px' }}>
               {aiInsightLines.length > 0 ? aiInsightLines.map((line) => (

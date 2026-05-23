@@ -30,6 +30,7 @@ export type OverwolfBridgeMessage =
         deaths: number;
         assists: number;
         cs: number;
+        gameTimeSeconds?: number;
       };
     }
   | {
@@ -119,6 +120,21 @@ export const readNumericStat = (value: unknown): number | undefined => {
   }
 
   return undefined;
+};
+
+export const readNestedNumber = (root: unknown, path: string[]): number | undefined => {
+  let current: unknown = root;
+
+  for (const key of path) {
+    const record = asRecord(current);
+    if (!record) {
+      return undefined;
+    }
+
+    current = record[key];
+  }
+
+  return readNumericStat(current);
 };
 
 export const restoreDesktopWindow = () => {
