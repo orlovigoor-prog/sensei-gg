@@ -35,7 +35,17 @@ export function DevSimulationPanel({
 
   return (
     <div style={{ background: '#1c1917', border: '1px dashed #ea580c', padding: '15px', borderRadius: '10px', marginBottom: '25px' }}>
-      <h4 style={{ margin: '0 0 10px 0', color: '#ea580c' }}>🛠️ Скрытый пульт симуляции событий LoL</h4>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '10px' }}>
+        <div>
+          <h4 style={{ margin: '0 0 6px 0', color: '#ea580c' }}>Review Mode</h4>
+          <p style={{ margin: 0, color: '#fdba74', fontSize: '12px', lineHeight: 1.5, maxWidth: '720px' }}>
+            Этот режим предназначен для ревью и демонстрации будущих сценариев. Все показанные здесь игровые события и данные являются тестовыми.
+          </p>
+        </div>
+        <div style={{ padding: '5px 9px', borderRadius: '999px', background: 'rgba(234, 88, 12, 0.16)', border: '1px solid rgba(234, 88, 12, 0.45)', color: '#fdba74', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+          DEMO / REVIEW
+        </div>
+      </div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button onClick={() => onSimulatePick('Jinx')} style={{ background: '#ea580c', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>▶️ Симулировать Пик: Jinx</button>
         <button onClick={() => onSimulatePick('Yasuo')} style={{ background: '#ea580c', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>▶️ Симулировать Пик: Yasuo</button>
@@ -66,6 +76,9 @@ export function DevSimulationPanel({
             {getPhaseLabel(phaseKey)}
           </button>
         ))}
+      </div>
+      <div style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(17, 24, 39, 0.7)', border: '1px solid rgba(251, 146, 60, 0.2)', color: '#9ca3af', fontSize: '12px', lineHeight: 1.5 }}>
+        Review Mode не должен восприниматься как реальный матч. Он нужен, чтобы показать Riot и Overwolf навигацию, safe UX и постматч-сценарии без доступа к настоящей игровой сессии.
       </div>
     </div>
   );

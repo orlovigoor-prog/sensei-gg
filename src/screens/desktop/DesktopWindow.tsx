@@ -90,7 +90,6 @@ export function DesktopWindow() {
       if (e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'z' || e.code === 'KeyZ')) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Toggle dev panel');
         setShowDevPanel(prev => !prev);
       }
     };
@@ -420,70 +419,90 @@ window.addEventListener('keydown', handleKeyDown, true);
           isLoadingAi={isLoadingAi}
           aiAdvice={aiAdvice}
           lastCompletedMatch={lastCompletedMatch}
+          reviewMode={showDevPanel}
         />
       )}
 
       {/* ВКЛАДКА: ПРОФИЛЬ (С ГРАФИКОМ) */}
       {activeTab === 'profile' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
-            <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-              <span style={{ color: '#9ca3af', fontSize: '13px' }}>Всего игр проанализировано</span>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', marginTop: '5px' }}>42</div>
+          {showDevPanel ? (
+            <div style={{ background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px' }}>
+              <div style={{ color: '#fdba74', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '6px' }}>REVIEW MODE ONLY</div>
+              <div style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.6 }}>
+                Профиль ниже показывает демонстрационный сценарий интерфейса. Метрики, график и история матчей пока не привязаны к реальному пользовательскому хранилищу матчей.
+              </div>
             </div>
-            <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-              <span style={{ color: '#9ca3af', fontSize: '13px' }}>Средний Винрейт</span>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981', marginTop: '5px' }}>64.2%</div>
+          ) : (
+            <div style={{ background: '#161d2a', border: '1px solid #1f2937', borderRadius: '12px', padding: '18px 20px', marginBottom: '16px' }}>
+              <div style={{ color: '#f3f4f6', fontSize: '16px', fontWeight: 'bold', marginBottom: '6px' }}>Профиль в доработке</div>
+              <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: 1.6 }}>
+                Реальная история матчей и персональные метрики появятся после того, как этот раздел будет привязан к сохранённым post-game данным. Сейчас демонстрационная аналитика скрыта вне Review Mode.
+              </div>
             </div>
-            <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-              <span style={{ color: '#9ca3af', fontSize: '13px' }}>Средний KDA тренда</span>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', marginTop: '5px' }}>3.41</div>
-            </div>
-            <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
-              <span style={{ color: '#9ca3af', fontSize: '13px' }}>Оценка ИИ (Sensei Score)</span>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00ffcc', marginTop: '5px' }}>A+</div>
-            </div>
-          </div>
+          )}
+          {showDevPanel ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '25px' }}>
+                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Всего игр проанализировано</span>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', marginTop: '5px' }}>42</div>
+                </div>
+                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Средний Винрейт</span>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981', marginTop: '5px' }}>64.2%</div>
+                </div>
+                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Средний KDA тренда</span>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', marginTop: '5px' }}>3.41</div>
+                </div>
+                <div style={{ background: '#161d2a', padding: '20px', borderRadius: '10px', border: '1px solid #1f2937', textAlign: 'center' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '13px' }}>Оценка ИИ (Sensei Score)</span>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00ffcc', marginTop: '5px' }}>A+</div>
+                </div>
+              </div>
 
-          {/* БЛОК ГРАФИКА ДИНАМИКИ ФАРМА */}
-          <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937', marginBottom: '25px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '5px', color: '#fff' }}>Динамика фарма (Крипы в минуту)</h3>
-            <p style={{ color: '#6b7280', fontSize: '12px', marginTop: 0, marginBottom: '20px' }}>Целевой киберспортивный показатель — выше 7.5 CS/мин</p>
-            <div style={{ position: 'relative', background: '#0f131a', borderRadius: '8px', padding: '10px', border: '1px solid #1f2937' }}>
-              <canvas ref={canvasRef} width={750} height={220} style={{ width: '100%', height: 'auto', display: 'block' }} />
-            </div>
-          </div>
+              {/* БЛОК ГРАФИКА ДИНАМИКИ ФАРМА */}
+              <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937', marginBottom: '25px' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '5px', color: '#fff' }}>Динамика фарма (Крипы в минуту)</h3>
+                <p style={{ color: '#6b7280', fontSize: '12px', marginTop: 0, marginBottom: '20px' }}>Целевой киберспортивный показатель — выше 7.5 CS/мин</p>
+                <div style={{ position: 'relative', background: '#0f131a', borderRadius: '8px', padding: '10px', border: '1px solid #1f2937' }}>
+                  <canvas ref={canvasRef} width={750} height={220} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                </div>
+              </div>
 
-          {/* Таблица */}
-          <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#fff' }}>История недавних тренировок</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #1f2937', color: '#9ca3af', fontSize: '14px' }}>
-                  <th style={{ paddingBottom: '12px' }}>Результат</th>
-                  <th style={{ paddingBottom: '12px' }}>Чемпион</th>
-                  <th style={{ paddingBottom: '12px' }}>Итоговый KDA</th>
-                  <th style={{ paddingBottom: '12px' }}>Фарм (CS / в мин)</th>
-                  <th style={{ paddingBottom: '12px' }}>Длительность</th>
-                  <th style={{ paddingBottom: '12px' }}>Дата</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matchHistory.map((match) => (
-                  <tr key={match.id} style={{ borderBottom: '1px solid #1f2937', fontSize: '15px' }}>
-                    <td style={{ padding: '15px 0', fontWeight: 'bold', color: match.result === 'Победа' ? '#10b981' : '#ef4444' }}>
-                      {match.result === 'Победа' ? '🟢 ' : '🔴 '} {match.result}
-                    </td>
-                    <td style={{ padding: '15px 0', color: '#fff', fontWeight: '600' }}>{match.champion}</td>
-                    <td style={{ padding: '15px 0' }}>{match.kda}</td>
-                    <td style={{ padding: '15px 0', color: '#ffd43b' }}>{match.cs} <span style={{ color: '#6b7280', fontSize: '12px' }}>({match.csMin}/м)</span></td>
-                    <td style={{ padding: '15px 0', color: '#9ca3af' }}>{match.duration}</td>
-                    <td style={{ padding: '15px 0', color: '#6b7280' }}>{match.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              {/* Таблица */}
+              <div style={{ background: '#161d2a', padding: '25px', borderRadius: '12px', border: '1px solid #1f2937' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#fff' }}>История недавних тренировок</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #1f2937', color: '#9ca3af', fontSize: '14px' }}>
+                      <th style={{ paddingBottom: '12px' }}>Результат</th>
+                      <th style={{ paddingBottom: '12px' }}>Чемпион</th>
+                      <th style={{ paddingBottom: '12px' }}>Итоговый KDA</th>
+                      <th style={{ paddingBottom: '12px' }}>Фарм (CS / в мин)</th>
+                      <th style={{ paddingBottom: '12px' }}>Длительность</th>
+                      <th style={{ paddingBottom: '12px' }}>Дата</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matchHistory.map((match) => (
+                      <tr key={match.id} style={{ borderBottom: '1px solid #1f2937', fontSize: '15px' }}>
+                        <td style={{ padding: '15px 0', fontWeight: 'bold', color: match.result === 'Победа' ? '#10b981' : '#ef4444' }}>
+                          {match.result === 'Победа' ? '🟢 ' : '🔴 '} {match.result}
+                        </td>
+                        <td style={{ padding: '15px 0', color: '#fff', fontWeight: '600' }}>{match.champion}</td>
+                        <td style={{ padding: '15px 0' }}>{match.kda}</td>
+                        <td style={{ padding: '15px 0', color: '#ffd43b' }}>{match.cs} <span style={{ color: '#6b7280', fontSize: '12px' }}>({match.csMin}/м)</span></td>
+                        <td style={{ padding: '15px 0', color: '#9ca3af' }}>{match.duration}</td>
+                        <td style={{ padding: '15px 0', color: '#6b7280' }}>{match.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
         </div>
       )}
 
@@ -495,6 +514,14 @@ window.addEventListener('keydown', handleKeyDown, true);
       {/* ВКЛАДКА: СОВЕТЫ ИИ */}
       {activeTab === 'ai' && (
         <div style={{ display: 'grid', gap: '16px' }}>
+          {showDevPanel && (
+            <div style={{ background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', borderRadius: '12px', padding: '14px 16px' }}>
+              <div style={{ color: '#fdba74', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '6px' }}>REVIEW MODE</div>
+              <div style={{ color: '#d1d5db', fontSize: '13px', lineHeight: 1.6 }}>
+                В этом режиме AI-разбор генерируется на тестовых событиях, запущенных через Review Mode. Это демонстрация safe UX и post-game flow, а не live-коучинг.
+              </div>
+            </div>
+          )}
           <div style={{ background: '#161d2a', padding: '20px', borderRadius: '12px', border: '1px solid #1f2937' }}>
             <h2 style={{ marginTop: 0, marginBottom: '8px', color: '#a855f7' }}>🤖 AI Coach</h2>
             <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px', lineHeight: 1.6 }}>
@@ -559,7 +586,7 @@ window.addEventListener('keydown', handleKeyDown, true);
               </div>
             )}
 
-            <div style={{ padding: '20px', background: '#0f131a', borderRadius: '8px', borderLeft: '4px solid #a855f7', lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+            <div style={{ padding: '20px', background: '#0f131a', borderRadius: '8px', borderLeft: `4px solid ${showDevPanel ? '#ea580c' : '#a855f7'}`, lineHeight: '1.7', whiteSpace: 'pre-line' }}>
               {aiAdvice}
             </div>
           </div>

@@ -30,6 +30,7 @@ interface PlayerCardProps {
   displayName?: string;
   searchDisabled?: boolean;
   variant?: 'lobby' | 'in-game';
+  reviewMode?: boolean;
 }
 
 interface MatchScreenProps {
@@ -37,6 +38,7 @@ interface MatchScreenProps {
   isLoadingAi?: boolean;
   aiAdvice?: string;
   lastCompletedMatch?: CompletedMatchSummary | null;
+  reviewMode?: boolean;
 }
 
 interface PostGamePlayerRowProps {
@@ -181,7 +183,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGam
   );
 }
 
-function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game' }: PlayerCardProps) {
+function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game', reviewMode = false }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? '#10b981' : '#ef4444';
   const cardTitle = displayName || player.summonerName;
   const totalGames = player.wins + player.losses;
@@ -291,28 +293,42 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   {championLabel}
                 </div>
               </div>
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                padding: '7px 8px',
-                borderRadius: '7px',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '8px',
-                minWidth: 0
-              }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Глобальный WR</div>
-                  <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {lobbyInsight.globalWinRate}%
+              {reviewMode ? (
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '7px 8px',
+                  borderRadius: '7px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                  minWidth: 0
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Глобальный WR</div>
+                    <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {lobbyInsight.globalWinRate}%
+                    </div>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Тир чемпиона</div>
+                    <div style={{ color: lobbyInsight.tierColor, fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {lobbyInsight.patchTier}
+                    </div>
                   </div>
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Тир чемпиона</div>
-                  <div style={{ color: lobbyInsight.tierColor, fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {lobbyInsight.patchTier}
+              ) : (
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '7px 8px',
+                  borderRadius: '7px',
+                  minWidth: 0
+                }}>
+                  <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Безопасный режим лобби</div>
+                  <div style={{ color: '#d1d5db', fontWeight: 'bold', fontSize: '10px', lineHeight: 1.35 }}>
+                    До реальной интеграции здесь показывается только базовая информация о пике без демонстрационных matchup-оценок.
                   </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <>
@@ -373,6 +389,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
       </div>
 
       {variant === 'lobby' ? (
+        reviewMode ? (
         <div style={{
           position: 'relative',
           background: 'rgba(0, 0, 0, 0.3)',
@@ -425,6 +442,19 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
             </div>
           )}
         </div>
+        ) : (
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.3)',
+            padding: '6px 8px',
+            borderRadius: '6px',
+            marginTop: 'auto'
+          }}>
+            <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '4px' }}>Matchup-инсайты</div>
+            <div style={{ color: '#9ca3af', fontSize: '9px', lineHeight: 1.35 }}>
+              Демонстрационные контрпики доступны только в Review Mode.
+            </div>
+          </div>
+        )
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px', marginTop: 'auto' }}>
           <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '7px 6px', borderRadius: '6px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxSizing: 'border-box' }}>
@@ -445,7 +475,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   );
 }
 
-export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice = '', lastCompletedMatch = null }: MatchScreenProps) {
+export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice = '', lastCompletedMatch = null, reviewMode = false }: MatchScreenProps) {
   const lobbyState = useSelector((state: RootState) => state.lobby);
   const allies = lobbyState.players.allies;
   const enemies = lobbyState.players.enemies;
@@ -553,7 +583,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
   const aiInsightLines = aiAdviceLines.filter((line) => line.startsWith('Сильная сторона:') || line.startsWith('Главный риск:') || line.startsWith('Фокус на следующую игру:'));
   const aiDetailLines = aiAdviceLines.filter((line) => !line.startsWith('Сильная сторона:') && !line.startsWith('Главный риск:') && !line.startsWith('Фокус на следующую игру:'));
   const aiDetailText = aiDetailLines.join('\n');
-  const showKeySignals = lobbyState.phase !== 'champ-select';
+  const showKeySignals = reviewMode && lobbyState.phase !== 'champ-select';
   const playerCardVariant = lobbyState.phase === 'champ-select' ? 'lobby' : 'in-game';
   const allyTeamWon = allies.some((player) => player.recentMatches?.[0]?.result === 'W')
     ? true
@@ -567,6 +597,9 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
         ? 'Нужен более аккуратный темп и меньше лишних смертей'
         : 'Есть база, но еще есть запас по чистоте исполнения'
     : 'После первого завершенного матча появится персональный сигнал прогресса';
+  const reviewNotice = reviewMode
+    ? 'Состав, сигналы и постматч-сводка ниже запущены через Review Mode и показывают демонстрационный сценарий интерфейса.'
+    : null;
 
   if (lobbyState.phase === 'post-game') {
     return (
@@ -582,6 +615,12 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
         gridTemplateRows: 'auto 1fr',
         gap: '8px'
       }}>
+        {reviewNotice && (
+          <div style={{ padding: '10px 12px', borderRadius: '12px', background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', color: '#d1d5db', fontSize: '11px', lineHeight: 1.5 }}>
+            <div style={{ color: '#fdba74', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '4px' }}>REVIEW MODE</div>
+            {reviewNotice}
+          </div>
+        )}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -742,6 +781,12 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
       border: '1px solid rgba(31, 41, 55, 0.8)',
       boxSizing: 'border-box'
     }}>
+      {reviewNotice && (
+        <div style={{ marginBottom: '8px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', color: '#d1d5db', fontSize: '11px', lineHeight: 1.5 }}>
+          <div style={{ color: '#fdba74', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '4px' }}>REVIEW MODE</div>
+          {reviewNotice}
+        </div>
+      )}
       {showKeySignals && (
         <>
           <div style={{ ...sectionLabelStyle, marginBottom: '6px' }}>КЛЮЧЕВЫЕ СИГНАЛЫ</div>
@@ -798,6 +843,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 displayName={getDisplayName(player, index, true)}
                 searchDisabled={isNameHidden(player, index, true)}
                 variant={playerCardVariant}
+                reviewMode={reviewMode}
               />
             </div>
           ))}
@@ -851,6 +897,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 displayName={getDisplayName(player, index, false)}
                 searchDisabled={isNameHidden(player, index, false)}
                 variant={playerCardVariant}
+                reviewMode={reviewMode}
               />
             </div>
           ))}
