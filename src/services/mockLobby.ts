@@ -323,7 +323,7 @@ const buildCompletedMatchSummary = (player: PlayerInfo): CompletedMatchSummary =
 export const createMockPlayers = (): PlayerInfo[] => ([
   {
     summonerName: 'Player1',
-    rank: '14',
+    rank: 'IV',
     tier: 'SILVER',
     lp: 14,
     wins: 48,
@@ -340,7 +340,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player2',
-    rank: '91',
+    rank: 'I',
     tier: 'GOLD',
     lp: 91,
     wins: 73,
@@ -357,7 +357,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player3',
-    rank: '1',
+    rank: 'IV',
     tier: 'PLATINUM',
     lp: 1,
     wins: 76,
@@ -374,7 +374,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player4',
-    rank: '68',
+    rank: 'II',
     tier: 'EMERALD',
     lp: 68,
     wins: 122,
@@ -392,7 +392,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player5',
-    rank: '22',
+    rank: 'III',
     tier: 'DIAMOND',
     lp: 22,
     wins: 50,
@@ -409,7 +409,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player6',
-    rank: '46',
+    rank: 'II',
     tier: 'BRONZE',
     lp: 46,
     wins: 60,
@@ -426,7 +426,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player7',
-    rank: '3',
+    rank: 'IV',
     tier: 'SILVER',
     lp: 3,
     wins: 47,
@@ -443,7 +443,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player8',
-    rank: '62',
+    rank: 'II',
     tier: 'BRONZE',
     lp: 62,
     wins: 81,
@@ -460,7 +460,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player9',
-    rank: '4',
+    rank: 'IV',
     tier: 'BRONZE',
     lp: 4,
     wins: 31,
@@ -477,7 +477,7 @@ export const createMockPlayers = (): PlayerInfo[] => ([
   },
   {
     summonerName: 'Player10',
-    rank: '72',
+    rank: 'I',
     tier: 'SILVER',
     lp: 72,
     wins: 56,
@@ -515,6 +515,7 @@ export const createReviewModeScenario = (): ReviewModeScenario => {
   players[targetIndex] = {
     ...players[targetIndex],
     summonerName: reviewModePlayerName,
+    rank: 'II',
     tier: 'EMERALD',
     lp: 68,
     wins: 122,

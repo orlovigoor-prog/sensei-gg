@@ -32,5 +32,9 @@
         }
       }
     }
-  }
+  },
+  "overwolf_apis": [
+    "Windows",
+    "Profile"
+  ]
 }

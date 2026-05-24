@@ -4,6 +4,8 @@ import { useState } from 'react';
 import type { PlayerInfo } from '../../store/lobbySlice';
 import type { CompletedMatchSummary, StructuredAiReview } from '../../store/gameSlice';
 import { getRankColor, getRankIconUrl } from '../../services/rankAssets';
+import { formatPlayerRankLabel } from '../../services/rankLabel';
+import { dispatchSearchPlayerCommand } from '../../services/appCommands';
 import {
   getChampionCatalogEntry,
   getChampionIconUrl,
@@ -517,7 +519,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const averageKills = champTotal > 0 ? (totalKills / champTotal).toFixed(1) : '0.0';
   const averageDeaths = champTotal > 0 ? (totalDeaths / champTotal).toFixed(1) : '0.0';
   const averageAssists = champTotal > 0 ? (totalAssists / champTotal).toFixed(1) : '0.0';
-  const rankLabel = player.lp ? `${player.tier} ${player.lp}` : player.tier;
+  const rankLabel = formatPlayerRankLabel(player);
   const lobbyInsight = getMockLobbyInsight(championLabel);
   
   const [showChampTooltip, setShowChampTooltip] = useState(false);
@@ -565,7 +567,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           </div>
           {variant !== 'lobby' && (
             <div style={{ color: '#6b7280', fontSize: '10px', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Уровень {player.rank} · {totalGames} матчей на герое
+              Ранг {rankLabel} · {totalGames} матчей в сезоне
             </div>
           )}
         </div>
@@ -791,6 +793,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
 
 export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice = '', aiReview = null, lastCompletedMatch = null, reviewMode = false }: MatchScreenProps) {
   const lobbyState = useSelector((state: RootState) => state.lobby);
+  const subscriptionState = useSelector((state: RootState) => state.subscription);
   const allies = lobbyState.players.allies;
   const enemies = lobbyState.players.enemies;
   const isRankedSoloDuoChampSelect = lobbyState.gameMode === 'RANKED_SOLO_5x5' && lobbyState.phase === 'champ-select';
@@ -832,11 +835,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
   }
 
   const handlePlayerClick = (player: PlayerInfo) => {
-    // Отправляем событие для поиска игрока
-    const event = new CustomEvent('sensei-search-player', {
-      detail: { summonerName: player.summonerName, targetRegion: 'euw' }
-    });
-    window.dispatchEvent(event);
+    dispatchSearchPlayerCommand({ summonerName: player.summonerName, targetRegion: 'euw' });
   };
 
   const allyAverageWinRate = Math.round(allies.reduce((sum: number, p: PlayerInfo) => sum + p.winRate, 0) / allies.length);
@@ -902,6 +901,10 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
     : aiAdviceLines.filter((line) => !line.startsWith('Сильная сторона:') && !line.startsWith('Главный риск:') && !line.startsWith('Фокус на следующую игру:'));
   const aiDetailText = aiDetailLines.join('\n');
   const aiSourceMeta = aiReview ? getAiSourceMeta(aiReview.source) : null;
+  const isPremiumPlan = subscriptionState.plan === 'premium';
+  const aiReviewsRemaining = Math.max(0, subscriptionState.aiReviewWeeklyLimit - subscriptionState.aiReviewsUsedThisWeek);
+  const hasFreeAiCapacity = isPremiumPlan || aiReviewsRemaining > 0;
+  const shouldShowAiUpgrade = !reviewMode && !isPremiumPlan && !hasFreeAiCapacity;
   const showKeySignals = reviewMode && lobbyState.phase !== 'champ-select';
   const playerCardVariant = lobbyState.phase === 'champ-select' ? 'lobby' : 'in-game';
   const allyTeamWon = allies.some((player) => player.recentMatches?.[0]?.result === 'W')
@@ -1078,6 +1081,16 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
               <div style={{ color: '#c4b5fd', fontSize: '11px', lineHeight: 1.45, maxWidth: '420px' }}>
                 Короткая сводка по завершенному матчу: что уже получилось, где просел темп и какой один акцент брать дальше.
               </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: '999px', background: isPremiumPlan ? 'rgba(245, 158, 11, 0.14)' : 'rgba(96, 165, 250, 0.12)', border: `1px solid ${isPremiumPlan ? 'rgba(245, 158, 11, 0.28)' : 'rgba(96, 165, 250, 0.26)'}`, color: isPremiumPlan ? '#fbbf24' : '#93c5fd', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+                  {isPremiumPlan ? 'PREMIUM PLAN' : 'FREE PLAN'}
+                </span>
+                {!reviewMode && !isPremiumPlan && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#d1d5db', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+                    Осталось AI-разборов: {aiReviewsRemaining}/{subscriptionState.aiReviewWeeklyLimit}
+                  </span>
+                )}
+              </div>
               {aiSourceMeta && (
                 <div style={{ marginTop: '6px' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 7px', borderRadius: '999px', background: aiSourceMeta.background, border: `1px solid ${aiSourceMeta.border}`, color: aiSourceMeta.color, fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.04em' }}>
@@ -1087,7 +1100,19 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
               )}
             </div>
             <div style={{ display: 'grid', gap: '7px' }}>
-              {aiInsightLines.length > 0 ? aiInsightLines.map((line, index) => {
+              {shouldShowAiUpgrade ? (
+                <div style={{ padding: '11px 12px', borderRadius: '12px', background: 'rgba(15, 19, 26, 0.54)', border: '1px solid rgba(251, 191, 36, 0.18)', color: '#d1d5db', fontSize: '10px', lineHeight: 1.45 }}>
+                  <div style={{ color: '#fbbf24', fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.08em', marginBottom: '5px', textTransform: 'uppercase' }}>
+                    Premium unlock
+                  </div>
+                  <div style={{ marginBottom: '6px' }}>
+                    Бесплатный лимит полных AI-разборов на неделю закончился. Premium откроет полный post-game review без лимита, историю разборов и будущие weekly insights.
+                  </div>
+                  <div style={{ color: '#9ca3af' }}>
+                    Базовая статистика, safe lobby summary и профиль игрока остаются бесплатными.
+                  </div>
+                </div>
+              ) : aiInsightLines.length > 0 ? aiInsightLines.map((line, index) => {
                 const tone = aiInsightTone[index] ?? aiInsightTone[aiInsightTone.length - 1];
 
                 return (
@@ -1117,20 +1142,20 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
             </div>
             <button
               onClick={onRequestAiAnalysis}
-              disabled={!onRequestAiAnalysis || isLoadingAi}
+              disabled={!onRequestAiAnalysis || isLoadingAi || shouldShowAiUpgrade}
               style={{
                 padding: '8px 12px',
-                background: isLoadingAi ? 'rgba(168, 85, 247, 0.35)' : '#a855f7',
+                background: shouldShowAiUpgrade ? 'rgba(245, 158, 11, 0.4)' : isLoadingAi ? 'rgba(168, 85, 247, 0.35)' : '#a855f7',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '12px',
-                cursor: !onRequestAiAnalysis || isLoadingAi ? 'default' : 'pointer',
+                cursor: !onRequestAiAnalysis || isLoadingAi || shouldShowAiUpgrade ? 'default' : 'pointer',
                 fontWeight: 'bold',
                 fontSize: '12px',
                 opacity: !onRequestAiAnalysis ? 0.7 : 1
               }}
             >
-              {isLoadingAi ? 'AI собирает тезисы...' : 'Обновить тезисы AI'}
+              {shouldShowAiUpgrade ? 'Доступен Premium AI-разбор' : isLoadingAi ? 'AI собирает тезисы...' : 'Обновить тезисы AI'}
             </button>
             <div style={{
               minHeight: 0,
@@ -1145,7 +1170,9 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
               whiteSpace: 'pre-line'
             }}>
               <div style={{ color: '#8b5cf6', fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.08em', marginBottom: '5px' }}>КОНТЕКСТ РАЗБОРА</div>
-              {aiDetailText || (aiInsightLines.length > 0
+              {shouldShowAiUpgrade
+                ? 'Free-план уже дал базовый лимит AI-разборов на эту неделю. Premium откроет полный AI review после каждого матча, историю прошлых разборов и долгосрочные тренды прогресса.'
+                : aiDetailText || (aiInsightLines.length > 0
                 ? 'Разбор собран по итогам завершенного матча и опирается только на локальные метрики: KDA, CS и общий паттерн темпа.'
                 : 'После завершения матча здесь появятся три коротких тезиса: сильная сторона, главный риск и фокус на следующую игру.')}
             </div>

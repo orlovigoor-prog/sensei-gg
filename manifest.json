@@ -35,6 +35,7 @@
   "required_capabilities": ["windows"],
   "overwolf_apis": [
     "Windows",
-    "KeyboardShortcuts"
+    "KeyboardShortcuts",
+    "Profile"
   ]
 }

@@ -3,6 +3,7 @@ import type { PlayerInfo } from '../store/lobbySlice';
 import { ChampionDetail } from './ChampionDetail';
 import { lcuService } from '../services/riotApi';
 import { getRankColor, getRankIconUrl } from '../services/rankAssets';
+import { formatPlayerRankLabel } from '../services/rankLabel';
 
 interface PlayerCardWithChampionProps {
   player: PlayerInfo;
@@ -13,6 +14,7 @@ interface PlayerCardWithChampionProps {
 
 export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSelectChampion }: PlayerCardWithChampionProps) {
   const [showChampionDetail, setShowChampionDetail] = useState(false);
+  const rankLabel = formatPlayerRankLabel(player);
 
   const roleIcons: Record<string, string> = {
     TOP: '🗡️',
@@ -116,12 +118,14 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
               fontSize: '12px',
               fontWeight: 'bold'
             }}>
-              {player.tier} {player.rank}
+              {rankLabel}
             </div>
           </div>
-          <div style={{ color: '#00ffcc', fontSize: '13px', fontWeight: 'bold', marginTop: '2px' }}>
-            {player.lp} LP
-          </div>
+          {!rankLabel.includes(' LP') && player.lp > 0 ? (
+            <div style={{ color: '#00ffcc', fontSize: '13px', fontWeight: 'bold', marginTop: '2px' }}>
+              {player.lp} LP
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -41,6 +41,287 @@ const MODEL = process.env.AI_PROVIDER_MODEL || 'deepseek-chat';
 const OPENROUTER_API_KEY = process.env.AI_OPENROUTER_API_KEY || '';
 const OPENROUTER_URL = process.env.AI_OPENROUTER_URL || 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_MODEL = process.env.AI_OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash:free';
+const SUBSCRIPTION_PROVIDER = process.env.SUBSCRIPTION_PROVIDER || 'overwolf-tebex';
+const SUBSCRIPTION_STORE_ID = process.env.OVERWOLF_SUBSCRIPTION_STORE_ID || '';
+const SUBSCRIPTION_PREMIUM_PLAN_ID = Number.parseInt(process.env.OVERWOLF_SUBSCRIPTION_PREMIUM_PLAN_ID || '0', 10);
+const SUBSCRIPTION_DEV_PLAN = process.env.SUBSCRIPTION_DEV_PLAN === 'premium' ? 'premium' : 'free';
+
+const subscriptionDevState = {
+  plan: SUBSCRIPTION_DEV_PLAN,
+  scenario: 'env-default',
+  updatedAt: new Date().toISOString()
+};
+
+const premiumCapabilitiesDevState = {
+  progressionSyncReady: false,
+  weeklyReportsSyncReady: false,
+  scenario: 'env-default',
+  updatedAt: new Date().toISOString()
+};
+
+const accountLinkageDevState = {
+  syncReady: false,
+  scenario: 'env-default',
+  updatedAt: new Date().toISOString()
+};
+
+const getEffectiveAccountLinkageDevState = () => ({
+  syncReady: Boolean(accountLinkageDevState.syncReady),
+  scenario: isNonEmptyString(accountLinkageDevState.scenario) ? accountLinkageDevState.scenario.trim() : 'manual',
+  updatedAt: accountLinkageDevState.updatedAt
+});
+
+const getAccountLinkageFoundationState = () => ({
+  identityProvider: 'overwolf-user-profile',
+  configured: true,
+  syncReady: getEffectiveAccountLinkageDevState().syncReady,
+  requiredForPremiumPersistence: true,
+  scopes: {
+    aiHistory: true,
+    progression: true,
+    weeklyReports: true
+  },
+  devState: getEffectiveAccountLinkageDevState(),
+  notes: [
+    'Premium persistence should be attached to a stable Overwolf user identity before production rollout.',
+    'Current local foundation does not persist premium history or reports across authenticated accounts.',
+    'Future production sync should link premium data to the authenticated Overwolf profile and entitlement state.'
+  ]
+});
+
+const getAiHistoryFoundationState = () => ({
+  persistence: 'local-client-foundation',
+  syncReady: false,
+  premiumRequired: true,
+  notes: [
+    'AI review history is currently stored locally on the client as a premium-ready foundation.',
+    'Server-side sync and account-linked history are not enabled yet.',
+    'Future production history should be attached to an authenticated Overwolf user identity.'
+  ]
+});
+
+const getEffectivePremiumCapabilitiesDevState = () => ({
+  progressionSyncReady: Boolean(premiumCapabilitiesDevState.progressionSyncReady),
+  weeklyReportsSyncReady: Boolean(premiumCapabilitiesDevState.weeklyReportsSyncReady),
+  scenario: isNonEmptyString(premiumCapabilitiesDevState.scenario) ? premiumCapabilitiesDevState.scenario.trim() : 'manual',
+  updatedAt: premiumCapabilitiesDevState.updatedAt
+});
+
+const getPremiumCapabilitiesFoundationState = () => ({
+  progression: {
+    configured: true,
+    persistence: 'local-client-foundation',
+    syncReady: getEffectivePremiumCapabilitiesDevState().progressionSyncReady,
+    premiumRequired: true
+  },
+  weeklyReports: {
+    configured: true,
+    persistence: 'local-client-foundation',
+    syncReady: getEffectivePremiumCapabilitiesDevState().weeklyReportsSyncReady,
+    premiumRequired: true
+  },
+  devState: getEffectivePremiumCapabilitiesDevState(),
+  notes: [
+    'Premium progression insights currently use local foundation scaffolding only.',
+    'Weekly reports currently use local foundation scaffolding only.',
+    'Production sync should be attached to authenticated Overwolf subscription identity before release.'
+  ]
+});
+
+const buildSubscriptionEntitlements = (plan) => ({
+  plan,
+  features: {
+    fullAiReview: true,
+    unlimitedAiReviews: plan === 'premium',
+    aiHistory: plan === 'premium',
+    progressionInsights: plan === 'premium',
+    weeklyReports: plan === 'premium'
+  }
+});
+
+const getEffectiveSubscriptionDevState = () => ({
+  plan: subscriptionDevState.plan === 'premium' ? 'premium' : 'free',
+  scenario: isNonEmptyString(subscriptionDevState.scenario) ? subscriptionDevState.scenario.trim() : 'manual',
+  updatedAt: subscriptionDevState.updatedAt
+});
+
+const getSubscriptionFoundationState = () => ({
+  provider: SUBSCRIPTION_PROVIDER,
+  integrationReady: Boolean(SUBSCRIPTION_STORE_ID) && Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
+  storeIdConfigured: Boolean(SUBSCRIPTION_STORE_ID),
+  premiumPlanConfigured: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
+  storeId: SUBSCRIPTION_STORE_ID || null,
+  premiumPlanId: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0 ? SUBSCRIPTION_PREMIUM_PLAN_ID : null,
+  devPlan: getEffectiveSubscriptionDevState().plan,
+  devScenario: getEffectiveSubscriptionDevState().scenario,
+  devStateUpdatedAt: getEffectiveSubscriptionDevState().updatedAt,
+  entitlements: buildSubscriptionEntitlements(getEffectiveSubscriptionDevState().plan),
+  notes: [
+    'Sensei GG plans to use the official Overwolf App Subscriptions API backed by Tebex.',
+    'Client purchase and active-plan checks should use Overwolf session token flow.',
+    'This local server currently exposes configuration and entitlement scaffolding for future integration.'
+  ]
+});
+
+const getSubscriptionDiagnosticsState = () => ({
+  provider: SUBSCRIPTION_PROVIDER,
+  integrationReady: Boolean(SUBSCRIPTION_STORE_ID) && Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
+  storeIdConfigured: Boolean(SUBSCRIPTION_STORE_ID),
+  premiumPlanConfigured: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
+  storeId: SUBSCRIPTION_STORE_ID || null,
+  premiumPlanId: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0 ? SUBSCRIPTION_PREMIUM_PLAN_ID : null,
+  devState: getEffectiveSubscriptionDevState(),
+  entitlements: buildSubscriptionEntitlements(getEffectiveSubscriptionDevState().plan),
+  overwolfTestReadiness: {
+    manifestProfileApiRequired: true,
+    storeConfigReady: Boolean(SUBSCRIPTION_STORE_ID),
+    premiumPlanReady: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
+    localScenarioSwitchingAvailable: true
+  },
+  notes: [
+    'Sensei GG plans to use the official Overwolf App Subscriptions API backed by Tebex.',
+    'Client purchase and active-plan checks should use Overwolf session token flow.',
+    'This local server currently exposes configuration and entitlement scaffolding for future integration.',
+    'Use POST /api/subscription/dev-state to switch local free/premium scenarios before real Overwolf store tests.'
+  ]
+});
+
+const getFoundationDiagnosticsState = () => {
+  const subscription = getSubscriptionDiagnosticsState();
+  const aiHistory = getAiHistoryFoundationState();
+  const premiumCapabilities = getPremiumCapabilitiesFoundationState();
+  const accountLinkage = getAccountLinkageFoundationState();
+
+  return {
+    subscription,
+    aiHistory,
+    premiumCapabilities,
+    accountLinkage,
+    readiness: {
+      subscriptionReady: Boolean(subscription.integrationReady),
+      accountLinkageSyncReady: Boolean(accountLinkage.syncReady),
+      aiHistorySyncReady: Boolean(aiHistory.syncReady),
+      progressionSyncReady: Boolean(premiumCapabilities.progression.syncReady),
+      weeklyReportsSyncReady: Boolean(premiumCapabilities.weeklyReports.syncReady)
+    },
+    notes: [
+      'This endpoint aggregates local foundation readiness for future Overwolf subscription test sessions.',
+      'Subscription integration readiness depends on real store and premium plan configuration.',
+      'Account-linked persistence requires authenticated Overwolf identity wiring before production sync can be enabled.',
+      'AI history, progression, and weekly reports remain local foundation scaffolding until production sync is implemented.'
+    ]
+  };
+};
+
+const foundationScenarioFixtures = {
+  'free-baseline': {
+    plan: 'free',
+    progressionSyncReady: false,
+    weeklyReportsSyncReady: false,
+    accountLinkageSyncReady: false,
+    scenario: 'free-baseline'
+  },
+  'premium-local-ready': {
+    plan: 'premium',
+    progressionSyncReady: true,
+    weeklyReportsSyncReady: true,
+    accountLinkageSyncReady: false,
+    scenario: 'premium-local-ready'
+  },
+  'premium-account-linked': {
+    plan: 'premium',
+    progressionSyncReady: true,
+    weeklyReportsSyncReady: true,
+    accountLinkageSyncReady: true,
+    scenario: 'premium-account-linked'
+  },
+  'premium-partial-sync': {
+    plan: 'premium',
+    progressionSyncReady: true,
+    weeklyReportsSyncReady: false,
+    accountLinkageSyncReady: true,
+    scenario: 'premium-partial-sync'
+  }
+};
+
+const getFoundationScenarioFixtureCatalog = () => ({
+  fixtures: Object.entries(foundationScenarioFixtures).map(([name, value]) => ({
+    name,
+    plan: value.plan,
+    progressionSyncReady: value.progressionSyncReady,
+    weeklyReportsSyncReady: value.weeklyReportsSyncReady,
+    accountLinkageSyncReady: value.accountLinkageSyncReady,
+    scenario: value.scenario
+  })),
+  notes: [
+    'Named fixtures are intended for local Overwolf subscription test sessions.',
+    'Fixtures only affect local foundation scaffolding and do not represent live store state.'
+  ]
+});
+
+const applyFoundationScenarioFixture = (body) => {
+  const presetName = isNonEmptyString(body?.preset) ? body.preset.trim() : null;
+  const preset = presetName && Object.prototype.hasOwnProperty.call(foundationScenarioFixtures, presetName)
+    ? foundationScenarioFixtures[presetName]
+    : null;
+  const source = preset ?? body;
+  const resolvedPlan = source?.plan === 'premium' ? 'premium' : 'free';
+  const scenario = isNonEmptyString(source?.scenario) ? source.scenario.trim() : 'fixture-override';
+  const updatedAt = new Date().toISOString();
+
+  subscriptionDevState.plan = resolvedPlan;
+  subscriptionDevState.scenario = scenario;
+  subscriptionDevState.updatedAt = updatedAt;
+
+  premiumCapabilitiesDevState.progressionSyncReady = source?.progressionSyncReady === true;
+  premiumCapabilitiesDevState.weeklyReportsSyncReady = source?.weeklyReportsSyncReady === true;
+  premiumCapabilitiesDevState.scenario = scenario;
+  premiumCapabilitiesDevState.updatedAt = updatedAt;
+
+  accountLinkageDevState.syncReady = source?.accountLinkageSyncReady === true;
+  accountLinkageDevState.scenario = scenario;
+  accountLinkageDevState.updatedAt = updatedAt;
+
+  return {
+    ok: true,
+    preset: presetName,
+    scenario,
+    plan: resolvedPlan,
+    progressionSyncReady: premiumCapabilitiesDevState.progressionSyncReady,
+    weeklyReportsSyncReady: premiumCapabilitiesDevState.weeklyReportsSyncReady,
+    accountLinkageSyncReady: accountLinkageDevState.syncReady,
+    updatedAt,
+    diagnostics: getFoundationDiagnosticsState()
+  };
+};
+
+const resetFoundationScenarioFixture = () => {
+  const updatedAt = new Date().toISOString();
+
+  subscriptionDevState.plan = SUBSCRIPTION_DEV_PLAN;
+  subscriptionDevState.scenario = 'env-default';
+  subscriptionDevState.updatedAt = updatedAt;
+
+  premiumCapabilitiesDevState.progressionSyncReady = false;
+  premiumCapabilitiesDevState.weeklyReportsSyncReady = false;
+  premiumCapabilitiesDevState.scenario = 'env-default';
+  premiumCapabilitiesDevState.updatedAt = updatedAt;
+
+  accountLinkageDevState.syncReady = false;
+  accountLinkageDevState.scenario = 'env-default';
+  accountLinkageDevState.updatedAt = updatedAt;
+
+  return {
+    ok: true,
+    scenario: 'env-default',
+    plan: getEffectiveSubscriptionDevState().plan,
+    progressionSyncReady: false,
+    weeklyReportsSyncReady: false,
+    accountLinkageSyncReady: false,
+    updatedAt,
+    diagnostics: getFoundationDiagnosticsState()
+  };
+};
 
 const formatStructuredReview = ({ strength, risk, nextFocus, evidence }) => ({
   strength: strength.startsWith('Сильная сторона:') ? strength : `Сильная сторона: ${strength}`,
@@ -160,7 +441,7 @@ const sendJson = (res, statusCode, body) => {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
   });
   res.end(JSON.stringify(body));
@@ -355,7 +636,187 @@ const server = http.createServer(async (req, res) => {
       providerConfigured: Boolean(API_KEY),
       model: MODEL,
       openRouterConfigured: Boolean(OPENROUTER_API_KEY),
-      openRouterModel: OPENROUTER_MODEL
+      openRouterModel: OPENROUTER_MODEL,
+      subscriptions: {
+        provider: SUBSCRIPTION_PROVIDER,
+        storeIdConfigured: Boolean(SUBSCRIPTION_STORE_ID),
+        premiumPlanConfigured: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
+        devPlan: getEffectiveSubscriptionDevState().plan,
+        devScenario: getEffectiveSubscriptionDevState().scenario
+      },
+      aiHistory: {
+        persistence: getAiHistoryFoundationState().persistence,
+        syncReady: getAiHistoryFoundationState().syncReady,
+        premiumRequired: getAiHistoryFoundationState().premiumRequired
+      },
+      premiumCapabilities: {
+        progressionSyncReady: getEffectivePremiumCapabilitiesDevState().progressionSyncReady,
+        weeklyReportsSyncReady: getEffectivePremiumCapabilitiesDevState().weeklyReportsSyncReady,
+        scenario: getEffectivePremiumCapabilitiesDevState().scenario
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/config') {
+    sendJson(res, 200, getSubscriptionFoundationState());
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/entitlements') {
+    sendJson(res, 200, {
+      ok: true,
+      source: 'local-dev-foundation',
+      ...buildSubscriptionEntitlements(getEffectiveSubscriptionDevState().plan)
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/dev-state') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getEffectiveSubscriptionDevState(),
+      entitlements: buildSubscriptionEntitlements(getEffectiveSubscriptionDevState().plan)
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/subscription/dev-state') {
+    try {
+      const body = await readJsonBody(req);
+      const plan = body?.plan === 'premium' ? 'premium' : 'free';
+      const scenario = isNonEmptyString(body?.scenario) ? body.scenario.trim() : 'manual-override';
+
+      subscriptionDevState.plan = plan;
+      subscriptionDevState.scenario = scenario;
+      subscriptionDevState.updatedAt = new Date().toISOString();
+
+      sendJson(res, 200, {
+        ok: true,
+        ...getEffectiveSubscriptionDevState(),
+        entitlements: buildSubscriptionEntitlements(getEffectiveSubscriptionDevState().plan)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid dev subscription state payload';
+      sendJson(res, 400, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && req.url === '/api/subscription/dev-state') {
+    subscriptionDevState.plan = SUBSCRIPTION_DEV_PLAN;
+    subscriptionDevState.scenario = 'env-default';
+    subscriptionDevState.updatedAt = new Date().toISOString();
+
+    sendJson(res, 200, {
+      ok: true,
+      ...getEffectiveSubscriptionDevState(),
+      entitlements: buildSubscriptionEntitlements(getEffectiveSubscriptionDevState().plan)
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/diagnostics') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getSubscriptionDiagnosticsState()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/foundation-diagnostics') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getFoundationDiagnosticsState()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/foundation-fixtures') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getFoundationScenarioFixtureCatalog()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/premium-persistence/config') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getAccountLinkageFoundationState()
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/subscription/foundation-fixture') {
+    try {
+      const body = await readJsonBody(req);
+      sendJson(res, 200, applyFoundationScenarioFixture(body));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid foundation fixture payload';
+      sendJson(res, 400, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && req.url === '/api/subscription/foundation-fixture') {
+    sendJson(res, 200, resetFoundationScenarioFixture());
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/review-history/config') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getAiHistoryFoundationState()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/premium-capabilities/config') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getPremiumCapabilitiesFoundationState()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/premium-capabilities/dev-state') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getEffectivePremiumCapabilitiesDevState()
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/premium-capabilities/dev-state') {
+    try {
+      const body = await readJsonBody(req);
+
+      premiumCapabilitiesDevState.progressionSyncReady = body?.progressionSyncReady === true;
+      premiumCapabilitiesDevState.weeklyReportsSyncReady = body?.weeklyReportsSyncReady === true;
+      premiumCapabilitiesDevState.scenario = isNonEmptyString(body?.scenario) ? body.scenario.trim() : 'manual-override';
+      premiumCapabilitiesDevState.updatedAt = new Date().toISOString();
+
+      sendJson(res, 200, {
+        ok: true,
+        ...getEffectivePremiumCapabilitiesDevState()
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid premium capabilities dev state payload';
+      sendJson(res, 400, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && req.url === '/api/premium-capabilities/dev-state') {
+    premiumCapabilitiesDevState.progressionSyncReady = false;
+    premiumCapabilitiesDevState.weeklyReportsSyncReady = false;
+    premiumCapabilitiesDevState.scenario = 'env-default';
+    premiumCapabilitiesDevState.updatedAt = new Date().toISOString();
+
+    sendJson(res, 200, {
+      ok: true,
+      ...getEffectivePremiumCapabilitiesDevState()
     });
     return;
   }
@@ -421,4 +882,8 @@ server.listen(PORT, HOST, () => {
   console.log(`Sensei AI review server listening on http://${HOST}:${PORT}`);
   console.log(`Primary provider configured: ${API_KEY ? 'yes' : 'no'}`);
   console.log(`OpenRouter backup configured: ${OPENROUTER_API_KEY ? 'yes' : 'no'}`);
+  console.log(`Subscription provider: ${SUBSCRIPTION_PROVIDER}`);
+  console.log(`Subscription store configured: ${SUBSCRIPTION_STORE_ID ? 'yes' : 'no'}`);
+  console.log(`Premium plan configured: ${Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0 ? 'yes' : 'no'}`);
+  console.log(`Subscription dev plan: ${SUBSCRIPTION_DEV_PLAN}`);
 });

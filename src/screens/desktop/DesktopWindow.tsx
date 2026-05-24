@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch, RootState } from '../../store';
 import { startGame, mutateStats, endGame, resetGame, setAiLoading, setAiAdvice, setAiReview } from '../../store/gameSlice';
+import { appendAiHistoryEntry, hydrateAiHistoryEntries } from '../../store/aiHistorySlice';
+import { consumeAiReview, resetPurchaseFlowState } from '../../store/subscriptionSlice';
 import { ProfileScreen } from '../profile/ProfileScreen';
 import { SettingsScreen } from '../settings/SettingsScreen';
 import { MatchScreen } from '../match/MatchScreen';
@@ -11,6 +13,14 @@ import { DevSimulationPanel } from '../../components/DevSimulationPanel';
 import { createReviewModeScenario } from '../../services/mockLobby';
 import { getStoredWindowSizePreset, getWindowSizeOption, type WindowSizePreset } from '../../services/windowSize';
 import { requestPostGameAnalysis } from '../../services/aiReviewGateway';
+import { SENSEI_SEARCH_PLAYER_EVENT } from '../../services/appCommands';
+import { appendAiReviewHistoryEntry, buildAiReviewHistoryEntry, getStoredAiReviewHistory } from '../../services/aiReviewHistoryStorage';
+import {
+  bootstrapSubscriptionFoundation,
+  getSubscriptionPurchaseFlowSnapshot,
+  runSubscriptionPurchaseFlow,
+  syncSubscriptionRuntime
+} from '../../services/subscriptionFoundation';
 
 const getAiSourceMeta = (source: 'provider' | 'local-server-fallback' | 'local-client-fallback') => {
   switch (source) {
@@ -58,11 +68,13 @@ const DESIGN_HEIGHT = 900;
 
 export function DesktopWindow() {
   const dispatch = useDispatch<AppDispatch>();
+  const subscription = useSelector((state: RootState) => state.subscription);
   
   const { aiAdvice, aiReview, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
     (state: RootState) => state.game
   );
   const { isInLobby, phase, players } = useSelector((state: RootState) => state.lobby);
+  const { aiReviewsUsedThisWeek, aiReviewWeeklyLimit, hasUnlimitedAiReviews, hasAiHistoryAccess } = useSelector((state: RootState) => state.subscription);
 
   const [activeTab, setActiveTab] = useState<'match' | 'profile' | 'ai' | 'settings'>('match');
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
@@ -82,6 +94,20 @@ export function DesktopWindow() {
   }, []);
 
   useOverwolfBridge(handleBridgeGameStart);
+
+  const syncSubscriptionState = useCallback(async () => {
+    await syncSubscriptionRuntime({
+      dispatch,
+      purchaseFlow: getSubscriptionPurchaseFlowSnapshot(subscription)
+    });
+  }, [dispatch, subscription.purchaseFlowCompletedAt, subscription.purchaseFlowError, subscription.purchaseFlowInProgress, subscription.purchaseFlowStartedAt, subscription.purchaseFlowStatus]);
+
+  const runPremiumUnlockFlow = useCallback(async () => {
+    await runSubscriptionPurchaseFlow({
+      dispatch,
+      syncSubscriptionState
+    });
+  }, [dispatch, syncSubscriptionState]);
 
   const handleSimulatePhase = (nextPhase: LobbyPhase) => {
     dispatch(setLobbyPhase(nextPhase));
@@ -169,8 +195,8 @@ export function DesktopWindow() {
     const handleSearchPlayer = () => {
       setActiveTab('profile');
     };
-    window.addEventListener('sensei-search-player', handleSearchPlayer);
-    return () => window.removeEventListener('sensei-search-player', handleSearchPlayer);
+    window.addEventListener(SENSEI_SEARCH_PLAYER_EVENT, handleSearchPlayer);
+    return () => window.removeEventListener(SENSEI_SEARCH_PLAYER_EVENT, handleSearchPlayer);
   }, []);
 
   useEffect(() => {
@@ -198,7 +224,25 @@ export function DesktopWindow() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    dispatch(hydrateAiHistoryEntries(getStoredAiReviewHistory()));
+  }, [dispatch]);
+
+  useEffect(() => {
+    return bootstrapSubscriptionFoundation({
+      dispatch,
+      syncSubscriptionState,
+      runPremiumUnlockFlow,
+      resetPurchaseFlowState
+    });
+  }, [dispatch, runPremiumUnlockFlow, syncSubscriptionState]);
+
   const handleGeneratePostGameAnalysis = () => {
+    if (!showDevPanel && !hasUnlimitedAiReviews && aiReviewsUsedThisWeek >= aiReviewWeeklyLimit) {
+      dispatch(setAiAdvice(`Бесплатный лимит AI-разборов на эту неделю исчерпан. Сейчас доступно ${aiReviewWeeklyLimit} полных разбора в неделю. Premium откроет полный AI-разбор без лимита, историю review и weekly insights.`));
+      return;
+    }
+
     dispatch(setAiLoading(true));
 
     window.setTimeout(async () => {
@@ -220,6 +264,25 @@ export function DesktopWindow() {
         });
 
       dispatch(setAiReview(review));
+      if (hasAiHistoryAccess && lastCompletedMatch) {
+        const historyEntry = buildAiReviewHistoryEntry({
+          match: lastCompletedMatch,
+          review,
+          reviewMode: showDevPanel
+        });
+
+        appendAiReviewHistoryEntry({
+          match: lastCompletedMatch,
+          review,
+          reviewMode: showDevPanel
+        });
+
+        dispatch(appendAiHistoryEntry(historyEntry));
+      }
+
+      if (!showDevPanel && !hasUnlimitedAiReviews) {
+        dispatch(consumeAiReview());
+      }
     }, 350);
   };
 

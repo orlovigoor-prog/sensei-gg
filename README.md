@@ -89,11 +89,17 @@ npm run dev
 # set AI_OPENROUTER_API_KEY=your_openrouter_key
 # set AI_OPENROUTER_MODEL=deepseek/deepseek-v4-flash:free
 # set VITE_AI_REVIEW_ENDPOINT=http://127.0.0.1:8787/api/review
+# set OVERWOLF_SUBSCRIPTION_STORE_ID=your_store_id
+# set OVERWOLF_SUBSCRIPTION_PREMIUM_PLAN_ID=12345
+# set SUBSCRIPTION_DEV_PLAN=free
 # npm run ai:server
 
 # По умолчанию локальный server уже умеет читать AI_PROVIDER_* из .env
 # и может работать с DeepSeek через https://api.deepseek.com/chat/completions
 # Если основной provider недоступен, server может уйти в backup через OpenRouter
+# Для подготовки monetization layer сервер также умеет отдавать subscription foundation endpoints:
+# - http://127.0.0.1:8787/api/subscription/config
+# - http://127.0.0.1:8787/api/subscription/entitlements
 
 # Соберите для production
 npm run build
