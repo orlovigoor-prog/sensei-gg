@@ -4,6 +4,17 @@ import { useState } from 'react';
 import type { PlayerInfo } from '../../store/lobbySlice';
 import type { CompletedMatchSummary, StructuredAiReview } from '../../store/gameSlice';
 import { getRankColor, getRankIconUrl } from '../../services/rankAssets';
+import {
+  getChampionCatalogEntry,
+  getChampionIconUrl,
+  getItemCatalogEntry,
+  getItemIconUrl,
+  getRecommendedItemBuild,
+  getSummonerSpellIconUrl,
+  mockCounterPool,
+  patchTierVisuals,
+  summonerSpellPool
+} from '../../services/gameData';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
 
@@ -65,21 +76,21 @@ const getAiSourceMeta = (source: StructuredAiReview['source']) => {
   switch (source) {
     case 'provider':
       return {
-        label: 'DeepSeek',
+        label: 'Основной AI',
         color: '#10b981',
         border: 'rgba(16, 185, 129, 0.32)',
         background: 'rgba(16, 185, 129, 0.12)'
       };
     case 'local-server-fallback':
       return {
-        label: 'Server Fallback',
+        label: 'Резервный сервер',
         color: '#f59e0b',
         border: 'rgba(245, 158, 11, 0.3)',
         background: 'rgba(245, 158, 11, 0.12)'
       };
     default:
       return {
-        label: 'Client Fallback',
+        label: 'Локальный резерв',
         color: '#60a5fa',
         border: 'rgba(96, 165, 250, 0.3)',
         background: 'rgba(96, 165, 250, 0.12)'
@@ -87,36 +98,102 @@ const getAiSourceMeta = (source: StructuredAiReview['source']) => {
   }
 };
 
-const mockCounterPool = [
-  'Malphite',
-  'Poppy',
-  'Irelia',
-  'Jax',
-  'Renekton',
-  'Trundle',
-  'Rammus',
-  'Morgana',
-  'Brand',
-  'Nautilus',
-  'Lissandra',
-  'Vex',
-  'Cassiopeia',
-  'Leona',
-  'Zyra'
-];
-
-const patchTierPalette: Record<string, string> = {
-  'S+': '#f59e0b',
-  S: '#10b981',
-  A: '#60a5fa',
-  B: '#c084fc'
-};
-
-const getChampionKey = (championName: string) => championName.replace(/[^A-Za-z0-9]/g, '');
-
-const getChampionIconUrl = (championName: string) => `https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/${getChampionKey(championName)}.png`;
+const aiInsightTone = [
+  {
+    label: 'Сильная сторона',
+    color: '#34d399',
+    background: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.2)'
+  },
+  {
+    label: 'Главный риск',
+    color: '#f59e0b',
+    background: 'rgba(245, 158, 11, 0.12)',
+    border: 'rgba(245, 158, 11, 0.2)'
+  },
+  {
+    label: 'Следующий фокус',
+    color: '#c084fc',
+    background: 'rgba(168, 85, 247, 0.12)',
+    border: 'rgba(168, 85, 247, 0.2)'
+  }
+] as const;
 
 const hashChampionName = (championName: string) => Array.from(championName).reduce((sum, char, index) => sum + (char.charCodeAt(0) * (index + 3)), 0);
+
+const getItemStatColor = (stat: string) => {
+  const normalized = stat.toLowerCase();
+
+  if (normalized.includes('силы атаки') || normalized.includes('шанса критического удара')) {
+    return '#f59e0b';
+  }
+
+  if (normalized.includes('силы умений') || normalized.includes('магического')) {
+    return '#60a5fa';
+  }
+
+  if (normalized.includes('брони') || normalized.includes('сопротивления магии')) {
+    return '#fca5a5';
+  }
+
+  if (normalized.includes('здоровья')) {
+    return '#34d399';
+  }
+
+  if (normalized.includes('ускорения умений') || normalized.includes('восстановления маны')) {
+    return '#c4b5fd';
+  }
+
+  if (normalized.includes('скорости атаки') || normalized.includes('скорости передвижения')) {
+    return '#fcd34d';
+  }
+
+  if (normalized.includes('вампиризма')) {
+    return '#fb7185';
+  }
+
+  return '#f9fafb';
+};
+
+const getItemStatMarker = (stat: string) => {
+  const normalized = stat.toLowerCase();
+
+  if (normalized.includes('силы атаки')) return 'AD';
+  if (normalized.includes('силы умений')) return 'AP';
+  if (normalized.includes('шанса критического удара')) return 'CRIT';
+  if (normalized.includes('брони')) return 'AR';
+  if (normalized.includes('сопротивления магии')) return 'MR';
+  if (normalized.includes('здоровья')) return 'HP';
+  if (normalized.includes('ускорения умений')) return 'AH';
+  if (normalized.includes('восстановления маны')) return 'MP';
+  if (normalized.includes('скорости атаки')) return 'AS';
+  if (normalized.includes('скорости передвижения')) return 'MS';
+  if (normalized.includes('вампиризма')) return 'LS';
+
+  return 'STAT';
+};
+
+interface MockPostGameLoadout {
+  role: PlayerInfo['mainRole'];
+  build: ReturnType<typeof getRecommendedItemBuild>;
+  spells: number[];
+  items: number[];
+}
+
+const getMockPostGameLoadout = (championName: string, role: PlayerInfo['mainRole']): MockPostGameLoadout => {
+  const seed = hashChampionName(`${championName}-${role}`);
+  const build = getRecommendedItemBuild(championName, role);
+
+  return {
+    role,
+    build,
+    spells: [
+      summonerSpellPool[seed % summonerSpellPool.length],
+      summonerSpellPool[(seed + 3) % summonerSpellPool.length]
+    ],
+    items: build?.items.slice(0, 5) ?? []
+  };
+};
 
 const getMockLobbyInsight = (championName: string): LobbyChampionInsight => {
   const seed = hashChampionName(championName || 'Aatrox');
@@ -141,51 +218,95 @@ const getMockLobbyInsight = (championName: string): LobbyChampionInsight => {
     counters: uniqueCounters,
     globalWinRate: Number((48.4 + (seed % 37) * 0.14).toFixed(1)),
     patchTier,
-    tierColor: patchTierPalette[patchTier]
+    tierColor: patchTierVisuals[patchTier]
   };
 };
 
 function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGamePlayerRowProps) {
   const latestMatch = player.recentMatches?.[0];
   const championName = latestMatch?.champion || 'Aatrox';
-  const championKey = championName.replace(/\s+/g, '');
-  const championIcon = `https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/${championKey}.png`;
+  const championIcon = getChampionIconUrl(championName);
+  const championMeta = getChampionCatalogEntry(championName);
   const kdaText = latestMatch?.kda || `${Math.max(1, Math.round(player.winRate / 10))} / ${Math.max(1, Math.round((100 - player.winRate) / 18))} / ${Math.max(2, Math.round(player.wins / 12))}`;
-  const rankLabel = player.lp ? `${player.tier} ${player.lp} LP` : player.tier;
+  const totalGames = player.wins + player.losses;
+  const loadout = getMockPostGameLoadout(championName, player.mainRole);
+  const buildLabel = loadout.build?.name;
+  const csEstimate = Math.max(24, Math.round((latestMatch?.k ?? 0) * 11 + (latestMatch?.a ?? 0) * 4 + player.winRate));
+  const isDemoProfile = player.summonerName === 'DemoProfilePlayer';
+  const [hoveredItemId, setHoveredItemId] = useState<number | null>(null);
+  const hoveredItem = hoveredItemId !== null ? getItemCatalogEntry(hoveredItemId) : null;
 
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: '40px minmax(0, 1fr) auto',
+      gridTemplateColumns: '52px minmax(0, 1fr) 58px 84px 112px',
       gap: '8px',
       alignItems: 'center',
-      padding: '7px 9px',
+      padding: '8px 9px',
+      minHeight: '74px',
       borderRadius: '10px',
-      background: isWinner ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 19, 26, 0.72))' : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(15, 19, 26, 0.72))',
-      border: `1px solid ${isWinner ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.24)'}`
+      background: isDemoProfile
+        ? 'linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(15, 19, 26, 0.8))'
+        : isWinner
+          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 19, 26, 0.72))'
+          : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(15, 19, 26, 0.72))',
+      border: `1px solid ${isDemoProfile ? 'rgba(34, 211, 238, 0.36)' : isWinner ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.24)'}`,
+      boxShadow: isDemoProfile ? 'inset 0 0 0 1px rgba(125, 211, 252, 0.14)' : 'none'
     }}>
-      <img
-        src={championIcon}
-        alt={championName}
-        onError={(e) => {
-          (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/Aatrox.png';
-        }}
-        style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}
-      />
+      <div style={{ display: 'grid', gridTemplateColumns: '34px 14px', gap: '4px', alignItems: 'center' }}>
+        <img
+          src={championIcon}
+          alt={championName}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = getChampionIconUrl('Aatrox');
+          }}
+          style={{ width: '34px', height: '34px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}
+        />
+        <div style={{ display: 'grid', gap: '3px' }}>
+          {loadout.spells.map((spellId) => (
+              <img
+                key={`${displayName}-spell-${spellId}`}
+                src={getSummonerSpellIconUrl(spellId)}
+                alt={`spell-${spellId}`}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+              }}
+              style={{ width: '14px', height: '14px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+            />
+          ))}
+        </div>
+      </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ marginBottom: '2px' }}>
-          <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {displayName}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+            <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {displayName}
+            </div>
+            {isDemoProfile && (
+              <span style={{
+                padding: '2px 6px',
+                borderRadius: '999px',
+                background: 'rgba(34, 211, 238, 0.12)',
+                border: '1px solid rgba(34, 211, 238, 0.28)',
+                color: '#67e8f9',
+                fontSize: '8px',
+                fontWeight: 'bold',
+                letterSpacing: '0.05em',
+                flexShrink: 0
+              }}>
+                YOU
+              </span>
+            )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '3px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px', minWidth: 0 }}>
           <span style={{
-            padding: '1px 5px',
+            padding: '2px 6px',
             borderRadius: '999px',
             background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid rgba(255, 255, 255, 0.06)',
             color: '#d1d5db',
-            fontSize: '8px',
+            fontSize: '9px',
             fontWeight: 'bold',
             letterSpacing: '0.05em',
             flexShrink: 0
@@ -193,18 +314,184 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGam
             {laneLabel}
           </span>
           <div style={{ color: '#9ca3af', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {championName} · {rankLabel}
+            {championName}{championMeta ? ` · ${championMeta.tags[0]}` : ''}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', fontSize: '8px' }}>
-          <span style={{ color: '#d1d5db' }}>{kdaText}</span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '9px' }}>
           <span style={{ color: '#9ca3af' }}>{player.winRate}% WR</span>
-          <span style={{ color: '#9ca3af' }}>{player.wins + player.losses} игр</span>
+          <span style={{ color: '#9ca3af' }}>{totalGames} игр</span>
+          {buildLabel && (
+            <span style={{ color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+              {buildLabel}
+            </span>
+          )}
+        </div>
+        <div style={{ color: '#6b7280', fontSize: '8px', lineHeight: 1.3, marginTop: '3px' }}>
+          {player.tier} • {player.wins}W / {player.losses}L
         </div>
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ color: getRankColor(player.tier), fontWeight: 'bold', fontSize: '9px' }}>{player.lp}</div>
-        <div style={{ color: '#6b7280', fontSize: '8px' }}>LP</div>
+      <div style={{
+        textAlign: 'right',
+        alignSelf: 'center'
+      }}>
+        <div style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '13px', lineHeight: 1.1, marginBottom: '4px' }}>
+          {csEstimate}
+        </div>
+        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.05em' }}>
+          CS
+        </div>
+      </div>
+      <div style={{
+        textAlign: 'right',
+        alignSelf: 'center'
+      }}>
+        <div style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', lineHeight: 1.1, marginBottom: '4px' }}>
+          {kdaText}
+        </div>
+        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.05em' }}>
+          K / D / A
+        </div>
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 22px)',
+        gap: '5px',
+        alignContent: 'center',
+        justifyContent: 'end',
+        minWidth: '76px',
+        position: 'relative'
+      }}>
+        {loadout.items.map((itemId) => {
+          const item = getItemCatalogEntry(itemId);
+
+          return (
+            <div
+              key={`${displayName}-item-${itemId}`}
+              onMouseEnter={() => setHoveredItemId(itemId)}
+              onMouseLeave={() => setHoveredItemId((current) => current === itemId ? null : current)}
+              style={{ position: 'relative' }}
+            >
+              <img
+                src={getItemIconUrl(itemId)}
+                alt={item?.name ?? `item-${itemId}`}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+                style={{ width: '22px', height: '22px', borderRadius: '5px', border: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(255, 255, 255, 0.04)', display: 'block', cursor: 'help' }}
+              />
+            </div>
+          );
+        })}
+        {hoveredItem && (
+          <div style={{
+            position: 'absolute',
+            right: '-6px',
+            bottom: 'calc(100% + 10px)',
+            width: '260px',
+            padding: '10px 12px',
+            borderRadius: '12px',
+            background: 'linear-gradient(180deg, rgba(7, 10, 18, 0.98), rgba(3, 5, 10, 0.98))',
+            border: '1px solid rgba(250, 204, 21, 0.24)',
+            boxShadow: '0 18px 36px rgba(0, 0, 0, 0.45)',
+            zIndex: 5,
+            pointerEvents: 'none'
+          }}>
+            <div style={{ color: '#facc15', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px', lineHeight: 1.2 }}>
+              {hoveredItem.name}
+            </div>
+            {hoveredItem.shortStats?.length ? (
+              <div style={{ display: 'grid', gap: '3px', marginBottom: '10px' }}>
+                {hoveredItem.shortStats.map((stat) => (
+                  <div key={stat} style={{ display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr)', gap: '7px', alignItems: 'start' }}>
+                    <span style={{
+                      color: getItemStatColor(stat),
+                      fontSize: '8px',
+                      lineHeight: 1,
+                      fontWeight: 'bold',
+                      padding: '4px 0',
+                      borderRadius: '999px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: `1px solid ${getItemStatColor(stat)}33`,
+                      textAlign: 'center',
+                      letterSpacing: '0.03em'
+                    }}>
+                      {getItemStatMarker(stat)}
+                    </span>
+                    <div style={{ color: getItemStatColor(stat), fontSize: '11px', lineHeight: 1.35, fontWeight: 600 }}>
+                      {stat}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginBottom: '10px', color: '#d1d5db', fontSize: '11px', lineHeight: 1.45 }}>
+                Базовый командный предмет из demo-каталога. Подробные live-статы здесь пока не подключены.
+              </div>
+            )}
+            {hoveredItem.passiveTitle && hoveredItem.passiveText && (
+              <div style={{
+                marginBottom: '10px',
+                padding: '8px 9px',
+                borderRadius: '9px',
+                background: 'rgba(250, 204, 21, 0.08)',
+                border: '1px solid rgba(250, 204, 21, 0.16)'
+              }}>
+                <div style={{ color: '#fde68a', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.05em', marginBottom: '5px', textTransform: 'uppercase' }}>
+                  {hoveredItem.passiveTitle}
+                </div>
+                <div style={{ color: '#e5e7eb', fontSize: '11px', lineHeight: 1.45 }}>
+                  {hoveredItem.passiveText}
+                </div>
+              </div>
+            )}
+            {!hoveredItem.passiveTitle && !hoveredItem.passiveText && hoveredItem.tags.length > 0 && (
+              <div style={{
+                marginBottom: '10px',
+                padding: '8px 9px',
+                borderRadius: '9px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: '#d1d5db',
+                fontSize: '11px',
+                lineHeight: 1.45
+              }}>
+                Этот предмет чаще всего используется в профиле: {hoveredItem.tags.join(', ')}.
+              </div>
+            )}
+            {(hoveredItem.totalCost || hoveredItem.combineCost) && (
+              <div style={{
+                margin: '0 -12px -10px',
+                padding: '8px 12px',
+                borderTop: '1px solid rgba(250, 204, 21, 0.14)',
+                background: 'rgba(245, 158, 11, 0.07)',
+                borderBottomLeftRadius: '12px',
+                borderBottomRightRadius: '12px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '8px',
+                alignItems: 'center'
+              }}>
+                <span style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+                  СТОИМОСТЬ
+                </span>
+                <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 'bold' }}>
+                  {hoveredItem.totalCost ?? '-'}{hoveredItem.combineCost ? ` (${hoveredItem.combineCost})` : ''}
+                </span>
+              </div>
+            )}
+            <div style={{
+              position: 'absolute',
+              right: '22px',
+              top: '100%',
+              width: '10px',
+              height: '10px',
+              background: 'rgba(3, 5, 10, 0.98)',
+              borderRight: '1px solid rgba(250, 204, 21, 0.24)',
+              borderBottom: '1px solid rgba(250, 204, 21, 0.24)',
+              transform: 'translateY(-5px) rotate(45deg)'
+            }} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -632,19 +919,31 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
   const reviewNotice = reviewMode
     ? 'Состав, сигналы и постматч-сводка ниже запущены через Review Mode и показывают демонстрационный сценарий интерфейса.'
     : null;
+  const lobbyComplianceNotice = lobbyState.phase === 'champ-select'
+    ? isRankedSoloDuoChampSelect
+      ? 'В Ranked Solo/Duo имена непартийных союзников скрыты, lookup для них отключен, а сигналы ниже остаются нейтральными и без live-коучинга.'
+      : 'Лобби-экран показывает только нейтральные сигналы и не дает live-команд во время матча.'
+    : null;
 
   if (lobbyState.phase === 'post-game') {
+    const completedDurationLabel = lastCompletedMatch?.gameDurationSeconds !== null && lastCompletedMatch?.gameDurationSeconds !== undefined
+      ? `${Math.floor(lastCompletedMatch.gameDurationSeconds / 60)}:${Math.round(lastCompletedMatch.gameDurationSeconds % 60).toString().padStart(2, '0')}`
+      : null;
+    const allyScoreLine = `${allies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.k ?? 0), 0)} / ${allies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.d ?? 0), 0)} / ${allies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.a ?? 0), 0)}`;
+    const enemyScoreLine = `${enemies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.k ?? 0), 0)} / ${enemies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.d ?? 0), 0)} / ${enemies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.a ?? 0), 0)}`;
+
     return (
       <div style={{
         padding: '8px',
         height: '100%',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         background: 'linear-gradient(180deg, rgba(8, 11, 18, 0.66), rgba(10, 14, 22, 0.5))',
         borderRadius: '14px',
         border: '1px solid rgba(31, 41, 55, 0.8)',
         boxSizing: 'border-box',
         display: 'grid',
-        gridTemplateRows: 'auto 1fr',
+        gridTemplateRows: 'auto auto',
         gap: '8px'
       }}>
         {reviewNotice && (
@@ -654,58 +953,130 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
           </div>
         )}
         <div style={{
+          padding: '12px',
+          borderRadius: '12px',
+          background: 'rgba(0, 0, 0, 0.28)',
+          border: '1px solid #1f2937',
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '8px'
+          gap: '10px'
         }}>
-          <div style={{ padding: '10px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(8, 11, 18, 0.42))', border: '1px solid rgba(16, 185, 129, 0.28)' }}>
-            <div style={{ color: '#10b981', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '4px' }}>ИТОГИ МАТЧА</div>
-            <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px', marginBottom: '3px' }}>Фокус на личном прогрессе</div>
-            <div style={{ color: '#9ca3af', fontSize: '11px', lineHeight: 1.4, marginBottom: '8px' }}>
-              Разбор строится вокруг твоей команды и безопасного AI-фидбека после завершения игры.
-            </div>
-            <div style={{
-              padding: '8px 10px',
-              borderRadius: '10px',
-              background: 'rgba(15, 19, 26, 0.55)',
-              border: '1px solid rgba(16, 185, 129, 0.18)'
-            }}>
-              <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Твой прогресс</div>
-              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>{progressSignal}</div>
-              <div style={{ color: '#9ca3af', fontSize: '10px', lineHeight: 1.35 }}>
-                Sensei GG подчеркивает сильную сторону, главный риск и один конкретный фокус на следующую игру.
-              </div>
-              {lastCompletedMatch && (
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                  <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
-                    {lastCompletedMatch.kills}/{lastCompletedMatch.deaths}/{lastCompletedMatch.assists}
-                  </span>
-                  <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
-                    {lastCompletedMatch.cs} CS
-                  </span>
-                  <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
-                    {lastCompletedMatch.championName}
-                  </span>
-                  {lastCompletedMatch.csPerMinute !== null && (
-                    <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
-                      {lastCompletedMatch.csPerMinute.toFixed(1)} CS/мин
-                    </span>
-                  )}
-                  {lastCompletedMatch.gameDurationSeconds !== null && (
-                    <span style={{ padding: '3px 7px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.05)', color: '#d1d5db', fontSize: '9px' }}>
-                      {Math.floor(lastCompletedMatch.gameDurationSeconds / 60)}:{Math.round(lastCompletedMatch.gameDurationSeconds % 60).toString().padStart(2, '0')}
-                    </span>
-                  )}
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '10px' }}>
+              <div>
+                <div style={{ color: allyTeamWon === false ? '#ef4444' : '#10b981', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '3px' }}>
+                  {allyTeamWon === true ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}
                 </div>
-              )}
+                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>
+                  {allyScoreLine}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: '#d1d5db', fontSize: '12px', fontWeight: 'bold', marginBottom: '3px' }}>Ранговая одиночная / парная</div>
+                <div style={{ color: '#9ca3af', fontSize: '11px' }}>{completedDurationLabel ?? 'Матч завершен'}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: allyTeamWon === true ? '#ef4444' : '#10b981', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '3px' }}>
+                  {allyTeamWon === true ? 'ПОРАЖЕНИЕ' : 'ПОБЕДА'}
+                </div>
+                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>
+                  {enemyScoreLine}
+                </div>
+              </div>
+            </div>
+
+            {lastCompletedMatch && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                gap: '8px'
+              }}>
+                {(() => {
+                  const reviewRole = allies.find((player) => player.recentMatches[0]?.champion === lastCompletedMatch.championName)?.mainRole ?? 'ADC';
+                  const reviewBuild = getRecommendedItemBuild(lastCompletedMatch.championName, reviewRole);
+
+                  return (
+                    <>
+                      <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.16)' }}>
+                        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>ТВОЙ ЧЕМПИОН</div>
+                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{lastCompletedMatch.championName}</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>ТВОЙ KDA</div>
+                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{lastCompletedMatch.kills}/{lastCompletedMatch.deaths}/{lastCompletedMatch.assists}</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>ЭКОНОМИКА</div>
+                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{lastCompletedMatch.cs} CS{lastCompletedMatch.csPerMinute !== null ? ` • ${lastCompletedMatch.csPerMinute.toFixed(1)}/мин` : ''}</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>СБОРКА</div>
+                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px', lineHeight: 1.35 }}>{reviewBuild?.name ?? 'Стандартный сетап'}</div>
+                      </div>
+                      <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>СИГНАЛ</div>
+                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px', lineHeight: 1.35 }}>{progressSignal}</div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto 58px 84px 112px',
+              gap: '8px',
+              alignItems: 'center',
+              padding: '6px 8px',
+              borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.05)'
+            }}>
+              <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em' }}>СОЮЗНИКИ</div>
+              <div style={{ color: '#9ca3af', fontSize: '8px', letterSpacing: '0.08em' }}>ЛИНИЯ</div>
+              <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', textAlign: 'right' }}>CS</div>
+              <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', textAlign: 'right' }}>KDA</div>
+              <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', textAlign: 'right' }}>ITEMS</div>
             </div>
           </div>
-          <div style={{ padding: '10px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.28)', minHeight: 0, display: 'grid', gridTemplateRows: 'auto auto auto 1fr', gap: '8px' }}>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gap: '8px', alignContent: 'start' }}>
+              {alliedByLane.map(({ lane, player, index }) => (
+                <PostGamePlayerRow
+                  key={`post-ally-${lane}`}
+                  player={player}
+                  displayName={getDisplayName(player, index, true)}
+                  isWinner={allyTeamWon !== false}
+                  laneLabel={laneLabels[lane]}
+                />
+              ))}
+            </div>
+            <div style={{ display: 'grid', gap: '8px', alignContent: 'start' }}>
+              {enemyByLane.map(({ lane, player, index }) => (
+                <PostGamePlayerRow
+                  key={`post-enemy-${lane}`}
+                  player={player}
+                  displayName={getDisplayName(player, index, false)}
+                  isWinner={allyTeamWon === false}
+                  laneLabel={laneLabels[lane]}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr',
+          gap: '8px'
+        }}>
+          <div style={{ padding: '12px', borderRadius: '14px', background: 'linear-gradient(180deg, rgba(76, 29, 149, 0.24), rgba(15, 19, 26, 0.92))', border: '1px solid rgba(168, 85, 247, 0.28)', minHeight: 0, display: 'grid', gridTemplateRows: 'auto auto auto 1fr', gap: '10px', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)' }}>
             <div>
-              <div style={{ color: '#c084fc', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '4px' }}>AI-РАЗБОР</div>
-              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '15px', marginBottom: '3px' }}>Как улучшить следующую игру</div>
-              <div style={{ color: '#9ca3af', fontSize: '11px', lineHeight: 1.4 }}>
-                Три коротких тезиса без лишнего шума.
+              <div style={{ color: '#c084fc', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.08em', marginBottom: '5px' }}>AI-РАЗБОР</div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px', marginBottom: '4px' }}>Что забрать в следующую игру</div>
+              <div style={{ color: '#c4b5fd', fontSize: '11px', lineHeight: 1.45, maxWidth: '420px' }}>
+                Короткая сводка по завершенному матчу: что уже получилось, где просел темп и какой один акцент брать дальше.
               </div>
               {aiSourceMeta && (
                 <div style={{ marginTop: '6px' }}>
@@ -715,24 +1086,31 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 </div>
               )}
             </div>
-            <div style={{ display: 'grid', gap: '6px' }}>
-              {aiInsightLines.length > 0 ? aiInsightLines.map((line) => (
-                <div
-                  key={line}
-                  style={{
-                    padding: '7px 9px',
-                    borderRadius: '10px',
-                    background: 'rgba(15, 19, 26, 0.54)',
-                    border: '1px solid rgba(168, 85, 247, 0.16)',
-                    color: '#d1d5db',
-                    fontSize: '10px',
-                    lineHeight: 1.35
-                  }}
-                >
-                  {line}
-                </div>
-              )) : (
-                <div style={{ padding: '7px 9px', borderRadius: '10px', background: 'rgba(15, 19, 26, 0.54)', border: '1px solid rgba(168, 85, 247, 0.16)', color: '#9ca3af', fontSize: '10px', lineHeight: 1.35 }}>
+            <div style={{ display: 'grid', gap: '7px' }}>
+              {aiInsightLines.length > 0 ? aiInsightLines.map((line, index) => {
+                const tone = aiInsightTone[index] ?? aiInsightTone[aiInsightTone.length - 1];
+
+                return (
+                  <div
+                    key={line}
+                    style={{
+                      padding: '9px 10px',
+                      borderRadius: '12px',
+                      background: tone.background,
+                      border: `1px solid ${tone.border}`,
+                      color: '#d1d5db',
+                      fontSize: '10px',
+                      lineHeight: 1.4
+                    }}
+                  >
+                    <div style={{ color: tone.color, fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.08em', marginBottom: '4px', textTransform: 'uppercase' }}>
+                      {tone.label}
+                    </div>
+                    <div>{line}</div>
+                  </div>
+                );
+              }) : (
+                <div style={{ padding: '9px 10px', borderRadius: '12px', background: 'rgba(15, 19, 26, 0.54)', border: '1px solid rgba(168, 85, 247, 0.16)', color: '#9ca3af', fontSize: '10px', lineHeight: 1.4 }}>
                   После генерации AI-разбора здесь появятся короткие тезисы: сильная сторона, главный риск и конкретный следующий фокус.
                 </div>
               )}
@@ -745,7 +1123,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 background: isLoadingAi ? 'rgba(168, 85, 247, 0.35)' : '#a855f7',
                 color: '#fff',
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 cursor: !onRequestAiAnalysis || isLoadingAi ? 'default' : 'pointer',
                 fontWeight: 'bold',
                 fontSize: '12px',
@@ -757,65 +1135,22 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
             <div style={{
               minHeight: 0,
               overflow: 'hidden',
-              padding: '10px',
-              borderRadius: '10px',
-              background: 'rgba(15, 19, 26, 0.72)',
-              border: '1px solid rgba(168, 85, 247, 0.22)',
+              padding: '11px 12px',
+              borderRadius: '12px',
+              background: 'rgba(9, 12, 20, 0.82)',
+              border: '1px solid rgba(168, 85, 247, 0.18)',
               color: '#d1d5db',
               fontSize: '11px',
               lineHeight: 1.45,
               whiteSpace: 'pre-line'
             }}>
+              <div style={{ color: '#8b5cf6', fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.08em', marginBottom: '5px' }}>КОНТЕКСТ РАЗБОРА</div>
               {aiDetailText || (aiInsightLines.length > 0
                 ? 'Разбор собран по итогам завершенного матча и опирается только на локальные метрики: KDA, CS и общий паттерн темпа.'
                 : 'После завершения матча здесь появятся три коротких тезиса: сильная сторона, главный риск и фокус на следующую игру.')}
             </div>
           </div>
         </div>
-
-        <div style={{ padding: '10px', borderRadius: '12px', background: 'rgba(0, 0, 0, 0.28)', border: '1px solid #1f2937', minHeight: 0, display: 'grid', gridTemplateRows: 'auto 1fr', gap: '6px' }}>
-          <div style={{ display: 'grid', gap: '6px' }}>
-            <div style={{ color: '#6b7280', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em' }}>СОСТАВ ПО ЛИНИЯМ</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '8px' }}>
-              <div style={{ color: allyTeamWon === false ? '#ef4444' : '#10b981', fontWeight: 'bold', fontSize: '11px' }}>{allyTeamWon === true ? 'Победа' : 'Поражение'}</div>
-              <div style={{
-                padding: '5px 9px',
-                borderRadius: '999px',
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(239, 68, 68, 0.12))',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#d1d5db',
-                fontSize: '9px',
-                fontWeight: 'bold',
-                letterSpacing: '0.08em'
-              }}>VS</div>
-              <div style={{ color: allyTeamWon === true ? '#ef4444' : '#10b981', fontWeight: 'bold', fontSize: '11px', textAlign: 'right' }}>{allyTeamWon === true ? 'Поражение' : 'Победа'}</div>
-            </div>
-          </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', minHeight: 0 }}>
-              <div style={{ display: 'grid', gap: '6px', alignContent: 'start' }}>
-                {alliedByLane.map(({ lane, player, index }) => (
-                  <PostGamePlayerRow
-                    key={`post-ally-${lane}`}
-                    player={player}
-                    displayName={getDisplayName(player, index, true)}
-                    isWinner={allyTeamWon !== false}
-                    laneLabel={laneLabels[lane]}
-                  />
-                ))}
-              </div>
-              <div style={{ display: 'grid', gap: '6px', alignContent: 'start' }}>
-                {enemyByLane.map(({ lane, player, index }) => (
-                  <PostGamePlayerRow
-                    key={`post-enemy-${lane}`}
-                    player={player}
-                    displayName={getDisplayName(player, index, false)}
-                    isWinner={allyTeamWon === false}
-                    laneLabel={laneLabels[lane]}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
       </div>
     );
   }
@@ -834,6 +1169,12 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
         <div style={{ marginBottom: '8px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', color: '#d1d5db', fontSize: '11px', lineHeight: 1.5 }}>
           <div style={{ color: '#fdba74', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '4px' }}>REVIEW MODE</div>
           {reviewNotice}
+        </div>
+      )}
+      {lobbyComplianceNotice && (
+        <div style={{ marginBottom: '8px', padding: '10px 12px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(96, 165, 250, 0.28)', color: '#dbeafe', fontSize: '11px', lineHeight: 1.5 }}>
+          <div style={{ color: '#93c5fd', fontSize: '9px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '4px' }}>SAFE LOBBY MODE</div>
+          {lobbyComplianceNotice}
         </div>
       )}
       {showKeySignals && (

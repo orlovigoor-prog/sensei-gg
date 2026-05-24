@@ -1,33 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { RankedStats, Summoner } from '../../services/riotApi';
 import { getRankIconUrl, type RankTier } from '../../services/rankAssets';
+import { getChampionIconUrl, getProfileIconUrl } from '../../services/gameData';
+import {
+  reviewModeChampionPool,
+  reviewModeRecentMatches,
+  reviewModeRoleStats,
+  reviewModeRankedStats,
+  reviewModeSummoner
+} from '../../services/mockLobby';
 
 type SearchRegion = 'ru' | 'euw' | 'eune' | 'tr' | 'na' | 'br' | 'la1' | 'la2' | 'kr' | 'jp';
 
 interface ProfileScreenProps {
   reviewMode?: boolean;
-}
-
-interface DemoChampionStat {
-  champion: string;
-  games: number;
-  winRate: number;
-  kda: string;
-  csPerMinute: number;
-}
-
-interface DemoRoleStat {
-  role: string;
-  games: number;
-  winRate: number;
-}
-
-interface DemoRecentMatch {
-  champion: string;
-  result: 'Победа' | 'Поражение';
-  kda: string;
-  cs: number;
-  duration: string;
 }
 
 const regionApiMap: Record<SearchRegion, string> = {
@@ -43,29 +29,6 @@ const regionApiMap: Record<SearchRegion, string> = {
   jp: 'asia'
 };
 
-const demoSummoner: Summoner = {
-  id: 'demo-summoner-id',
-  accountId: 'demo-account-id',
-  puuid: 'demo-puuid',
-  name: 'DemoProfilePlayer',
-  profileIconId: 4568,
-  revisionDate: Date.now(),
-  summonerLevel: 398
-};
-
-const demoRankedStats: RankedStats = {
-  queueType: 'RANKED_SOLO_5x5',
-  tier: 'EMERALD',
-  rank: 'II',
-  leaguePoints: 68,
-  wins: 122,
-  losses: 101,
-  hotStreak: true,
-  veteran: true,
-  freshBlood: false,
-  inactive: false
-};
-
 const unrankedStats: RankedStats = {
   queueType: 'RANKED_SOLO_5x5',
   tier: 'UNRANKED',
@@ -78,27 +41,6 @@ const unrankedStats: RankedStats = {
   freshBlood: false,
   inactive: false
 };
-
-const demoChampionPool: DemoChampionStat[] = [
-  { champion: 'Jinx', games: 44, winRate: 61.4, kda: '6.9 / 3.1 / 7.8', csPerMinute: 7.8 },
-  { champion: "Kai'Sa", games: 28, winRate: 57.1, kda: '7.1 / 3.8 / 6.9', csPerMinute: 7.3 },
-  { champion: 'Xayah', games: 19, winRate: 52.6, kda: '5.8 / 3.4 / 8.2', csPerMinute: 7.0 },
-  { champion: 'Ezreal', games: 16, winRate: 50.0, kda: '4.9 / 3.0 / 7.1', csPerMinute: 6.9 },
-  { champion: 'Ashe', games: 12, winRate: 58.3, kda: '4.4 / 3.7 / 10.1', csPerMinute: 6.6 }
-];
-
-const demoRoleStats: DemoRoleStat[] = [
-  { role: 'ADC', games: 104, winRate: 58.7 },
-  { role: 'SUPPORT', games: 21, winRate: 52.3 },
-  { role: 'MID', games: 11, winRate: 45.4 },
-  { role: 'TOP', games: 6, winRate: 50.0 }
-];
-
-const demoRecentMatches: DemoRecentMatch[] = [
-  { champion: 'Jinx', result: 'Победа', kda: '12 / 3 / 8', cs: 214, duration: '29:12' },
-  { champion: "Kai'Sa", result: 'Победа', kda: '9 / 2 / 6', cs: 201, duration: '27:05' },
-  { champion: 'Jinx', result: 'Поражение', kda: '4 / 6 / 5', cs: 186, duration: '31:44' }
-];
 
 const getTierAccent = (tier: string) => {
   const accents: Record<string, string> = {
@@ -115,17 +57,6 @@ const getTierAccent = (tier: string) => {
   };
 
   return accents[tier] || '#38bdf8';
-};
-
-const championAssetMap: Record<string, string> = {
-  "Kai'Sa": 'Kaisa',
-  KaiSa: 'Kaisa'
-};
-
-const getProfileIconUrl = (profileIconId: number) => `https://ddragon.leagueoflegends.com/cdn/14.10.1/img/profileicon/${profileIconId}.png`;
-const getChampionIconUrl = (champion: string) => {
-  const assetName = championAssetMap[champion] || champion.replace(/[^A-Za-z0-9]/g, '');
-  return `https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/${assetName}.png`;
 };
 
 export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
@@ -228,17 +159,17 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
   };
 
   const isDemoProfile = !summoner;
-  const profile = summoner || demoSummoner;
-  const profileRank = rankedStats || (summoner ? unrankedStats : demoRankedStats);
+  const profile = summoner || reviewModeSummoner;
+  const profileRank = rankedStats || (summoner ? unrankedStats : reviewModeRankedStats);
   const isUnrankedProfile = profileRank.tier === 'UNRANKED';
   const rankAccent = getTierAccent(profileRank.tier);
   const totalGames = profileRank.wins + profileRank.losses;
   const winRate = totalGames > 0 ? ((profileRank.wins / totalGames) * 100).toFixed(1) : '0.0';
 
-  const topChampion = useMemo(() => demoChampionPool[0], []);
+  const topChampion = reviewModeChampionPool[0];
 
   return (
-    <div style={{ padding: '10px', color: '#e0e6ed', height: '100%', overflow: 'auto' }}>
+    <div style={{ padding: '10px', color: '#e0e6ed', minHeight: '100%' }}>
       <div style={{ display: 'grid', gap: '14px' }}>
         <div style={{ background: '#161d2a', border: '1px solid #1f2937', borderRadius: '14px', padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start', marginBottom: '14px', flexWrap: 'wrap' }}>
@@ -374,7 +305,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                 <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '10px', letterSpacing: '0.06em' }}>ПОСЛЕДНИЕ МАТЧИ</div>
                 {isDemoProfile ? (
                   <div style={{ display: 'grid', gap: '10px' }}>
-                    {demoRecentMatches.map((match) => (
+                    {reviewModeRecentMatches.map((match) => (
                       <div key={`${match.champion}-${match.duration}`} style={{ display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
                         <img src={getChampionIconUrl(match.champion)} alt={match.champion} style={{ width: '44px', height: '44px', borderRadius: '10px' }} />
                         <div style={{ minWidth: 0 }}>
@@ -399,7 +330,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
               </div>
               {isDemoProfile ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
-                  {demoChampionPool.map((champion) => (
+                  {reviewModeChampionPool.map((champion) => (
                     <div key={champion.champion} style={{ display: 'grid', gridTemplateColumns: '48px minmax(0, 1fr) 80px', gap: '12px', alignItems: 'center', padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
                       <img src={getChampionIconUrl(champion.champion)} alt={champion.champion} style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
                       <div style={{ minWidth: 0 }}>
@@ -443,7 +374,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                 <div style={{ background: '#0f131a', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px' }}>
                   <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '10px', letterSpacing: '0.06em' }}>РОЛИ И ТЕМП</div>
                   <div style={{ display: 'grid', gap: '10px' }}>
-                    {demoRoleStats.map((role) => (
+                    {reviewModeRoleStats.map((role) => (
                       <div key={role.role}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '5px' }}>
                           <span style={{ color: '#d1d5db', fontSize: '12px', fontWeight: 'bold' }}>{role.role}</span>

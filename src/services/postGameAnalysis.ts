@@ -1,6 +1,7 @@
 import type { CompletedMatchSummary } from '../store/gameSlice';
 import type { PlayerInfo } from '../store/lobbySlice';
 import type { StructuredAiReview } from '../store/gameSlice';
+import { getChampionCatalogEntry } from './gameData';
 
 interface PostGameAnalysisContext {
   lastCompletedMatch: CompletedMatchSummary;
@@ -95,6 +96,111 @@ const getLanePressureCallout = (allies: PlayerInfo[], enemies: PlayerInfo[]) => 
   return null;
 };
 
+const getRoleLabel = (role: PlayerInfo['mainRole']) => {
+  switch (role) {
+    case 'TOP':
+      return 'топ';
+    case 'JUNGLE':
+      return 'лес';
+    case 'MID':
+      return 'мид';
+    case 'ADC':
+      return 'бот';
+    default:
+      return 'саппорт';
+  }
+};
+
+const getChampionArchetype = (championName: string, role: PlayerInfo['mainRole']) => {
+  const champion = getChampionCatalogEntry(championName);
+  const tags = champion?.tags ?? [];
+
+  if (tags.includes('utility') || tags.includes('enchanter') || tags.includes('control') || tags.includes('map-play')) {
+    return 'utility';
+  }
+
+  if (tags.includes('engage') || tags.includes('teamfight') || tags.includes('tank')) {
+    return 'engage';
+  }
+
+  if (tags.includes('scaling') || tags.includes('duelist') || tags.includes('carry')) {
+    return 'scaling';
+  }
+
+  if (tags.includes('playmaker') || tags.includes('lane-bully') || tags.includes('burst') || tags.includes('assassin') || tags.includes('early-game')) {
+    return 'playmaker';
+  }
+
+  return role === 'SUPPORT' ? 'utility' : 'standard';
+};
+
+const buildRoleSpecificFocus = ({
+  role,
+  archetype,
+  highDeaths,
+  lowFarm,
+  strongFarm,
+  teamPlay,
+  weakCsPerMinute,
+  carryTempo
+}: {
+  role: PlayerInfo['mainRole'];
+  archetype: string;
+  highDeaths: boolean;
+  lowFarm: boolean;
+  strongFarm: boolean;
+  teamPlay: boolean;
+  weakCsPerMinute: boolean;
+  carryTempo: boolean;
+}) => {
+  if (role === 'JUNGLE') {
+    return highDeaths
+      ? 'Для леса это обычно значит, что ранние входы были без приоритета линий или без численного окна.'
+      : carryTempo
+        ? 'Для лесника это хороший сигнал: ты не просто фармил, а реально создавал темп для карты.'
+        : 'Для леса ключевой резерв роста в том, чтобы быстрее переводить удачные окна в объект или повторный заход.';
+  }
+
+  if (role === 'SUPPORT') {
+    return teamPlay
+      ? 'Для саппорта это читается как нормальная ценность через подключения, инициацию или сейв.'
+      : 'Для саппорта тут не хватило синхрона с ботом и первым фронтом команды.';
+  }
+
+  if (role === 'ADC') {
+    return weakCsPerMinute || lowFarm
+      ? 'Для бота это особенно больно: ADC сильнее других ролей наказывается за просадку по экономике.'
+      : strongFarm
+        ? 'Для ADC такая экономика обычно дает право быть главным источником стабильного урона в мидгейме.'
+        : 'Для бота следующий шаг в росте это чище удерживать фарм между драками.';
+  }
+
+  if (role === 'MID') {
+    return archetype === 'utility'
+      ? 'Для мида через utility-чемпиона важна не только линия, но и качество первых перемещений по карте.'
+      : 'Для мида здесь решает, насколько рано ты забираешь приоритет и переводишь его в давление вне линии.';
+  }
+
+  return highDeaths
+    ? 'Для топа это часто означает, что сайд-давление переходило в лишние изолированные смерти.'
+    : 'Для топа важнее чище конвертировать линию в давление на сайде или первый вход в тимфайт.';
+};
+
+const buildArchetypeHint = (archetype: string) => {
+  switch (archetype) {
+    case 'engage':
+      return 'Твой архетип требовал более точных окон на вход, иначе каждая ошибка начинала драку в минус.';
+    case 'utility':
+      return 'На utility-чемпионе ценность идет через темп команды, а не через личные киллы.';
+    case 'scaling':
+      return 'На scaling-пике особенно важно доживать до сильных таймингов и не отдавать золото раньше времени.';
+    case 'playmaker':
+      return 'На playmaker-чемпионе матч сильнее зависит от того, насколько чисто ты используешь свои окна для розыгрыша.';
+    default:
+      return null;
+  }
+};
+
 export const buildPostGameAnalysisPayload = ({ lastCompletedMatch, allies, enemies, reviewMode = false }: PostGameAnalysisContext) => ({
   match: {
     championName: lastCompletedMatch.championName,
@@ -135,6 +241,10 @@ export const buildPostGameAnalysisPayload = ({ lastCompletedMatch, allies, enemi
 
 export const generatePostGameAnalysis = ({ lastCompletedMatch, allies, enemies, reviewMode = false }: PostGameAnalysisContext) => {
   const { championName, kills, deaths, assists, cs, gameDurationSeconds, csPerMinute, kda, takedowns } = lastCompletedMatch;
+  const selfPlayer = allies.find((player) => player.recentMatches[0]?.champion === championName) ?? allies.find((player) => player.summonerName === 'DemoProfilePlayer') ?? allies[0];
+  const role = selfPlayer?.mainRole ?? 'ADC';
+  const roleLabel = getRoleLabel(role);
+  const archetype = getChampionArchetype(championName, role);
   const kdaValue = kda;
   const highDeaths = deaths >= 7;
   const veryHighDeaths = deaths >= 10;
@@ -150,16 +260,18 @@ export const generatePostGameAnalysis = ({ lastCompletedMatch, allies, enemies, 
 
   const { allyAverageWinRate, enemyAverageWinRate, delta } = getWinRateGap(allies, enemies);
   const lanePressureCallout = getLanePressureCallout(allies, enemies);
+  const roleSpecificFocus = buildRoleSpecificFocus({ role, archetype, highDeaths, lowFarm, strongFarm, teamPlay, weakCsPerMinute, carryTempo });
+  const archetypeHint = buildArchetypeHint(archetype);
   const teamContext = allyAverageWinRate || enemyAverageWinRate
     ? `По лобби ваша команда входила примерно с ${allyAverageWinRate}% среднего WR против ${enemyAverageWinRate}% у соперника${Math.abs(delta) >= 4 ? `, разница была около ${Math.abs(delta)} п.п.` : ''}.`
     : 'Командный контекст по лобби ограничен, поэтому разбор опирается прежде всего на твои личные метрики.';
 
   const strength = carryTempo
-    ? `на ${championName} ты дал сильный личный темп и не развалил игру лишними смертями`
+    ? `на ${championName} (${roleLabel}) ты дал сильный личный темп и не развалил игру лишними смертями`
     : strongFarm && strongCsPerMinute && !highDeaths
-      ? `на ${championName} ты сохранил экономику и не отдал игру частыми ошибками`
+      ? `на ${championName} (${roleLabel}) ты сохранил экономику и не отдал игру частыми ошибками`
     : teamPlay && kdaValue >= 3
-        ? 'ты хорошо подключался к розыгрышам команды и не выпадал из общего темпа'
+        ? `ты хорошо отыграл свою роль через ${teamPlay ? 'подключения к розыгрышам команды' : 'личный темп'} и не выпадал из общего темпа`
         : kdaValue >= 2.5
           ? 'ты удержал матч в playable-состоянии и не провалился по всем базовым метрикам сразу'
           : 'ты все еще оставил базу для роста, потому что матч не был проигран по одной случайной ошибке';
@@ -190,8 +302,10 @@ export const generatePostGameAnalysis = ({ lastCompletedMatch, allies, enemies, 
 
   const evidence = [
     `Факты матча: ${championName}, ${kills}/${deaths}/${assists}, ${cs} CS, KDA ${kdaValue.toFixed(1)}${csPerMinute !== null ? `, ${csPerMinute.toFixed(1)} CS/мин` : ''}${durationLabel ? `, длительность ${durationLabel}` : ''}, takedowns ${takedowns}.`,
+    `Роль: ${roleLabel}. ${roleSpecificFocus}`,
     teamContext,
     lanePressureCallout,
+    archetypeHint,
     reviewMode ? 'Режим review: этот разбор собран на тестовых данных и показывает формат post-game фидбека, а не live-коучинг.' : null
   ].filter(Boolean);
 

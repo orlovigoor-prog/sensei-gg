@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch, RootState } from '../../store';
-import { startGame, endGame, resetGame, setAiLoading, setAiAdvice, setAiReview } from '../../store/gameSlice';
+import { startGame, mutateStats, endGame, resetGame, setAiLoading, setAiAdvice, setAiReview } from '../../store/gameSlice';
 import { ProfileScreen } from '../profile/ProfileScreen';
 import { SettingsScreen } from '../settings/SettingsScreen';
 import { MatchScreen } from '../match/MatchScreen';
-import { clearLobby, setLobby, setLobbyPhase, type LobbyPhase, type PlayerInfo } from '../../store/lobbySlice';
+import { clearLobby, setLobby, setLobbyPhase, type LobbyPhase } from '../../store/lobbySlice';
 import { useOverwolfBridge } from '../../hooks/useOverwolfBridge';
 import { DevSimulationPanel } from '../../components/DevSimulationPanel';
-import { createMockPlayers } from '../../services/mockLobby';
+import { createReviewModeScenario } from '../../services/mockLobby';
 import { getStoredWindowSizePreset, getWindowSizeOption, type WindowSizePreset } from '../../services/windowSize';
 import { requestPostGameAnalysis } from '../../services/aiReviewGateway';
 
@@ -16,7 +16,7 @@ const getAiSourceMeta = (source: 'provider' | 'local-server-fallback' | 'local-c
   switch (source) {
     case 'provider':
       return {
-        label: 'DeepSeek',
+        label: 'AI Provider',
         color: '#10b981',
         border: 'rgba(16, 185, 129, 0.32)',
         background: 'rgba(16, 185, 129, 0.12)'
@@ -69,6 +69,7 @@ export function DesktopWindow() {
   const [isDevPanelExpanded, setIsDevPanelExpanded] = useState<boolean>(true);
   const [windowSizePreset, setWindowSizePreset] = useState<WindowSizePreset>(getStoredWindowSizePreset());
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [reviewScenario, setReviewScenario] = useState(() => createReviewModeScenario());
   const aiSourceMeta = aiReview ? getAiSourceMeta(aiReview.source) : null;
 
   const lobbyStatusLabel = !isInLobby
@@ -86,22 +87,41 @@ export function DesktopWindow() {
     dispatch(setLobbyPhase(nextPhase));
 
     if (nextPhase === 'in-game' && !isInGame) {
-      dispatch(startGame('Jinx'));
+      dispatch(startGame(reviewScenario.completedMatch.championName));
+      dispatch(mutateStats({
+        kills: reviewScenario.completedMatch.kills,
+        deaths: reviewScenario.completedMatch.deaths,
+        assists: reviewScenario.completedMatch.assists,
+        cs: reviewScenario.completedMatch.cs,
+        gameTimeSeconds: reviewScenario.completedMatch.gameDurationSeconds ?? undefined
+      }));
     }
 
-    if (nextPhase === 'post-game' && isInGame) {
+    if (nextPhase === 'post-game' && !isInGame) {
+      dispatch(startGame(reviewScenario.completedMatch.championName));
+      dispatch(mutateStats({
+        kills: reviewScenario.completedMatch.kills,
+        deaths: reviewScenario.completedMatch.deaths,
+        assists: reviewScenario.completedMatch.assists,
+        cs: reviewScenario.completedMatch.cs,
+        gameTimeSeconds: reviewScenario.completedMatch.gameDurationSeconds ?? undefined
+      }));
+    }
+
+    if (nextPhase === 'post-game') {
       dispatch(endGame());
     }
   };
 
   const handleSimulateLobby = () => {
-    const mockPlayers: PlayerInfo[] = createMockPlayers();
+    const nextScenario = createReviewModeScenario();
+    setReviewScenario(nextScenario);
     dispatch(setLobby({
       gameMode: 'RANKED_SOLO_5x5',
-      allies: mockPlayers.slice(0, 5),
-      enemies: mockPlayers.slice(5, 10),
+      allies: nextScenario.players.slice(0, 5),
+      enemies: nextScenario.players.slice(5, 10),
       phase: 'champ-select',
-      partyMembers: ['Player1', 'Player2']
+      partyMembers: nextScenario.partyMembers
     }));
   };
 
@@ -375,7 +395,7 @@ export function DesktopWindow() {
             </div>
           )}
           <div style={{ background: '#161d2a', padding: '20px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-            <h2 style={{ marginTop: 0, marginBottom: '8px', color: '#a855f7' }}>🤖 AI Coach</h2>
+            <h2 style={{ marginTop: 0, marginBottom: '8px', color: '#a855f7' }}>AI Coach</h2>
             <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px', lineHeight: 1.6 }}>
               Этот блок намеренно ограничен безопасным сценарием: постматч-разбор и нейтральная аналитика без live-callouts во время активной игры.
             </p>
