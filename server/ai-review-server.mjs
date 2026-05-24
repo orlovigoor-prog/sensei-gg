@@ -38,6 +38,9 @@ const HOST = process.env.AI_REVIEW_HOST || '127.0.0.1';
 const API_KEY = process.env.AI_PROVIDER_API_KEY || '';
 const API_URL = process.env.AI_PROVIDER_URL || 'https://api.deepseek.com/chat/completions';
 const MODEL = process.env.AI_PROVIDER_MODEL || 'deepseek-chat';
+const OPENROUTER_API_KEY = process.env.AI_OPENROUTER_API_KEY || '';
+const OPENROUTER_URL = process.env.AI_OPENROUTER_URL || 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_MODEL = process.env.AI_OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash:free';
 
 const formatStructuredReview = ({ strength, risk, nextFocus, evidence }) => ({
   strength: strength.startsWith('Сильная сторона:') ? strength : `Сильная сторона: ${strength}`,
@@ -272,26 +275,29 @@ const buildPrompt = (payload) => ([
   `Payload: ${JSON.stringify(payload)}`
 ].join('\n'));
 
-const requestProviderReview = async (payload) => {
-  const response = await fetch(API_URL, {
+const buildProviderMessages = (payload) => ([
+  {
+    role: 'system',
+    content: 'Ты выдаешь только безопасный, factual и coaching-oriented post-game review для Sensei GG. Нельзя придумывать детали вне payload.'
+  },
+  {
+    role: 'user',
+    content: buildPrompt(payload)
+  }
+]);
+
+const requestChatCompletion = async ({ url, apiKey, model, payload, extraHeaders = {} }) => {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`
+      Authorization: `Bearer ${apiKey}`,
+      ...extraHeaders
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       temperature: 0.3,
-      messages: [
-        {
-          role: 'system',
-          content: 'Ты выдаешь только безопасный, factual и coaching-oriented post-game review для Sensei GG. Нельзя придумывать детали вне payload.'
-        },
-        {
-          role: 'user',
-          content: buildPrompt(payload)
-        }
-      ]
+      messages: buildProviderMessages(payload)
     })
   });
 
@@ -310,6 +316,28 @@ const requestProviderReview = async (payload) => {
   return parseProviderReview(analysis);
 };
 
+const requestProviderReview = async (payload) => {
+  return requestChatCompletion({
+    url: API_URL,
+    apiKey: API_KEY,
+    model: MODEL,
+    payload
+  });
+};
+
+const requestOpenRouterReview = async (payload) => {
+  return requestChatCompletion({
+    url: OPENROUTER_URL,
+    apiKey: OPENROUTER_API_KEY,
+    model: OPENROUTER_MODEL,
+    payload,
+    extraHeaders: {
+      'HTTP-Referer': 'https://github.com/orlovigoor-prog/sensei-gg',
+      'X-Title': 'Sensei GG'
+    }
+  });
+};
+
 const server = http.createServer(async (req, res) => {
   if (!req.url) {
     sendJson(res, 404, { error: 'Not found' });
@@ -325,7 +353,9 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 200, {
       ok: true,
       providerConfigured: Boolean(API_KEY),
-      model: MODEL
+      model: MODEL,
+      openRouterConfigured: Boolean(OPENROUTER_API_KEY),
+      openRouterModel: OPENROUTER_MODEL
     });
     return;
   }
@@ -345,24 +375,41 @@ const server = http.createServer(async (req, res) => {
     }
 
     const fallbackReview = createFallbackAnalysis(payload);
-    let review;
+    let review = fallbackReview;
+    let source = 'local-server-fallback';
 
     if (API_KEY) {
       try {
         const providerReview = await requestProviderReview(payload);
         review = guardProviderReview(providerReview, fallbackReview);
+        source = 'provider';
       } catch (error) {
-        console.warn('Provider response could not be normalized, fallback to local server review:', error);
-        review = fallbackReview;
+        console.warn('Primary provider failed, trying OpenRouter backup:', error);
+
+        if (OPENROUTER_API_KEY) {
+          try {
+            const openRouterReview = await requestOpenRouterReview(payload);
+            review = guardProviderReview(openRouterReview, fallbackReview);
+            source = 'provider';
+          } catch (openRouterError) {
+            console.warn('OpenRouter backup failed, fallback to local server review:', openRouterError);
+          }
+        }
       }
-    } else {
-      review = fallbackReview;
+    } else if (OPENROUTER_API_KEY) {
+      try {
+        const openRouterReview = await requestOpenRouterReview(payload);
+        review = guardProviderReview(openRouterReview, fallbackReview);
+        source = 'provider';
+      } catch (error) {
+        console.warn('OpenRouter backup failed, fallback to local server review:', error);
+      }
     }
 
     sendJson(res, 200, {
       review,
       analysis: reviewToText(review),
-      source: API_KEY ? 'provider' : 'local-server-fallback'
+      source
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -372,5 +419,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Sensei AI review server listening on http://${HOST}:${PORT}`);
-  console.log(`Provider configured: ${API_KEY ? 'yes' : 'no, using local fallback'}`);
+  console.log(`Primary provider configured: ${API_KEY ? 'yes' : 'no'}`);
+  console.log(`OpenRouter backup configured: ${OPENROUTER_API_KEY ? 'yes' : 'no'}`);
 });

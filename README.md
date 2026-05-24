@@ -86,11 +86,14 @@ npm run dev
 
 # Опционально: запустите локальный AI review server
 # set AI_PROVIDER_API_KEY=your_key
+# set AI_OPENROUTER_API_KEY=your_openrouter_key
+# set AI_OPENROUTER_MODEL=deepseek/deepseek-v4-flash:free
 # set VITE_AI_REVIEW_ENDPOINT=http://127.0.0.1:8787/api/review
 # npm run ai:server
 
 # По умолчанию локальный server уже умеет читать AI_PROVIDER_* из .env
 # и может работать с DeepSeek через https://api.deepseek.com/chat/completions
+# Если основной provider недоступен, server может уйти в backup через OpenRouter
 
 # Соберите для production
 npm run build
@@ -142,6 +145,7 @@ sensei-gg/
 - Для реального AI review используется backend endpoint, а клиент получает только готовый текст разбора
 - При недоступности backend Sensei GG падает обратно на локальный post-game fallback без раскрытия секретов
 - Если LLM возвращает кривой JSON или markdown-обертку, server пытается нормализовать ответ и при неудаче падает обратно на локальный fallback
+- Если основной AI provider недоступен, локальный server может попробовать OpenRouter backup и только потом уйти в локальный fallback
 
 - Для локальной разработки Riot API ключ хранится только в `.env`
 - Пользователь не имеет доступа к Riot API ключу через интерфейс приложения
