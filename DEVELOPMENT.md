@@ -40,8 +40,18 @@ npm run ai:server
 - `GET /api/subscription/diagnostics` для readiness-диагностики перед тестами в Overwolf
 - `GET /api/subscription/foundation-diagnostics` для агрегированного snapshot по subscription + AI history + premium capabilities
 - `GET /api/subscription/foundation-fixtures` для списка готовых named fixtures
+- `GET /api/subscription/foundation-orchestrations` для каталога multi-layer foundation orchestration presets
+- `GET /api/subscription/foundation-sync-matrix` для каталога step-by-step readiness matrix сценариев
+- `GET /api/subscription/foundation-test-cases` для единого каталога dry-run / automated test case bundles
 - `POST /api/subscription/foundation-fixture` для установки комплексного test scenario одним запросом
+- `POST /api/subscription/foundation-orchestration` для применения связанного identity/session + foundation сценария одним запросом
+- `POST /api/subscription/foundation-sync-matrix` для применения одного readiness-combination сценария под automated tests
 - `DELETE /api/subscription/foundation-fixture` для сброса fixture-сценария в baseline
+- `GET /api/account-session/config` для foundation-контракта identity/session state
+- `GET /api/account-session/dev-state` для просмотра локального identity/session сценария
+- `GET /api/account-session/presets` для каталога готовых identity/session named presets
+- `POST /api/account-session/dev-state` для симуляции authenticated user / session token / account id без UI
+- `DELETE /api/account-session/dev-state` для сброса identity/session сценария
 - `GET /api/premium-persistence/config` для account-linked persistence foundation contract
 - `GET /api/review-history/config` для foundation-конфига AI history
 - `GET /api/premium-capabilities/config` для foundation-stub progression / weekly reports
@@ -69,10 +79,73 @@ curl -X POST http://127.0.0.1:8787/api/subscription/foundation-fixture -H "Conte
 curl -X POST http://127.0.0.1:8787/api/subscription/foundation-fixture -H "Content-Type: application/json" -d "{\"preset\":\"premium-account-linked\"}"
 ```
 
+Пример применения orchestration preset:
+```bash
+curl -X POST http://127.0.0.1:8787/api/subscription/foundation-orchestration -H "Content-Type: application/json" -d "{\"orchestration\":\"premium-account-linked-ready\"}"
+```
+
+Примеры промежуточных orchestration preset-сценариев:
+```bash
+curl -X POST http://127.0.0.1:8787/api/subscription/foundation-orchestration -H "Content-Type: application/json" -d "{\"orchestration\":\"account-linkage-dry-run\"}"
+curl -X POST http://127.0.0.1:8787/api/subscription/foundation-orchestration -H "Content-Type: application/json" -d "{\"orchestration\":\"persistence-readiness-dry-run\"}"
+curl -X POST http://127.0.0.1:8787/api/subscription/foundation-orchestration -H "Content-Type: application/json" -d "{\"orchestration\":\"identity-authenticated-token-pending\"}"
+```
+
+Примеры sync matrix сценариев:
+```bash
+curl http://127.0.0.1:8787/api/subscription/foundation-sync-matrix
+curl -X POST http://127.0.0.1:8787/api/subscription/foundation-sync-matrix -H "Content-Type: application/json" -d "{\"matrix\":\"linkage-ready\"}"
+curl -X POST http://127.0.0.1:8787/api/subscription/foundation-sync-matrix -H "Content-Type: application/json" -d "{\"matrix\":\"full-sync-ready\"}"
+```
+
+Matrix catalog и apply-response теперь также отдают machine-readable metadata:
+- `stage`
+- `expectedReadiness`
+- `blockingReason`
+- `testAssertions.entitlements`
+- `testAssertions.purchaseAvailability`
+- `testAssertions.persistenceEligibility`
+- `testAssertions.readinessGates`
+
+Это нужно для будущих automated tests, чтобы проверять не только выставленное состояние, но и ожидаемый readiness gate без ручной интерпретации.
+
+`GET /api/subscription/foundation-test-cases` дополнительно отдает:
+- как применить test case
+- как его валидировать
+- как вернуть baseline
+- expected assertions как source of truth для dry-run и automated checks
+- fixture, sync-matrix и orchestration bundles в одном machine-readable каталоге
+- grouping metadata для automated selection: `bundleFamily`, `covers`, `recommendedFor`
+- relationship metadata для orchestration order и deduplication: `dependencies`, `supersedes`, `equivalentTo`
+- deterministic `automationSequence` для будущих no-UI automation runs: порядок, phase, default selection и machine-readable skip reasons
+
+Пример identity/session сценария:
+```bash
+curl -X POST http://127.0.0.1:8787/api/account-session/dev-state -H "Content-Type: application/json" -d "{\"authenticated\":true,\"sessionTokenReady\":true,\"accountId\":\"ow-dev-user-001\",\"scenario\":\"authenticated-session-dry-run\"}"
+```
+
+Пример применения identity/session preset:
+```bash
+curl -X POST http://127.0.0.1:8787/api/account-session/dev-state -H "Content-Type: application/json" -d "{\"preset\":\"identity-session-ready\"}"
+```
+
 ### Сборка для Overwolf:
 ```bash
 npm run build
 ```
+
+Foundation verification helpers:
+```bash
+npm run verify:foundation-catalog
+npm run verify:foundation-smoke
+npm run verify:foundation-matrix
+npm run verify:foundation-all
+```
+
+- `verify:foundation-catalog` проверяет catalog builder, consistency rules и deterministic `automationSequence` без запуска полного backend.
+- `verify:foundation-smoke` проверяет live foundation endpoints через локальный server на `http://127.0.0.1:8787`.
+- `verify:foundation-matrix` выбирает representative cases по явному `verificationRole`, а catalog builder гарантирует, что каждый required role матчит ровно один case. Текущие роли: `matrix-premium-fixture`, `matrix-session-gate`, `matrix-orchestration-readiness-gate`.
+- `verify:foundation-all` последовательно прогоняет catalog verify, build, smoke checks и matrix verification.
 
 ---
 

@@ -82,6 +82,22 @@
 - локальный server отдает агрегированную foundation readiness-диагностику через `/api/subscription/foundation-diagnostics`
 - локальный server отдает каталог готовых foundation fixtures через `/api/subscription/foundation-fixtures`
 - локальный server позволяет выставлять комплексный subscription foundation fixture через `/api/subscription/foundation-fixture`
+- локальный server отдает orchestration-каталог связанных foundation preset-ов через `/api/subscription/foundation-orchestrations`
+- локальный server позволяет одним запросом применять связанный identity/session + foundation сценарий через `/api/subscription/foundation-orchestration`
+- orchestration preset-ы покрывают не только premium-ready, но и промежуточные account-linkage / persistence dry-run сценарии
+- локальный server отдает sync matrix каталог комбинаций readiness через `/api/subscription/foundation-sync-matrix`
+- локальный server позволяет применять отдельные readiness-combination сценарии через `/api/subscription/foundation-sync-matrix`
+- sync matrix ответы содержат machine-readable metadata: `stage`, `expectedReadiness`, `blockingReason`
+- sync matrix ответы также содержат machine-readable `testAssertions` для entitlements, purchase availability и persistence eligibility
+- локальный server отдает единый foundation test cases каталог через `/api/subscription/foundation-test-cases`
+- foundation test cases каталог включает `fixture`, `sync-matrix` и `orchestration` bundles для automated dry-run сценариев
+- foundation test cases каталог также отдает grouping metadata: `bundleFamily`, `covers`, `recommendedFor`
+- foundation test cases каталог также отдает relationship metadata: `dependencies`, `supersedes`, `equivalentTo`
+- foundation test cases каталог также отдает deterministic `automationSequence` для no-UI automation sequencing и default case selection
+- локальная verification pipeline доступна через `verify:foundation-catalog`, `verify:foundation-smoke`, `verify:foundation-all`
+- отдельный `verify:foundation-matrix` выбирает representative test cases по явному `verificationRole`, а builder валидирует uniqueness этих ролей (`matrix-premium-fixture`, `matrix-session-gate`, `matrix-orchestration-readiness-gate`)
+- локальный server позволяет симулировать identity/session state через `/api/account-session/dev-state`
+- локальный server отдает каталог identity/session preset-сценариев через `/api/account-session/presets`
 - локальный server отдает account-linked persistence contract через `/api/premium-persistence/config`
 - локальный server отдает premium foundation stub через `/api/premium-capabilities/config`
 - локальный server позволяет отдельно симулировать readiness foundation-слоя через `/api/premium-capabilities/dev-state`
@@ -96,7 +112,7 @@
 
 ## Следующий инженерный шаг
 
-Следующим этапом стоит сделать service layer без UI:
+Следующим этапом стоит сделать service layer без UI, опираясь на уже подготовленный foundation catalog и deterministic automation sequencing:
 - `src/services/overwolfSubscriptions.ts`
 - `src/services/subscriptionEntitlements.ts`
 - sync active Overwolf plans -> Redux subscription state

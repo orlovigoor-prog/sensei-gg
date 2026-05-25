@@ -36,6 +36,22 @@ export interface SubscriptionDiagnosticsResponse {
 export interface SubscriptionFoundationDiagnosticsResponse {
   ok?: boolean;
   subscription?: SubscriptionDiagnosticsResponse;
+  accountSession?: {
+    provider?: string;
+    configured?: boolean;
+    authenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountId?: string | null;
+    accountLinked?: boolean;
+    devState?: {
+      authenticated?: boolean;
+      sessionTokenReady?: boolean;
+      accountId?: string | null;
+      scenario?: string;
+      updatedAt?: string;
+    };
+    notes?: string[];
+  };
   accountLinkage?: {
     identityProvider?: string;
     configured?: boolean;
@@ -77,6 +93,9 @@ export interface SubscriptionFoundationDiagnosticsResponse {
   };
   readiness?: {
     subscriptionReady?: boolean;
+    identityAuthenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountIdPresent?: boolean;
     accountLinkageSyncReady?: boolean;
     aiHistorySyncReady?: boolean;
     progressionSyncReady?: boolean;
@@ -93,6 +112,9 @@ export interface SubscriptionFoundationFixtureResponse {
   progressionSyncReady?: boolean;
   weeklyReportsSyncReady?: boolean;
   accountLinkageSyncReady?: boolean;
+  identityAuthenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
   updatedAt?: string;
   diagnostics?: SubscriptionFoundationDiagnosticsResponse;
   error?: string;
@@ -106,6 +128,247 @@ export interface SubscriptionFoundationFixtureCatalogResponse {
     progressionSyncReady?: boolean;
     weeklyReportsSyncReady?: boolean;
     accountLinkageSyncReady?: boolean;
+    identityAuthenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountId?: string | null;
+    scenario?: string;
+  }>;
+  notes?: string[];
+}
+
+export interface SubscriptionFoundationOrchestrationResponse {
+  ok?: boolean;
+  orchestration?: string | null;
+  foundationPreset?: string | null;
+  accountSessionPreset?: string | null;
+  scenario?: string;
+  plan?: SubscriptionDevPlan;
+  progressionSyncReady?: boolean;
+  weeklyReportsSyncReady?: boolean;
+  accountLinkageSyncReady?: boolean;
+  identityAuthenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
+  updatedAt?: string;
+  diagnostics?: SubscriptionFoundationDiagnosticsResponse;
+  error?: string;
+}
+
+export interface SubscriptionFoundationOrchestrationCatalogResponse {
+  ok?: boolean;
+  fixtures?: Array<{
+    name?: string;
+    foundationPreset?: string;
+    accountSessionPreset?: string;
+    overrides?: {
+      accountLinkageSyncReady?: boolean;
+      progressionSyncReady?: boolean;
+      weeklyReportsSyncReady?: boolean;
+    } | null;
+    scenario?: string;
+  }>;
+  notes?: string[];
+}
+
+export interface AccountSessionFoundationResponse {
+  ok?: boolean;
+  provider?: string;
+  configured?: boolean;
+  authenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
+  accountLinked?: boolean;
+  devState?: {
+    authenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountId?: string | null;
+    scenario?: string;
+    updatedAt?: string;
+  };
+  notes?: string[];
+}
+
+export interface SubscriptionFoundationSyncMatrixResponse {
+  ok?: boolean;
+  matrix?: string | null;
+  stage?: 'identity' | 'session-token' | 'account-linkage' | 'premium-capabilities' | 'weekly-reports' | 'progression' | 'complete';
+  scenario?: string;
+  plan?: SubscriptionDevPlan;
+  authenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
+  accountLinkageSyncReady?: boolean;
+  progressionSyncReady?: boolean;
+  weeklyReportsSyncReady?: boolean;
+  expectedReadiness?: {
+    identityAuthenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountIdPresent?: boolean;
+    accountLinkageSyncReady?: boolean;
+    progressionSyncReady?: boolean;
+    weeklyReportsSyncReady?: boolean;
+  };
+  blockingReason?: string | null;
+  testAssertions?: {
+    entitlements?: {
+      plan?: SubscriptionDevPlan;
+      hasFullAiReview?: boolean;
+      hasUnlimitedAiReviews?: boolean;
+      hasAiHistoryAccess?: boolean;
+      hasProgressionAccess?: boolean;
+      hasWeeklyReports?: boolean;
+    };
+    purchaseAvailability?: {
+      canOpenPurchaseFlow?: boolean;
+      reason?: 'ready' | 'overwolf-unavailable' | 'subscription-api-unavailable' | 'premium-plan-not-configured';
+      integrationReady?: boolean;
+    };
+    persistenceEligibility?: {
+      accountLinkageEligible?: boolean;
+      premiumPersistenceEligible?: boolean;
+      progressionSyncEligible?: boolean;
+      weeklyReportsSyncEligible?: boolean;
+    };
+    readinessGates?: {
+      identityAuthenticated?: boolean;
+      sessionTokenReady?: boolean;
+      accountIdPresent?: boolean;
+      accountLinkageSyncReady?: boolean;
+      progressionSyncReady?: boolean;
+      weeklyReportsSyncReady?: boolean;
+    };
+  };
+  updatedAt?: string;
+  diagnostics?: SubscriptionFoundationDiagnosticsResponse;
+  error?: string;
+}
+
+export interface SubscriptionFoundationSyncMatrixCatalogResponse {
+  ok?: boolean;
+  fixtures?: Array<{
+    name?: string;
+    plan?: SubscriptionDevPlan;
+    stage?: 'identity' | 'session-token' | 'account-linkage' | 'premium-capabilities' | 'weekly-reports' | 'progression' | 'complete';
+    authenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountId?: string | null;
+    accountLinkageSyncReady?: boolean;
+    progressionSyncReady?: boolean;
+    weeklyReportsSyncReady?: boolean;
+    expectedReadiness?: {
+      identityAuthenticated?: boolean;
+      sessionTokenReady?: boolean;
+      accountIdPresent?: boolean;
+      accountLinkageSyncReady?: boolean;
+      progressionSyncReady?: boolean;
+      weeklyReportsSyncReady?: boolean;
+    };
+    blockingReason?: string | null;
+    testAssertions?: {
+      entitlements?: {
+        plan?: SubscriptionDevPlan;
+        hasFullAiReview?: boolean;
+        hasUnlimitedAiReviews?: boolean;
+        hasAiHistoryAccess?: boolean;
+        hasProgressionAccess?: boolean;
+        hasWeeklyReports?: boolean;
+      };
+      purchaseAvailability?: {
+        canOpenPurchaseFlow?: boolean;
+        reason?: 'ready' | 'overwolf-unavailable' | 'subscription-api-unavailable' | 'premium-plan-not-configured';
+        integrationReady?: boolean;
+      };
+      persistenceEligibility?: {
+        accountLinkageEligible?: boolean;
+        premiumPersistenceEligible?: boolean;
+        progressionSyncEligible?: boolean;
+        weeklyReportsSyncEligible?: boolean;
+      };
+      readinessGates?: {
+        identityAuthenticated?: boolean;
+        sessionTokenReady?: boolean;
+        accountIdPresent?: boolean;
+        accountLinkageSyncReady?: boolean;
+        progressionSyncReady?: boolean;
+        weeklyReportsSyncReady?: boolean;
+      };
+    };
+    scenario?: string;
+  }>;
+  notes?: string[];
+}
+
+export interface SubscriptionFoundationTestCaseCatalogResponse {
+  ok?: boolean;
+  testCases?: Array<{
+    name?: string;
+    type?: 'fixture' | 'sync-matrix' | 'orchestration';
+    verificationRole?: 'matrix-premium-fixture' | 'matrix-session-gate' | 'matrix-orchestration-readiness-gate' | null;
+    bundleFamily?: 'fixture' | 'sync-matrix' | 'orchestration';
+    apply?: {
+      endpoint?: string;
+      method?: 'POST';
+      payload?: {
+        preset?: string;
+        matrix?: string;
+        orchestration?: string;
+      };
+    };
+    reset?: {
+      endpoint?: string;
+      method?: 'DELETE';
+    };
+    label?: string;
+    scenario?: string;
+    covers?: Array<'subscription-foundation' | 'identity-session' | 'account-linkage' | 'premium-entitlements' | 'progression-sync' | 'weekly-reports-sync' | 'identity-gating' | 'account-linkage-gating' | 'premium-readiness-gating' | 'ready-state-validation'>;
+    recommendedFor?: Array<'baseline-smoke-tests' | 'manual-dry-run' | 'readiness-gate-regression' | 'step-by-step-automation' | 'cross-layer-integration' | 'end-to-end-dry-run' | 'premium-path-validation' | 'free-path-validation'>;
+    dependencies?: string[];
+    supersedes?: string[];
+    equivalentTo?: string[];
+    stage?: 'identity' | 'session-token' | 'account-linkage' | 'premium-capabilities' | 'weekly-reports' | 'progression' | 'complete';
+    blockingReason?: string | null;
+    expectedReadiness?: {
+      identityAuthenticated?: boolean;
+      sessionTokenReady?: boolean;
+      accountIdPresent?: boolean;
+      accountLinkageSyncReady?: boolean;
+      progressionSyncReady?: boolean;
+      weeklyReportsSyncReady?: boolean;
+    };
+    testAssertions?: SubscriptionFoundationSyncMatrixResponse['testAssertions'];
+    recommendedValidationSequence?: string[];
+  }>;
+  automationSequence?: Array<{
+    order?: number;
+    testCaseName?: string;
+    type?: 'fixture' | 'sync-matrix' | 'orchestration';
+    phase?: 'fixture-baseline' | 'sync-gates' | 'orchestration-integration';
+    stage?: 'identity' | 'session-token' | 'account-linkage' | 'premium-capabilities' | 'weekly-reports' | 'progression' | 'complete';
+    verificationRole?: 'matrix-premium-fixture' | 'matrix-session-gate' | 'matrix-orchestration-readiness-gate' | null;
+    selectedByDefault?: boolean;
+    skipReason?: 'superseded-by-newer-case' | 'covered-by-equivalent-case' | null;
+    dependencies?: string[];
+  }>;
+  notes?: string[];
+}
+
+export interface AccountSessionDevStateResponse {
+  ok?: boolean;
+  preset?: string | null;
+  authenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
+  scenario?: string;
+  updatedAt?: string;
+}
+
+export interface AccountSessionPresetCatalogResponse {
+  ok?: boolean;
+  fixtures?: Array<{
+    name?: string;
+    authenticated?: boolean;
+    sessionTokenReady?: boolean;
+    accountId?: string | null;
     scenario?: string;
   }>;
   notes?: string[];
@@ -164,12 +427,67 @@ export const fetchSubscriptionFoundationFixtures = async (): Promise<Subscriptio
   return fetchSubscriptionServiceJson<SubscriptionFoundationFixtureCatalogResponse>('/api/subscription/foundation-fixtures');
 };
 
+export const fetchSubscriptionFoundationOrchestrations = async (): Promise<SubscriptionFoundationOrchestrationCatalogResponse | null> => {
+  return fetchSubscriptionServiceJson<SubscriptionFoundationOrchestrationCatalogResponse>('/api/subscription/foundation-orchestrations');
+};
+
+export const fetchSubscriptionFoundationSyncMatrix = async (): Promise<SubscriptionFoundationSyncMatrixCatalogResponse | null> => {
+  return fetchSubscriptionServiceJson<SubscriptionFoundationSyncMatrixCatalogResponse>('/api/subscription/foundation-sync-matrix');
+};
+
+export const fetchSubscriptionFoundationTestCases = async (): Promise<SubscriptionFoundationTestCaseCatalogResponse | null> => {
+  return fetchSubscriptionServiceJson<SubscriptionFoundationTestCaseCatalogResponse>('/api/subscription/foundation-test-cases');
+};
+
+export const fetchAccountSessionFoundationConfig = async (): Promise<AccountSessionFoundationResponse | null> => {
+  return fetchSubscriptionServiceJson<AccountSessionFoundationResponse>('/api/account-session/config');
+};
+
+export const fetchAccountSessionDevState = async (): Promise<AccountSessionDevStateResponse | null> => {
+  return fetchSubscriptionServiceJson<AccountSessionDevStateResponse>('/api/account-session/dev-state');
+};
+
+export const fetchAccountSessionPresets = async (): Promise<AccountSessionPresetCatalogResponse | null> => {
+  return fetchSubscriptionServiceJson<AccountSessionPresetCatalogResponse>('/api/account-session/presets');
+};
+
+export const updateAccountSessionDevState = async (input: {
+  preset?: string;
+  authenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
+  scenario?: string;
+}): Promise<AccountSessionDevStateResponse | null> => {
+  return fetchSubscriptionServiceJson<AccountSessionDevStateResponse>('/api/account-session/dev-state', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      preset: input.preset,
+      authenticated: input.authenticated,
+      sessionTokenReady: input.sessionTokenReady,
+      accountId: input.accountId,
+      scenario: input.scenario
+    })
+  });
+};
+
+export const resetAccountSessionDevState = async (): Promise<AccountSessionDevStateResponse | null> => {
+  return fetchSubscriptionServiceJson<AccountSessionDevStateResponse>('/api/account-session/dev-state', {
+    method: 'DELETE'
+  });
+};
+
 export const applySubscriptionFoundationFixture = async (input: {
   plan?: SubscriptionDevPlan;
   preset?: string;
   progressionSyncReady?: boolean;
   weeklyReportsSyncReady?: boolean;
   accountLinkageSyncReady?: boolean;
+  identityAuthenticated?: boolean;
+  sessionTokenReady?: boolean;
+  accountId?: string | null;
   scenario?: string;
 }): Promise<SubscriptionFoundationFixtureResponse | null> => {
   return fetchSubscriptionServiceJson<SubscriptionFoundationFixtureResponse>('/api/subscription/foundation-fixture', {
@@ -183,6 +501,9 @@ export const applySubscriptionFoundationFixture = async (input: {
       progressionSyncReady: input.progressionSyncReady,
       weeklyReportsSyncReady: input.weeklyReportsSyncReady,
       accountLinkageSyncReady: input.accountLinkageSyncReady,
+      identityAuthenticated: input.identityAuthenticated,
+      sessionTokenReady: input.sessionTokenReady,
+      accountId: input.accountId,
       scenario: input.scenario
     })
   });
@@ -191,6 +512,38 @@ export const applySubscriptionFoundationFixture = async (input: {
 export const resetSubscriptionFoundationFixture = async (): Promise<SubscriptionFoundationFixtureResponse | null> => {
   return fetchSubscriptionServiceJson<SubscriptionFoundationFixtureResponse>('/api/subscription/foundation-fixture', {
     method: 'DELETE'
+  });
+};
+
+export const applySubscriptionFoundationOrchestration = async (input: {
+  orchestration: string;
+  scenario?: string;
+}): Promise<SubscriptionFoundationOrchestrationResponse | null> => {
+  return fetchSubscriptionServiceJson<SubscriptionFoundationOrchestrationResponse>('/api/subscription/foundation-orchestration', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      orchestration: input.orchestration,
+      scenario: input.scenario
+    })
+  });
+};
+
+export const applySubscriptionFoundationSyncMatrix = async (input: {
+  matrix: string;
+  scenario?: string;
+}): Promise<SubscriptionFoundationSyncMatrixResponse | null> => {
+  return fetchSubscriptionServiceJson<SubscriptionFoundationSyncMatrixResponse>('/api/subscription/foundation-sync-matrix', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      matrix: input.matrix,
+      scenario: input.scenario
+    })
   });
 };
 

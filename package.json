@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "build:overwolf": "vite build",
-    "ai:server": "node server/ai-review-server.mjs"
+    "ai:server": "node server/ai-review-server.mjs",
+    "verify:foundation-catalog": "node server/verify-foundation-test-case-catalog.mjs",
+    "verify:foundation-smoke": "node server/verify-foundation-smoke.mjs",
+    "verify:foundation-matrix": "node server/verify-foundation-matrix.mjs",
+    "verify:foundation-all": "npm run verify:foundation-catalog && npm run build && npm run verify:foundation-smoke && npm run verify:foundation-matrix"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",

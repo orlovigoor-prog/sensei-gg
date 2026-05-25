@@ -1,6 +1,13 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { buildFoundationTestCaseCatalog, buildMatrixAssertions } from './foundation-test-case-catalog.mjs';
+import {
+  accountSessionScenarioFixtures,
+  foundationScenarioFixtures,
+  foundationOrchestrationFixtures,
+  foundationSyncMatrixFixtures
+} from './foundation-test-case-fixtures.mjs';
 
 const loadEnvFile = () => {
   const envPath = path.resolve(process.cwd(), '.env');
@@ -64,6 +71,37 @@ const accountLinkageDevState = {
   scenario: 'env-default',
   updatedAt: new Date().toISOString()
 };
+
+const accountSessionDevState = {
+  authenticated: false,
+  sessionTokenReady: false,
+  accountId: null,
+  scenario: 'env-default',
+  updatedAt: new Date().toISOString()
+};
+
+const getEffectiveAccountSessionDevState = () => ({
+  authenticated: Boolean(accountSessionDevState.authenticated),
+  sessionTokenReady: Boolean(accountSessionDevState.sessionTokenReady),
+  accountId: isNonEmptyString(accountSessionDevState.accountId) ? accountSessionDevState.accountId.trim() : null,
+  scenario: isNonEmptyString(accountSessionDevState.scenario) ? accountSessionDevState.scenario.trim() : 'manual',
+  updatedAt: accountSessionDevState.updatedAt
+});
+
+const getAccountSessionFoundationState = () => ({
+  provider: 'overwolf-profile-session',
+  configured: true,
+  authenticated: getEffectiveAccountSessionDevState().authenticated,
+  sessionTokenReady: getEffectiveAccountSessionDevState().sessionTokenReady,
+  accountId: getEffectiveAccountSessionDevState().accountId,
+  accountLinked: Boolean(getEffectiveAccountSessionDevState().authenticated && getEffectiveAccountSessionDevState().accountId),
+  devState: getEffectiveAccountSessionDevState(),
+  notes: [
+    'Future production subscription sync should use authenticated Overwolf session identity.',
+    'Session token generation and account lookup are represented here as local foundation scaffolding only.',
+    'Premium persistence should not be treated as production-ready until authenticated identity and stable account linkage are both available.'
+  ]
+});
 
 const getEffectiveAccountLinkageDevState = () => ({
   syncReady: Boolean(accountLinkageDevState.syncReady),
@@ -188,17 +226,22 @@ const getSubscriptionDiagnosticsState = () => ({
 
 const getFoundationDiagnosticsState = () => {
   const subscription = getSubscriptionDiagnosticsState();
+  const accountSession = getAccountSessionFoundationState();
   const aiHistory = getAiHistoryFoundationState();
   const premiumCapabilities = getPremiumCapabilitiesFoundationState();
   const accountLinkage = getAccountLinkageFoundationState();
 
   return {
     subscription,
+    accountSession,
     aiHistory,
     premiumCapabilities,
     accountLinkage,
     readiness: {
       subscriptionReady: Boolean(subscription.integrationReady),
+      identityAuthenticated: Boolean(accountSession.authenticated),
+      sessionTokenReady: Boolean(accountSession.sessionTokenReady),
+      accountIdPresent: Boolean(accountSession.accountId),
       accountLinkageSyncReady: Boolean(accountLinkage.syncReady),
       aiHistorySyncReady: Boolean(aiHistory.syncReady),
       progressionSyncReady: Boolean(premiumCapabilities.progression.syncReady),
@@ -207,41 +250,46 @@ const getFoundationDiagnosticsState = () => {
     notes: [
       'This endpoint aggregates local foundation readiness for future Overwolf subscription test sessions.',
       'Subscription integration readiness depends on real store and premium plan configuration.',
+      'Identity/session readiness depends on authenticated Overwolf profile state and session token availability.',
       'Account-linked persistence requires authenticated Overwolf identity wiring before production sync can be enabled.',
       'AI history, progression, and weekly reports remain local foundation scaffolding until production sync is implemented.'
     ]
   };
 };
 
-const foundationScenarioFixtures = {
-  'free-baseline': {
-    plan: 'free',
-    progressionSyncReady: false,
-    weeklyReportsSyncReady: false,
-    accountLinkageSyncReady: false,
-    scenario: 'free-baseline'
-  },
-  'premium-local-ready': {
-    plan: 'premium',
-    progressionSyncReady: true,
-    weeklyReportsSyncReady: true,
-    accountLinkageSyncReady: false,
-    scenario: 'premium-local-ready'
-  },
-  'premium-account-linked': {
-    plan: 'premium',
-    progressionSyncReady: true,
-    weeklyReportsSyncReady: true,
-    accountLinkageSyncReady: true,
-    scenario: 'premium-account-linked'
-  },
-  'premium-partial-sync': {
-    plan: 'premium',
-    progressionSyncReady: true,
-    weeklyReportsSyncReady: false,
-    accountLinkageSyncReady: true,
-    scenario: 'premium-partial-sync'
-  }
+const getAccountSessionScenarioFixtureCatalog = () => ({
+  fixtures: Object.entries(accountSessionScenarioFixtures).map(([name, value]) => ({
+    name,
+    authenticated: value.authenticated,
+    sessionTokenReady: value.sessionTokenReady,
+    accountId: value.accountId,
+    scenario: value.scenario
+  })),
+  notes: [
+    'Named identity/session presets are intended for local Overwolf subscription test preparation.',
+    'Presets only affect local foundation scaffolding and do not represent a live Overwolf session.'
+  ]
+});
+
+const applyAccountSessionScenarioFixture = (body) => {
+  const presetName = isNonEmptyString(body?.preset) ? body.preset.trim() : null;
+  const preset = presetName && Object.prototype.hasOwnProperty.call(accountSessionScenarioFixtures, presetName)
+    ? accountSessionScenarioFixtures[presetName]
+    : null;
+  const source = preset ?? body;
+  const updatedAt = new Date().toISOString();
+
+  accountSessionDevState.authenticated = source?.authenticated === true;
+  accountSessionDevState.sessionTokenReady = source?.sessionTokenReady === true;
+  accountSessionDevState.accountId = isNonEmptyString(source?.accountId) ? source.accountId.trim() : null;
+  accountSessionDevState.scenario = isNonEmptyString(source?.scenario) ? source.scenario.trim() : 'manual-override';
+  accountSessionDevState.updatedAt = updatedAt;
+
+  return {
+    ok: true,
+    preset: presetName,
+    ...getEffectiveAccountSessionDevState()
+  };
 };
 
 const getFoundationScenarioFixtureCatalog = () => ({
@@ -251,6 +299,9 @@ const getFoundationScenarioFixtureCatalog = () => ({
     progressionSyncReady: value.progressionSyncReady,
     weeklyReportsSyncReady: value.weeklyReportsSyncReady,
     accountLinkageSyncReady: value.accountLinkageSyncReady,
+    identityAuthenticated: value.identityAuthenticated,
+    sessionTokenReady: value.sessionTokenReady,
+    accountId: value.accountId,
     scenario: value.scenario
   })),
   notes: [
@@ -259,12 +310,56 @@ const getFoundationScenarioFixtureCatalog = () => ({
   ]
 });
 
+const getFoundationOrchestrationFixtureCatalog = () => ({
+  fixtures: Object.entries(foundationOrchestrationFixtures).map(([name, value]) => ({
+    name,
+    foundationPreset: value.foundationPreset,
+    accountSessionPreset: value.accountSessionPreset,
+    overrides: value.overrides ?? null,
+    scenario: value.scenario
+  })),
+  notes: [
+    'Orchestration presets apply multiple local foundation layers in one request.',
+    'These scenarios are intended for backend/service preparation before future Overwolf subscription test sessions.'
+  ]
+});
+
+const getFoundationSyncMatrixCatalog = () => ({
+  fixtures: Object.entries(foundationSyncMatrixFixtures).map(([name, value]) => ({
+    name,
+    plan: value.plan,
+    stage: value.stage,
+    authenticated: value.authenticated,
+    sessionTokenReady: value.sessionTokenReady,
+    accountId: value.accountId,
+    accountLinkageSyncReady: value.accountLinkageSyncReady,
+    progressionSyncReady: value.progressionSyncReady,
+    weeklyReportsSyncReady: value.weeklyReportsSyncReady,
+    expectedReadiness: value.expectedReadiness,
+    blockingReason: value.blockingReason,
+    scenario: value.scenario
+  })),
+  notes: [
+    'Sync matrix presets expose step-by-step readiness combinations for future automated Overwolf subscription tests.',
+    'Each matrix entry updates only local foundation scaffolding and does not represent a live subscription backend state.'
+  ]
+});
+
+const getFoundationTestCaseCatalog = () => {
+  return buildFoundationTestCaseCatalog({
+    foundationScenarioFixtures,
+    foundationSyncMatrixFixtures,
+    foundationOrchestrationFixtures,
+    accountSessionScenarioFixtures
+  });
+};
+
 const applyFoundationScenarioFixture = (body) => {
   const presetName = isNonEmptyString(body?.preset) ? body.preset.trim() : null;
   const preset = presetName && Object.prototype.hasOwnProperty.call(foundationScenarioFixtures, presetName)
     ? foundationScenarioFixtures[presetName]
     : null;
-  const source = preset ?? body;
+  const source = preset ? { ...preset, ...body } : body;
   const resolvedPlan = source?.plan === 'premium' ? 'premium' : 'free';
   const scenario = isNonEmptyString(source?.scenario) ? source.scenario.trim() : 'fixture-override';
   const updatedAt = new Date().toISOString();
@@ -278,6 +373,12 @@ const applyFoundationScenarioFixture = (body) => {
   premiumCapabilitiesDevState.scenario = scenario;
   premiumCapabilitiesDevState.updatedAt = updatedAt;
 
+  accountSessionDevState.authenticated = source?.identityAuthenticated === true;
+  accountSessionDevState.sessionTokenReady = source?.sessionTokenReady === true;
+  accountSessionDevState.accountId = isNonEmptyString(source?.accountId) ? source.accountId.trim() : null;
+  accountSessionDevState.scenario = scenario;
+  accountSessionDevState.updatedAt = updatedAt;
+
   accountLinkageDevState.syncReady = source?.accountLinkageSyncReady === true;
   accountLinkageDevState.scenario = scenario;
   accountLinkageDevState.updatedAt = updatedAt;
@@ -290,6 +391,118 @@ const applyFoundationScenarioFixture = (body) => {
     progressionSyncReady: premiumCapabilitiesDevState.progressionSyncReady,
     weeklyReportsSyncReady: premiumCapabilitiesDevState.weeklyReportsSyncReady,
     accountLinkageSyncReady: accountLinkageDevState.syncReady,
+    identityAuthenticated: accountSessionDevState.authenticated,
+    sessionTokenReady: accountSessionDevState.sessionTokenReady,
+    accountId: accountSessionDevState.accountId,
+    updatedAt,
+    diagnostics: getFoundationDiagnosticsState()
+  };
+};
+
+const applyFoundationOrchestrationFixture = (body) => {
+  const orchestrationName = isNonEmptyString(body?.orchestration) ? body.orchestration.trim() : null;
+  const orchestration = orchestrationName && Object.prototype.hasOwnProperty.call(foundationOrchestrationFixtures, orchestrationName)
+    ? foundationOrchestrationFixtures[orchestrationName]
+    : null;
+
+  if (!orchestration) {
+    return {
+      ok: false,
+      error: 'Unknown foundation orchestration preset'
+    };
+  }
+
+  const scenario = isNonEmptyString(body?.scenario) ? body.scenario.trim() : orchestration.scenario;
+  const overrides = orchestration.overrides ?? null;
+
+  const foundationResult = applyFoundationScenarioFixture({
+    preset: orchestration.foundationPreset,
+    accountLinkageSyncReady: overrides?.accountLinkageSyncReady,
+    progressionSyncReady: overrides?.progressionSyncReady,
+    weeklyReportsSyncReady: overrides?.weeklyReportsSyncReady,
+    scenario
+  });
+
+  const accountSessionResult = applyAccountSessionScenarioFixture({
+    preset: orchestration.accountSessionPreset,
+    scenario
+  });
+
+  accountLinkageDevState.scenario = scenario;
+  accountLinkageDevState.updatedAt = accountSessionResult.updatedAt;
+  premiumCapabilitiesDevState.scenario = scenario;
+  premiumCapabilitiesDevState.updatedAt = accountSessionResult.updatedAt;
+  subscriptionDevState.scenario = scenario;
+  subscriptionDevState.updatedAt = accountSessionResult.updatedAt;
+
+  return {
+    ok: true,
+    orchestration: orchestrationName,
+    foundationPreset: orchestration.foundationPreset,
+    accountSessionPreset: orchestration.accountSessionPreset,
+    scenario,
+    plan: foundationResult.plan,
+    progressionSyncReady: foundationResult.progressionSyncReady,
+    weeklyReportsSyncReady: foundationResult.weeklyReportsSyncReady,
+    accountLinkageSyncReady: foundationResult.accountLinkageSyncReady,
+    identityAuthenticated: accountSessionResult.authenticated,
+    sessionTokenReady: accountSessionResult.sessionTokenReady,
+    accountId: accountSessionResult.accountId,
+    updatedAt: accountSessionResult.updatedAt,
+    diagnostics: getFoundationDiagnosticsState()
+  };
+};
+
+const applyFoundationSyncMatrixFixture = (body) => {
+  const matrixName = isNonEmptyString(body?.matrix) ? body.matrix.trim() : null;
+  const matrixFixture = matrixName && Object.prototype.hasOwnProperty.call(foundationSyncMatrixFixtures, matrixName)
+    ? foundationSyncMatrixFixtures[matrixName]
+    : null;
+
+  if (!matrixFixture) {
+    return {
+      ok: false,
+      error: 'Unknown foundation sync matrix preset'
+    };
+  }
+
+  const scenario = isNonEmptyString(body?.scenario) ? body.scenario.trim() : matrixFixture.scenario;
+  const updatedAt = new Date().toISOString();
+
+  subscriptionDevState.plan = matrixFixture.plan === 'premium' ? 'premium' : 'free';
+  subscriptionDevState.scenario = scenario;
+  subscriptionDevState.updatedAt = updatedAt;
+
+  accountSessionDevState.authenticated = matrixFixture.authenticated === true;
+  accountSessionDevState.sessionTokenReady = matrixFixture.sessionTokenReady === true;
+  accountSessionDevState.accountId = isNonEmptyString(matrixFixture.accountId) ? matrixFixture.accountId.trim() : null;
+  accountSessionDevState.scenario = scenario;
+  accountSessionDevState.updatedAt = updatedAt;
+
+  accountLinkageDevState.syncReady = matrixFixture.accountLinkageSyncReady === true;
+  accountLinkageDevState.scenario = scenario;
+  accountLinkageDevState.updatedAt = updatedAt;
+
+  premiumCapabilitiesDevState.progressionSyncReady = matrixFixture.progressionSyncReady === true;
+  premiumCapabilitiesDevState.weeklyReportsSyncReady = matrixFixture.weeklyReportsSyncReady === true;
+  premiumCapabilitiesDevState.scenario = scenario;
+  premiumCapabilitiesDevState.updatedAt = updatedAt;
+
+  return {
+    ok: true,
+    matrix: matrixName,
+    stage: matrixFixture.stage,
+    scenario,
+    plan: subscriptionDevState.plan,
+    authenticated: accountSessionDevState.authenticated,
+    sessionTokenReady: accountSessionDevState.sessionTokenReady,
+    accountId: accountSessionDevState.accountId,
+    accountLinkageSyncReady: accountLinkageDevState.syncReady,
+    progressionSyncReady: premiumCapabilitiesDevState.progressionSyncReady,
+    weeklyReportsSyncReady: premiumCapabilitiesDevState.weeklyReportsSyncReady,
+    expectedReadiness: matrixFixture.expectedReadiness,
+    blockingReason: matrixFixture.blockingReason,
+    testAssertions: buildMatrixAssertions(matrixFixture),
     updatedAt,
     diagnostics: getFoundationDiagnosticsState()
   };
@@ -307,6 +520,12 @@ const resetFoundationScenarioFixture = () => {
   premiumCapabilitiesDevState.scenario = 'env-default';
   premiumCapabilitiesDevState.updatedAt = updatedAt;
 
+  accountSessionDevState.authenticated = false;
+  accountSessionDevState.sessionTokenReady = false;
+  accountSessionDevState.accountId = null;
+  accountSessionDevState.scenario = 'env-default';
+  accountSessionDevState.updatedAt = updatedAt;
+
   accountLinkageDevState.syncReady = false;
   accountLinkageDevState.scenario = 'env-default';
   accountLinkageDevState.updatedAt = updatedAt;
@@ -318,6 +537,9 @@ const resetFoundationScenarioFixture = () => {
     progressionSyncReady: false,
     weeklyReportsSyncReady: false,
     accountLinkageSyncReady: false,
+    identityAuthenticated: false,
+    sessionTokenReady: false,
+    accountId: null,
     updatedAt,
     diagnostics: getFoundationDiagnosticsState()
   };
@@ -740,6 +962,87 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && req.url === '/api/subscription/foundation-orchestrations') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getFoundationOrchestrationFixtureCatalog()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/foundation-sync-matrix') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getFoundationSyncMatrixCatalog()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/subscription/foundation-test-cases') {
+    try {
+      sendJson(res, 200, {
+        ok: true,
+        ...getFoundationTestCaseCatalog()
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to build foundation test case catalog';
+      sendJson(res, 500, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/account-session/config') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getAccountSessionFoundationState()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/account-session/dev-state') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getEffectiveAccountSessionDevState()
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/account-session/presets') {
+    sendJson(res, 200, {
+      ok: true,
+      ...getAccountSessionScenarioFixtureCatalog()
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/account-session/dev-state') {
+    try {
+      const body = await readJsonBody(req);
+
+      sendJson(res, 200, {
+        ...applyAccountSessionScenarioFixture(body)
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid account session dev state payload';
+      sendJson(res, 400, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && req.url === '/api/account-session/dev-state') {
+    accountSessionDevState.authenticated = false;
+    accountSessionDevState.sessionTokenReady = false;
+    accountSessionDevState.accountId = null;
+    accountSessionDevState.scenario = 'env-default';
+    accountSessionDevState.updatedAt = new Date().toISOString();
+
+    sendJson(res, 200, {
+      ok: true,
+      ...getEffectiveAccountSessionDevState()
+    });
+    return;
+  }
+
   if (req.method === 'GET' && req.url === '/api/premium-persistence/config') {
     sendJson(res, 200, {
       ok: true,
@@ -754,6 +1057,30 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, applyFoundationScenarioFixture(body));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid foundation fixture payload';
+      sendJson(res, 400, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/subscription/foundation-orchestration') {
+    try {
+      const body = await readJsonBody(req);
+      const response = applyFoundationOrchestrationFixture(body);
+      sendJson(res, response.ok === false ? 400 : 200, response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid foundation orchestration payload';
+      sendJson(res, 400, { ok: false, error: message });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/subscription/foundation-sync-matrix') {
+    try {
+      const body = await readJsonBody(req);
+      const response = applyFoundationSyncMatrixFixture(body);
+      sendJson(res, response.ok === false ? 400 : 200, response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid foundation sync matrix payload';
       sendJson(res, 400, { ok: false, error: message });
     }
     return;
