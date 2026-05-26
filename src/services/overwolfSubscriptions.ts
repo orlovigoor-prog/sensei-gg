@@ -2,7 +2,8 @@
 
 import {
   buildSubscriptionEntitlements,
-  resolveEntitlementsFromOverwolfPlans,
+  resolveOverwolfSubscriptionEntitlements,
+  type ResolvedOverwolfSubscriptionEntitlements,
   type SenseiSubscriptionEntitlements
 } from './subscriptionEntitlements';
 import {
@@ -30,6 +31,7 @@ export interface ResolvedSubscriptionServiceState {
   diagnostics: SubscriptionDiagnosticsResponse | null;
   normalizedDiagnostics: NormalizedSubscriptionDiagnostics;
   entitlements: SenseiSubscriptionEntitlements;
+  liveEntitlements: ResolvedOverwolfSubscriptionEntitlements | null;
   providerCapabilities: SubscriptionProviderCapabilities;
   providerStrategy: SubscriptionProviderStrategy;
 }
@@ -58,6 +60,16 @@ const fetchLocalDevEntitlements = async (): Promise<SenseiSubscriptionEntitlemen
 export const resolveSubscriptionEntitlements = async (
   foundationConfigOverride: SubscriptionFoundationConfigResponse | null = null
 ): Promise<SenseiSubscriptionEntitlements> => {
+  const resolved = await resolveSubscriptionEntitlementsWithSource(foundationConfigOverride);
+  return resolved.entitlements;
+};
+
+export const resolveSubscriptionEntitlementsWithSource = async (
+  foundationConfigOverride: SubscriptionFoundationConfigResponse | null = null
+): Promise<{
+  entitlements: SenseiSubscriptionEntitlements;
+  liveEntitlements: ResolvedOverwolfSubscriptionEntitlements | null;
+}> => {
   const foundationConfig = foundationConfigOverride ?? await fetchSubscriptionFoundationConfig();
 
   if (
@@ -68,14 +80,21 @@ export const resolveSubscriptionEntitlements = async (
     try {
       const activePlans = await subscriptionProviderAdapter.getDetailedActivePlans();
       if (activePlans) {
-        return resolveEntitlementsFromOverwolfPlans(activePlans, foundationConfig.premiumPlanId);
+        const liveEntitlements = resolveOverwolfSubscriptionEntitlements(activePlans, foundationConfig.premiumPlanId);
+        return {
+          entitlements: liveEntitlements.entitlements,
+          liveEntitlements
+        };
       }
     } catch (error) {
       console.warn('Failed to resolve Overwolf subscription state, falling back to local dev entitlements', error);
     }
   }
 
-  return fetchLocalDevEntitlements();
+  return {
+    entitlements: await fetchLocalDevEntitlements(),
+    liveEntitlements: null
+  };
 };
 
 export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscriptionServiceState> => {
@@ -84,7 +103,7 @@ export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscri
     fetchSubscriptionDiagnostics()
   ]);
 
-  const entitlements = await resolveSubscriptionEntitlements(foundationConfig);
+  const resolvedEntitlements = await resolveSubscriptionEntitlementsWithSource(foundationConfig);
   const normalizedFoundation = normalizeSubscriptionFoundationConfig(foundationConfig);
   const normalizedDiagnostics = normalizeSubscriptionDiagnostics(diagnostics, normalizedFoundation);
   const providerCapabilities = subscriptionProviderAdapter.getCapabilities();
@@ -99,7 +118,8 @@ export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscri
     normalizedFoundation,
     diagnostics,
     normalizedDiagnostics,
-    entitlements,
+    entitlements: resolvedEntitlements.entitlements,
+    liveEntitlements: resolvedEntitlements.liveEntitlements,
     providerCapabilities,
     providerStrategy
   };

@@ -32,6 +32,11 @@ export interface SubscriptionRuntimeState {
   purchaseFlowStartedAt: string | null;
   purchaseFlowCompletedAt: string | null;
   purchaseFlowError: string | null;
+  liveEntitlementSource: SubscriptionEntitlementSource | null;
+  liveActivePlanCount: number;
+  liveHasMatchingPremiumPlan: boolean;
+  liveMatchingPremiumPlanId: number | null;
+  liveMatchingPremiumPlanState: string | null;
   syncReady: boolean;
   lastSyncAt: string | null;
   lastSyncError: string | null;
@@ -87,6 +92,11 @@ const buildRuntimeState = (): SubscriptionRuntimeState => ({
   purchaseFlowStartedAt: null,
   purchaseFlowCompletedAt: null,
   purchaseFlowError: null,
+  liveEntitlementSource: null,
+  liveActivePlanCount: 0,
+  liveHasMatchingPremiumPlan: false,
+  liveMatchingPremiumPlanId: null,
+  liveMatchingPremiumPlanState: null,
   syncReady: false,
   lastSyncAt: null,
   lastSyncError: null,
@@ -203,6 +213,11 @@ const subscriptionSlice = createSlice({
       state.purchaseFlowStartedAt = action.payload.purchaseFlowStartedAt;
       state.purchaseFlowCompletedAt = action.payload.purchaseFlowCompletedAt;
       state.purchaseFlowError = action.payload.purchaseFlowError;
+      state.liveEntitlementSource = action.payload.liveEntitlementSource;
+      state.liveActivePlanCount = action.payload.liveActivePlanCount;
+      state.liveHasMatchingPremiumPlan = action.payload.liveHasMatchingPremiumPlan;
+      state.liveMatchingPremiumPlanId = action.payload.liveMatchingPremiumPlanId;
+      state.liveMatchingPremiumPlanState = action.payload.liveMatchingPremiumPlanState;
       state.syncReady = action.payload.syncReady;
       state.lastSyncAt = action.payload.lastSyncAt;
       state.lastSyncError = action.payload.lastSyncError;

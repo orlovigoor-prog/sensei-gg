@@ -68,6 +68,7 @@ export const syncSubscriptionRuntime = async ({
   const fallbackEntitlements = getSubscriptionDevEntitlements(devState);
   const entitlements = serviceState?.entitlements ?? serviceState?.normalizedDiagnostics.entitlements ?? fallbackEntitlements;
   const purchaseAvailability = resolveSubscriptionPurchaseAvailability(serviceState?.foundationConfig ?? null);
+  const liveEntitlements = serviceState?.liveEntitlements ?? null;
 
   dispatch(hydrateEntitlements(entitlements));
 
@@ -90,6 +91,13 @@ export const syncSubscriptionRuntime = async ({
     },
     purchaseAvailability,
     purchaseFlow,
+    liveSubscription: {
+      entitlementSource: liveEntitlements?.entitlements.source ?? null,
+      activePlanCount: liveEntitlements?.activePlanCount ?? 0,
+      hasMatchingPremiumPlan: liveEntitlements?.hasMatchingPremiumPlan ?? false,
+      matchingPremiumPlanId: liveEntitlements?.matchingPremiumPlanId ?? null,
+      matchingPremiumPlanState: liveEntitlements?.matchingPremiumPlanState ?? null
+    },
     providerCapabilities: {
       syncReady: Boolean(serviceState?.providerCapabilities.syncReady) && isSubscriptionSyncReady()
     },

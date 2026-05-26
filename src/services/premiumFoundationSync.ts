@@ -118,6 +118,13 @@ export const syncPremiumFoundation = async ({
     },
     purchaseAvailability,
     purchaseFlow,
+    liveSubscription: {
+      entitlementSource: null,
+      activePlanCount: 0,
+      hasMatchingPremiumPlan: false,
+      matchingPremiumPlanId: null,
+      matchingPremiumPlanState: null
+    },
     providerCapabilities: {
       syncReady: providerCapabilities.syncReady && isSubscriptionSyncReady()
     },

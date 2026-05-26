@@ -49,6 +49,13 @@ export interface BuildSubscriptionRuntimeSnapshotInput {
   >;
   purchaseAvailability: Pick<SubscriptionPurchaseAvailability, 'canOpenPurchaseFlow' | 'reason'>;
   purchaseFlow: SubscriptionPurchaseFlowSnapshot;
+  liveSubscription: {
+    entitlementSource: SubscriptionState['source'] | null;
+    activePlanCount: number;
+    hasMatchingPremiumPlan: boolean;
+    matchingPremiumPlanId: number | null;
+    matchingPremiumPlanState: string | null;
+  };
   providerCapabilities: Pick<SubscriptionProviderCapabilities, 'syncReady'>;
   lastSyncAt: string;
   lastSyncError: string | null;
@@ -112,6 +119,11 @@ export const buildSubscriptionRuntimeSnapshot = (
   purchaseFlowStartedAt: input.purchaseFlow.purchaseFlowStartedAt,
   purchaseFlowCompletedAt: input.purchaseFlow.purchaseFlowCompletedAt,
   purchaseFlowError: input.purchaseFlow.purchaseFlowError,
+  liveEntitlementSource: input.liveSubscription.entitlementSource,
+  liveActivePlanCount: input.liveSubscription.activePlanCount,
+  liveHasMatchingPremiumPlan: input.liveSubscription.hasMatchingPremiumPlan,
+  liveMatchingPremiumPlanId: input.liveSubscription.matchingPremiumPlanId,
+  liveMatchingPremiumPlanState: input.liveSubscription.matchingPremiumPlanState,
   syncReady: input.providerCapabilities.syncReady,
   lastSyncAt: input.lastSyncAt,
   lastSyncError: input.lastSyncError,

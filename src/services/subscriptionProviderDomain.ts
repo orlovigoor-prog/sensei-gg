@@ -39,6 +39,7 @@ export interface NormalizedSubscriptionDiagnostics {
   premiumPlanReady: boolean;
   localScenarioSwitchingAvailable: boolean;
   entitlements: SenseiSubscriptionEntitlements | null;
+  entitlementSource: SenseiSubscriptionEntitlements['source'] | null;
   notes: string[];
 }
 
@@ -80,6 +81,7 @@ export const normalizeSubscriptionDiagnostics = (
   premiumPlanReady: diagnostics?.overwolfTestReadiness?.premiumPlanReady ?? false,
   localScenarioSwitchingAvailable: diagnostics?.overwolfTestReadiness?.localScenarioSwitchingAvailable ?? false,
   entitlements: diagnostics?.entitlements ?? null,
+  entitlementSource: diagnostics?.entitlements?.source ?? null,
   notes: Array.isArray(diagnostics?.notes) ? diagnostics.notes : []
 });
 
