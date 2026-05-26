@@ -37,6 +37,21 @@ export interface SubscriptionRuntimeState {
   liveHasMatchingPremiumPlan: boolean;
   liveMatchingPremiumPlanId: number | null;
   liveMatchingPremiumPlanState: string | null;
+  comparisonDiagnosticsAvailable: boolean;
+  comparisonLiveAvailable: boolean;
+  comparisonEffectivePlan: SubscriptionPlan;
+  comparisonEffectiveSource: SubscriptionEntitlementSource;
+  comparisonDiagnosticsPlan: SubscriptionPlan | null;
+  comparisonDiagnosticsSource: SubscriptionEntitlementSource | null;
+  comparisonLivePlan: SubscriptionPlan | null;
+  comparisonLiveSource: SubscriptionEntitlementSource | null;
+  comparisonLiveVsEffectivePlanMismatch: boolean;
+  comparisonLiveVsEffectiveSourceMismatch: boolean;
+  comparisonDiagnosticsVsEffectivePlanMismatch: boolean;
+  comparisonDiagnosticsVsEffectiveSourceMismatch: boolean;
+  comparisonDiagnosticsVsLivePlanMismatch: boolean;
+  comparisonDiagnosticsVsLiveSourceMismatch: boolean;
+  comparisonHasAnyDivergence: boolean;
   syncOutcome: 'overwolf-live-premium' | 'overwolf-live-free' | 'local-dev-fallback' | 'config-missing-fallback' | 'capability-missing-fallback' | 'overwolf-error-fallback';
   fallbackReason: 'premium-plan-not-configured' | 'overwolf-capabilities-missing' | 'overwolf-active-plans-unavailable' | 'local-dev-entitlements-unavailable' | null;
   syncReady: boolean;
@@ -99,6 +114,21 @@ const buildRuntimeState = (): SubscriptionRuntimeState => ({
   liveHasMatchingPremiumPlan: false,
   liveMatchingPremiumPlanId: null,
   liveMatchingPremiumPlanState: null,
+  comparisonDiagnosticsAvailable: false,
+  comparisonLiveAvailable: false,
+  comparisonEffectivePlan: 'free',
+  comparisonEffectiveSource: 'fallback-free',
+  comparisonDiagnosticsPlan: null,
+  comparisonDiagnosticsSource: null,
+  comparisonLivePlan: null,
+  comparisonLiveSource: null,
+  comparisonLiveVsEffectivePlanMismatch: false,
+  comparisonLiveVsEffectiveSourceMismatch: false,
+  comparisonDiagnosticsVsEffectivePlanMismatch: false,
+  comparisonDiagnosticsVsEffectiveSourceMismatch: false,
+  comparisonDiagnosticsVsLivePlanMismatch: false,
+  comparisonDiagnosticsVsLiveSourceMismatch: false,
+  comparisonHasAnyDivergence: false,
   syncOutcome: 'local-dev-fallback',
   fallbackReason: null,
   syncReady: false,
@@ -222,6 +252,21 @@ const subscriptionSlice = createSlice({
       state.liveHasMatchingPremiumPlan = action.payload.liveHasMatchingPremiumPlan;
       state.liveMatchingPremiumPlanId = action.payload.liveMatchingPremiumPlanId;
       state.liveMatchingPremiumPlanState = action.payload.liveMatchingPremiumPlanState;
+      state.comparisonDiagnosticsAvailable = action.payload.comparisonDiagnosticsAvailable;
+      state.comparisonLiveAvailable = action.payload.comparisonLiveAvailable;
+      state.comparisonEffectivePlan = action.payload.comparisonEffectivePlan;
+      state.comparisonEffectiveSource = action.payload.comparisonEffectiveSource;
+      state.comparisonDiagnosticsPlan = action.payload.comparisonDiagnosticsPlan;
+      state.comparisonDiagnosticsSource = action.payload.comparisonDiagnosticsSource;
+      state.comparisonLivePlan = action.payload.comparisonLivePlan;
+      state.comparisonLiveSource = action.payload.comparisonLiveSource;
+      state.comparisonLiveVsEffectivePlanMismatch = action.payload.comparisonLiveVsEffectivePlanMismatch;
+      state.comparisonLiveVsEffectiveSourceMismatch = action.payload.comparisonLiveVsEffectiveSourceMismatch;
+      state.comparisonDiagnosticsVsEffectivePlanMismatch = action.payload.comparisonDiagnosticsVsEffectivePlanMismatch;
+      state.comparisonDiagnosticsVsEffectiveSourceMismatch = action.payload.comparisonDiagnosticsVsEffectiveSourceMismatch;
+      state.comparisonDiagnosticsVsLivePlanMismatch = action.payload.comparisonDiagnosticsVsLivePlanMismatch;
+      state.comparisonDiagnosticsVsLiveSourceMismatch = action.payload.comparisonDiagnosticsVsLiveSourceMismatch;
+      state.comparisonHasAnyDivergence = action.payload.comparisonHasAnyDivergence;
       state.syncOutcome = action.payload.syncOutcome;
       state.fallbackReason = action.payload.fallbackReason;
       state.syncReady = action.payload.syncReady;

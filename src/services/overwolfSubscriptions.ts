@@ -32,6 +32,23 @@ export interface ResolvedSubscriptionServiceState {
   normalizedDiagnostics: NormalizedSubscriptionDiagnostics;
   entitlements: SenseiSubscriptionEntitlements;
   liveEntitlements: ResolvedOverwolfSubscriptionEntitlements | null;
+  entitlementComparison: {
+    effectivePlan: SenseiSubscriptionEntitlements['plan'];
+    effectiveSource: SenseiSubscriptionEntitlements['source'];
+    diagnosticsPlan: SenseiSubscriptionEntitlements['plan'] | null;
+    diagnosticsSource: SenseiSubscriptionEntitlements['source'] | null;
+    livePlan: SenseiSubscriptionEntitlements['plan'] | null;
+    liveSource: SenseiSubscriptionEntitlements['source'] | null;
+    liveAvailable: boolean;
+    diagnosticsAvailable: boolean;
+    liveVsEffectivePlanMismatch: boolean;
+    liveVsEffectiveSourceMismatch: boolean;
+    diagnosticsVsEffectivePlanMismatch: boolean;
+    diagnosticsVsEffectiveSourceMismatch: boolean;
+    diagnosticsVsLivePlanMismatch: boolean;
+    diagnosticsVsLiveSourceMismatch: boolean;
+    hasAnyDivergence: boolean;
+  };
   syncOutcome: 'overwolf-live-premium' | 'overwolf-live-free' | 'local-dev-fallback' | 'config-missing-fallback' | 'capability-missing-fallback' | 'overwolf-error-fallback';
   fallbackReason: 'premium-plan-not-configured' | 'overwolf-capabilities-missing' | 'overwolf-active-plans-unavailable' | 'local-dev-entitlements-unavailable' | null;
   providerCapabilities: SubscriptionProviderCapabilities;
@@ -142,6 +159,47 @@ export const resolveSubscriptionEntitlementsWithSource = async (
   };
 };
 
+const buildEntitlementComparison = (input: {
+  effective: SenseiSubscriptionEntitlements;
+  diagnostics: SenseiSubscriptionEntitlements | null;
+  live: ResolvedOverwolfSubscriptionEntitlements | null;
+}): ResolvedSubscriptionServiceState['entitlementComparison'] => {
+  const diagnosticsEntitlements = input.diagnostics;
+  const liveEntitlements = input.live?.entitlements ?? null;
+
+  const liveVsEffectivePlanMismatch = Boolean(liveEntitlements && liveEntitlements.plan !== input.effective.plan);
+  const liveVsEffectiveSourceMismatch = Boolean(liveEntitlements && liveEntitlements.source !== input.effective.source);
+  const diagnosticsVsEffectivePlanMismatch = Boolean(diagnosticsEntitlements && diagnosticsEntitlements.plan !== input.effective.plan);
+  const diagnosticsVsEffectiveSourceMismatch = Boolean(diagnosticsEntitlements && diagnosticsEntitlements.source !== input.effective.source);
+  const diagnosticsVsLivePlanMismatch = Boolean(diagnosticsEntitlements && liveEntitlements && diagnosticsEntitlements.plan !== liveEntitlements.plan);
+  const diagnosticsVsLiveSourceMismatch = Boolean(diagnosticsEntitlements && liveEntitlements && diagnosticsEntitlements.source !== liveEntitlements.source);
+
+  return {
+    effectivePlan: input.effective.plan,
+    effectiveSource: input.effective.source,
+    diagnosticsPlan: diagnosticsEntitlements?.plan ?? null,
+    diagnosticsSource: diagnosticsEntitlements?.source ?? null,
+    livePlan: liveEntitlements?.plan ?? null,
+    liveSource: liveEntitlements?.source ?? null,
+    liveAvailable: Boolean(liveEntitlements),
+    diagnosticsAvailable: Boolean(diagnosticsEntitlements),
+    liveVsEffectivePlanMismatch,
+    liveVsEffectiveSourceMismatch,
+    diagnosticsVsEffectivePlanMismatch,
+    diagnosticsVsEffectiveSourceMismatch,
+    diagnosticsVsLivePlanMismatch,
+    diagnosticsVsLiveSourceMismatch,
+    hasAnyDivergence: Boolean(
+      liveVsEffectivePlanMismatch
+      || liveVsEffectiveSourceMismatch
+      || diagnosticsVsEffectivePlanMismatch
+      || diagnosticsVsEffectiveSourceMismatch
+      || diagnosticsVsLivePlanMismatch
+      || diagnosticsVsLiveSourceMismatch
+    )
+  };
+};
+
 export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscriptionServiceState> => {
   const [foundationConfig, diagnostics] = await Promise.all([
     fetchSubscriptionFoundationConfig(),
@@ -157,6 +215,11 @@ export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscri
     capabilities: providerCapabilities,
     diagnostics: normalizedDiagnostics
   });
+  const entitlementComparison = buildEntitlementComparison({
+    effective: resolvedEntitlements.entitlements,
+    diagnostics: normalizedDiagnostics.entitlements,
+    live: resolvedEntitlements.liveEntitlements
+  });
 
   return {
     foundationConfig,
@@ -165,6 +228,7 @@ export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscri
     normalizedDiagnostics,
     entitlements: resolvedEntitlements.entitlements,
     liveEntitlements: resolvedEntitlements.liveEntitlements,
+    entitlementComparison,
     syncOutcome: resolvedEntitlements.syncOutcome,
     fallbackReason: resolvedEntitlements.fallbackReason,
     providerCapabilities,

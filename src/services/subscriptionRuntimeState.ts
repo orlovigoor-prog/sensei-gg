@@ -60,6 +60,23 @@ export interface BuildSubscriptionRuntimeSnapshotInput {
     outcome: SubscriptionState['syncOutcome'];
     fallbackReason: SubscriptionState['fallbackReason'];
   };
+  comparison: {
+    diagnosticsAvailable: boolean;
+    liveAvailable: boolean;
+    effectivePlan: SubscriptionState['plan'];
+    effectiveSource: SubscriptionState['source'];
+    diagnosticsPlan: SubscriptionState['plan'] | null;
+    diagnosticsSource: SubscriptionState['source'] | null;
+    livePlan: SubscriptionState['plan'] | null;
+    liveSource: SubscriptionState['source'] | null;
+    liveVsEffectivePlanMismatch: boolean;
+    liveVsEffectiveSourceMismatch: boolean;
+    diagnosticsVsEffectivePlanMismatch: boolean;
+    diagnosticsVsEffectiveSourceMismatch: boolean;
+    diagnosticsVsLivePlanMismatch: boolean;
+    diagnosticsVsLiveSourceMismatch: boolean;
+    hasAnyDivergence: boolean;
+  };
   providerCapabilities: Pick<SubscriptionProviderCapabilities, 'syncReady'>;
   lastSyncAt: string;
   lastSyncError: string | null;
@@ -128,6 +145,21 @@ export const buildSubscriptionRuntimeSnapshot = (
   liveHasMatchingPremiumPlan: input.liveSubscription.hasMatchingPremiumPlan,
   liveMatchingPremiumPlanId: input.liveSubscription.matchingPremiumPlanId,
   liveMatchingPremiumPlanState: input.liveSubscription.matchingPremiumPlanState,
+  comparisonDiagnosticsAvailable: input.comparison.diagnosticsAvailable,
+  comparisonLiveAvailable: input.comparison.liveAvailable,
+  comparisonEffectivePlan: input.comparison.effectivePlan,
+  comparisonEffectiveSource: input.comparison.effectiveSource,
+  comparisonDiagnosticsPlan: input.comparison.diagnosticsPlan,
+  comparisonDiagnosticsSource: input.comparison.diagnosticsSource,
+  comparisonLivePlan: input.comparison.livePlan,
+  comparisonLiveSource: input.comparison.liveSource,
+  comparisonLiveVsEffectivePlanMismatch: input.comparison.liveVsEffectivePlanMismatch,
+  comparisonLiveVsEffectiveSourceMismatch: input.comparison.liveVsEffectiveSourceMismatch,
+  comparisonDiagnosticsVsEffectivePlanMismatch: input.comparison.diagnosticsVsEffectivePlanMismatch,
+  comparisonDiagnosticsVsEffectiveSourceMismatch: input.comparison.diagnosticsVsEffectiveSourceMismatch,
+  comparisonDiagnosticsVsLivePlanMismatch: input.comparison.diagnosticsVsLivePlanMismatch,
+  comparisonDiagnosticsVsLiveSourceMismatch: input.comparison.diagnosticsVsLiveSourceMismatch,
+  comparisonHasAnyDivergence: input.comparison.hasAnyDivergence,
   syncOutcome: input.syncOutcome.outcome,
   fallbackReason: input.syncOutcome.fallbackReason,
   syncReady: input.providerCapabilities.syncReady,

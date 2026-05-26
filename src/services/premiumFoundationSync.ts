@@ -129,6 +129,23 @@ export const syncPremiumFoundation = async ({
       outcome: 'local-dev-fallback',
       fallbackReason: null
     },
+    comparison: {
+      diagnosticsAvailable: Boolean(normalizedDiagnostics.entitlements),
+      liveAvailable: false,
+      effectivePlan: (normalizedDiagnostics.entitlements ?? fallbackDevEntitlements).plan,
+      effectiveSource: (normalizedDiagnostics.entitlements ?? fallbackDevEntitlements).source,
+      diagnosticsPlan: normalizedDiagnostics.entitlements?.plan ?? null,
+      diagnosticsSource: normalizedDiagnostics.entitlements?.source ?? null,
+      livePlan: null,
+      liveSource: null,
+      liveVsEffectivePlanMismatch: false,
+      liveVsEffectiveSourceMismatch: false,
+      diagnosticsVsEffectivePlanMismatch: false,
+      diagnosticsVsEffectiveSourceMismatch: false,
+      diagnosticsVsLivePlanMismatch: false,
+      diagnosticsVsLiveSourceMismatch: false,
+      hasAnyDivergence: false
+    },
     providerCapabilities: {
       syncReady: providerCapabilities.syncReady && isSubscriptionSyncReady()
     },

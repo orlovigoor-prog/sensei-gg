@@ -102,6 +102,23 @@ export const syncSubscriptionRuntime = async ({
       outcome: serviceState?.syncOutcome ?? 'local-dev-fallback',
       fallbackReason: serviceState?.fallbackReason ?? null
     },
+    comparison: {
+      diagnosticsAvailable: serviceState?.entitlementComparison.diagnosticsAvailable ?? false,
+      liveAvailable: serviceState?.entitlementComparison.liveAvailable ?? false,
+      effectivePlan: serviceState?.entitlementComparison.effectivePlan ?? entitlements.plan,
+      effectiveSource: serviceState?.entitlementComparison.effectiveSource ?? entitlements.source,
+      diagnosticsPlan: serviceState?.entitlementComparison.diagnosticsPlan ?? null,
+      diagnosticsSource: serviceState?.entitlementComparison.diagnosticsSource ?? null,
+      livePlan: serviceState?.entitlementComparison.livePlan ?? null,
+      liveSource: serviceState?.entitlementComparison.liveSource ?? null,
+      liveVsEffectivePlanMismatch: serviceState?.entitlementComparison.liveVsEffectivePlanMismatch ?? false,
+      liveVsEffectiveSourceMismatch: serviceState?.entitlementComparison.liveVsEffectiveSourceMismatch ?? false,
+      diagnosticsVsEffectivePlanMismatch: serviceState?.entitlementComparison.diagnosticsVsEffectivePlanMismatch ?? false,
+      diagnosticsVsEffectiveSourceMismatch: serviceState?.entitlementComparison.diagnosticsVsEffectiveSourceMismatch ?? false,
+      diagnosticsVsLivePlanMismatch: serviceState?.entitlementComparison.diagnosticsVsLivePlanMismatch ?? false,
+      diagnosticsVsLiveSourceMismatch: serviceState?.entitlementComparison.diagnosticsVsLiveSourceMismatch ?? false,
+      hasAnyDivergence: serviceState?.entitlementComparison.hasAnyDivergence ?? false
+    },
     providerCapabilities: {
       syncReady: Boolean(serviceState?.providerCapabilities.syncReady) && isSubscriptionSyncReady()
     },
