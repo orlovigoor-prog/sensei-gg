@@ -125,6 +125,10 @@ export const syncPremiumFoundation = async ({
       matchingPremiumPlanId: null,
       matchingPremiumPlanState: null
     },
+    syncOutcome: {
+      outcome: 'local-dev-fallback',
+      fallbackReason: null
+    },
     providerCapabilities: {
       syncReady: providerCapabilities.syncReady && isSubscriptionSyncReady()
     },

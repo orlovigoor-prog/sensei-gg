@@ -37,6 +37,8 @@ export interface SubscriptionRuntimeState {
   liveHasMatchingPremiumPlan: boolean;
   liveMatchingPremiumPlanId: number | null;
   liveMatchingPremiumPlanState: string | null;
+  syncOutcome: 'overwolf-live-premium' | 'overwolf-live-free' | 'local-dev-fallback' | 'config-missing-fallback' | 'capability-missing-fallback' | 'overwolf-error-fallback';
+  fallbackReason: 'premium-plan-not-configured' | 'overwolf-capabilities-missing' | 'overwolf-active-plans-unavailable' | 'local-dev-entitlements-unavailable' | null;
   syncReady: boolean;
   lastSyncAt: string | null;
   lastSyncError: string | null;
@@ -97,6 +99,8 @@ const buildRuntimeState = (): SubscriptionRuntimeState => ({
   liveHasMatchingPremiumPlan: false,
   liveMatchingPremiumPlanId: null,
   liveMatchingPremiumPlanState: null,
+  syncOutcome: 'local-dev-fallback',
+  fallbackReason: null,
   syncReady: false,
   lastSyncAt: null,
   lastSyncError: null,
@@ -218,6 +222,8 @@ const subscriptionSlice = createSlice({
       state.liveHasMatchingPremiumPlan = action.payload.liveHasMatchingPremiumPlan;
       state.liveMatchingPremiumPlanId = action.payload.liveMatchingPremiumPlanId;
       state.liveMatchingPremiumPlanState = action.payload.liveMatchingPremiumPlanState;
+      state.syncOutcome = action.payload.syncOutcome;
+      state.fallbackReason = action.payload.fallbackReason;
       state.syncReady = action.payload.syncReady;
       state.lastSyncAt = action.payload.lastSyncAt;
       state.lastSyncError = action.payload.lastSyncError;

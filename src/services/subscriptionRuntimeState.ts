@@ -56,6 +56,10 @@ export interface BuildSubscriptionRuntimeSnapshotInput {
     matchingPremiumPlanId: number | null;
     matchingPremiumPlanState: string | null;
   };
+  syncOutcome: {
+    outcome: SubscriptionState['syncOutcome'];
+    fallbackReason: SubscriptionState['fallbackReason'];
+  };
   providerCapabilities: Pick<SubscriptionProviderCapabilities, 'syncReady'>;
   lastSyncAt: string;
   lastSyncError: string | null;
@@ -124,6 +128,8 @@ export const buildSubscriptionRuntimeSnapshot = (
   liveHasMatchingPremiumPlan: input.liveSubscription.hasMatchingPremiumPlan,
   liveMatchingPremiumPlanId: input.liveSubscription.matchingPremiumPlanId,
   liveMatchingPremiumPlanState: input.liveSubscription.matchingPremiumPlanState,
+  syncOutcome: input.syncOutcome.outcome,
+  fallbackReason: input.syncOutcome.fallbackReason,
   syncReady: input.providerCapabilities.syncReady,
   lastSyncAt: input.lastSyncAt,
   lastSyncError: input.lastSyncError,

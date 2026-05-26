@@ -98,6 +98,10 @@ export const syncSubscriptionRuntime = async ({
       matchingPremiumPlanId: liveEntitlements?.matchingPremiumPlanId ?? null,
       matchingPremiumPlanState: liveEntitlements?.matchingPremiumPlanState ?? null
     },
+    syncOutcome: {
+      outcome: serviceState?.syncOutcome ?? 'local-dev-fallback',
+      fallbackReason: serviceState?.fallbackReason ?? null
+    },
     providerCapabilities: {
       syncReady: Boolean(serviceState?.providerCapabilities.syncReady) && isSubscriptionSyncReady()
     },

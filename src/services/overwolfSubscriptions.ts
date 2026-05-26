@@ -32,6 +32,8 @@ export interface ResolvedSubscriptionServiceState {
   normalizedDiagnostics: NormalizedSubscriptionDiagnostics;
   entitlements: SenseiSubscriptionEntitlements;
   liveEntitlements: ResolvedOverwolfSubscriptionEntitlements | null;
+  syncOutcome: 'overwolf-live-premium' | 'overwolf-live-free' | 'local-dev-fallback' | 'config-missing-fallback' | 'capability-missing-fallback' | 'overwolf-error-fallback';
+  fallbackReason: 'premium-plan-not-configured' | 'overwolf-capabilities-missing' | 'overwolf-active-plans-unavailable' | 'local-dev-entitlements-unavailable' | null;
   providerCapabilities: SubscriptionProviderCapabilities;
   providerStrategy: SubscriptionProviderStrategy;
 }
@@ -57,6 +59,23 @@ const fetchLocalDevEntitlements = async (): Promise<SenseiSubscriptionEntitlemen
   }
 };
 
+const resolveFallbackEntitlements = async (): Promise<{
+  entitlements: SenseiSubscriptionEntitlements;
+  fallbackReason: 'local-dev-entitlements-unavailable' | null;
+}> => {
+  try {
+    return {
+      entitlements: await fetchLocalDevEntitlements(),
+      fallbackReason: null
+    };
+  } catch {
+    return {
+      entitlements: buildSubscriptionEntitlements('free', 'fallback-free'),
+      fallbackReason: 'local-dev-entitlements-unavailable'
+    };
+  }
+};
+
 export const resolveSubscriptionEntitlements = async (
   foundationConfigOverride: SubscriptionFoundationConfigResponse | null = null
 ): Promise<SenseiSubscriptionEntitlements> => {
@@ -69,31 +88,57 @@ export const resolveSubscriptionEntitlementsWithSource = async (
 ): Promise<{
   entitlements: SenseiSubscriptionEntitlements;
   liveEntitlements: ResolvedOverwolfSubscriptionEntitlements | null;
+  syncOutcome: ResolvedSubscriptionServiceState['syncOutcome'];
+  fallbackReason: ResolvedSubscriptionServiceState['fallbackReason'];
 }> => {
   const foundationConfig = foundationConfigOverride ?? await fetchSubscriptionFoundationConfig();
+  const providerCapabilities = subscriptionProviderAdapter.getCapabilities();
 
   if (
-    foundationConfig?.premiumPlanConfigured
-    && typeof foundationConfig.premiumPlanId === 'number'
-    && foundationConfig.premiumPlanId > 0
+    !foundationConfig?.premiumPlanConfigured
+    || typeof foundationConfig.premiumPlanId !== 'number'
+    || foundationConfig.premiumPlanId <= 0
   ) {
-    try {
-      const activePlans = await subscriptionProviderAdapter.getDetailedActivePlans();
-      if (activePlans) {
-        const liveEntitlements = resolveOverwolfSubscriptionEntitlements(activePlans, foundationConfig.premiumPlanId);
-        return {
-          entitlements: liveEntitlements.entitlements,
-          liveEntitlements
-        };
-      }
-    } catch (error) {
-      console.warn('Failed to resolve Overwolf subscription state, falling back to local dev entitlements', error);
-    }
+    const fallback = await resolveFallbackEntitlements();
+    return {
+      entitlements: fallback.entitlements,
+      liveEntitlements: null,
+      syncOutcome: 'config-missing-fallback',
+      fallbackReason: fallback.fallbackReason ?? 'premium-plan-not-configured'
+    };
   }
 
+  if (!providerCapabilities.canReadDetailedActivePlans) {
+    const fallback = await resolveFallbackEntitlements();
+    return {
+      entitlements: fallback.entitlements,
+      liveEntitlements: null,
+      syncOutcome: 'capability-missing-fallback',
+      fallbackReason: fallback.fallbackReason ?? 'overwolf-capabilities-missing'
+    };
+  }
+
+  try {
+    const activePlans = await subscriptionProviderAdapter.getDetailedActivePlans();
+    if (activePlans) {
+      const liveEntitlements = resolveOverwolfSubscriptionEntitlements(activePlans, foundationConfig.premiumPlanId);
+      return {
+        entitlements: liveEntitlements.entitlements,
+        liveEntitlements,
+        syncOutcome: liveEntitlements.hasMatchingPremiumPlan ? 'overwolf-live-premium' : 'overwolf-live-free',
+        fallbackReason: null
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to resolve Overwolf subscription state, falling back to local dev entitlements', error);
+  }
+
+  const fallback = await resolveFallbackEntitlements();
   return {
-    entitlements: await fetchLocalDevEntitlements(),
-    liveEntitlements: null
+    entitlements: fallback.entitlements,
+    liveEntitlements: null,
+    syncOutcome: 'overwolf-error-fallback',
+    fallbackReason: fallback.fallbackReason ?? 'overwolf-active-plans-unavailable'
   };
 };
 
@@ -120,6 +165,8 @@ export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscri
     normalizedDiagnostics,
     entitlements: resolvedEntitlements.entitlements,
     liveEntitlements: resolvedEntitlements.liveEntitlements,
+    syncOutcome: resolvedEntitlements.syncOutcome,
+    fallbackReason: resolvedEntitlements.fallbackReason,
     providerCapabilities,
     providerStrategy
   };
