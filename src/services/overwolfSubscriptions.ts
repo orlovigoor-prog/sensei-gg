@@ -6,13 +6,33 @@ import {
   type SenseiSubscriptionEntitlements
 } from './subscriptionEntitlements';
 import {
+  normalizeSubscriptionDiagnostics,
+  normalizeSubscriptionFoundationConfig,
+  resolveSubscriptionProviderStrategy,
+  type NormalizedSubscriptionDiagnostics,
+  type NormalizedSubscriptionFoundationConfig,
+  type SubscriptionProviderCapabilities,
+  type SubscriptionProviderStrategy
+} from './subscriptionProviderDomain';
+import {
   subscriptionProviderAdapter,
   type SubscriptionFoundationConfigResponse
 } from './subscriptionProviderAdapter';
+import { fetchSubscriptionDiagnostics, type SubscriptionDiagnosticsResponse } from './subscriptionDevTools';
 
 export const fetchSubscriptionFoundationConfig = async (): Promise<SubscriptionFoundationConfigResponse | null> => {
   return subscriptionProviderAdapter.fetchFoundationConfig();
 };
+
+export interface ResolvedSubscriptionServiceState {
+  foundationConfig: SubscriptionFoundationConfigResponse | null;
+  normalizedFoundation: NormalizedSubscriptionFoundationConfig;
+  diagnostics: SubscriptionDiagnosticsResponse | null;
+  normalizedDiagnostics: NormalizedSubscriptionDiagnostics;
+  entitlements: SenseiSubscriptionEntitlements;
+  providerCapabilities: SubscriptionProviderCapabilities;
+  providerStrategy: SubscriptionProviderStrategy;
+}
 
 const fetchLocalDevEntitlements = async (): Promise<SenseiSubscriptionEntitlements> => {
   try {
@@ -35,8 +55,10 @@ const fetchLocalDevEntitlements = async (): Promise<SenseiSubscriptionEntitlemen
   }
 };
 
-export const resolveSubscriptionEntitlements = async (): Promise<SenseiSubscriptionEntitlements> => {
-  const foundationConfig = await fetchSubscriptionFoundationConfig();
+export const resolveSubscriptionEntitlements = async (
+  foundationConfigOverride: SubscriptionFoundationConfigResponse | null = null
+): Promise<SenseiSubscriptionEntitlements> => {
+  const foundationConfig = foundationConfigOverride ?? await fetchSubscriptionFoundationConfig();
 
   if (
     foundationConfig?.premiumPlanConfigured
@@ -54,6 +76,33 @@ export const resolveSubscriptionEntitlements = async (): Promise<SenseiSubscript
   }
 
   return fetchLocalDevEntitlements();
+};
+
+export const resolveSubscriptionServiceState = async (): Promise<ResolvedSubscriptionServiceState> => {
+  const [foundationConfig, diagnostics] = await Promise.all([
+    fetchSubscriptionFoundationConfig(),
+    fetchSubscriptionDiagnostics()
+  ]);
+
+  const entitlements = await resolveSubscriptionEntitlements(foundationConfig);
+  const normalizedFoundation = normalizeSubscriptionFoundationConfig(foundationConfig);
+  const normalizedDiagnostics = normalizeSubscriptionDiagnostics(diagnostics, normalizedFoundation);
+  const providerCapabilities = subscriptionProviderAdapter.getCapabilities();
+  const providerStrategy = resolveSubscriptionProviderStrategy({
+    foundation: normalizedFoundation,
+    capabilities: providerCapabilities,
+    diagnostics: normalizedDiagnostics
+  });
+
+  return {
+    foundationConfig,
+    normalizedFoundation,
+    diagnostics,
+    normalizedDiagnostics,
+    entitlements,
+    providerCapabilities,
+    providerStrategy
+  };
 };
 
 export type { SubscriptionFoundationConfigResponse };
