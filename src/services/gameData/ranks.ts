@@ -1,4 +1,4 @@
-import { dragonVersion, type RankTier } from './core';
+import type { RankTier } from './core';
 
 export const rankVisuals: Record<RankTier, { color: string; slug: string }> = {
   CHALLENGER: { color: '#fbbf24', slug: 'challenger' },
@@ -14,4 +14,4 @@ export const rankVisuals: Record<RankTier, { color: string; slug: string }> = {
   UNRANKED: { color: '#38bdf8', slug: 'default' }
 };
 
-export const getProfileIconUrl = (profileIconId: number) => `https://ddragon.leagueoflegends.com/cdn/${dragonVersion}/img/profileicon/${profileIconId}.png`;
+export const getProfileIconUrl = (profileIconId: number) => `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${profileIconId}.jpg`;

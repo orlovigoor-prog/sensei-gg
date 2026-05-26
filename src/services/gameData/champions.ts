@@ -11,6 +11,7 @@ export interface ChampionCatalogEntry {
 export const championAssetMap: Record<string, string> = {
   "Kai'Sa": 'Kaisa',
   KaiSa: 'Kaisa',
+  FiddleSticks: 'Fiddlesticks',
   "Kha'Zix": 'Khazix',
   "Vel'Koz": 'Velkoz',
   "Bel'Veth": 'Belveth',

@@ -1,6 +1,7 @@
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ItemTooltip } from '../../components/ItemTooltip';
 import type { PlayerInfo } from '../../store/lobbySlice';
 import type { CompletedMatchSummary, StructuredAiReview } from '../../store/gameSlice';
 import { getRankColor, getRankIconUrl } from '../../services/rankAssets';
@@ -12,11 +13,13 @@ import {
   getItemCatalogEntry,
   getItemIconUrl,
   getRecommendedItemBuild,
+  resolveItemTooltipEntry,
   getSummonerSpellIconUrl,
   mockCounterPool,
   patchTierVisuals,
   summonerSpellPool
 } from '../../services/gameData';
+import type { ItemCatalogEntry } from '../../services/gameData/items';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
 
@@ -60,6 +63,7 @@ interface PostGamePlayerRowProps {
   displayName: string;
   isWinner: boolean;
   laneLabel: string;
+  rowIndex: number;
 }
 
 interface LobbyCounterpick {
@@ -123,58 +127,6 @@ const aiInsightTone = [
 
 const hashChampionName = (championName: string) => Array.from(championName).reduce((sum, char, index) => sum + (char.charCodeAt(0) * (index + 3)), 0);
 
-const getItemStatColor = (stat: string) => {
-  const normalized = stat.toLowerCase();
-
-  if (normalized.includes('силы атаки') || normalized.includes('шанса критического удара')) {
-    return '#f59e0b';
-  }
-
-  if (normalized.includes('силы умений') || normalized.includes('магического')) {
-    return '#60a5fa';
-  }
-
-  if (normalized.includes('брони') || normalized.includes('сопротивления магии')) {
-    return '#fca5a5';
-  }
-
-  if (normalized.includes('здоровья')) {
-    return '#34d399';
-  }
-
-  if (normalized.includes('ускорения умений') || normalized.includes('восстановления маны')) {
-    return '#c4b5fd';
-  }
-
-  if (normalized.includes('скорости атаки') || normalized.includes('скорости передвижения')) {
-    return '#fcd34d';
-  }
-
-  if (normalized.includes('вампиризма')) {
-    return '#fb7185';
-  }
-
-  return '#f9fafb';
-};
-
-const getItemStatMarker = (stat: string) => {
-  const normalized = stat.toLowerCase();
-
-  if (normalized.includes('силы атаки')) return 'AD';
-  if (normalized.includes('силы умений')) return 'AP';
-  if (normalized.includes('шанса критического удара')) return 'CRIT';
-  if (normalized.includes('брони')) return 'AR';
-  if (normalized.includes('сопротивления магии')) return 'MR';
-  if (normalized.includes('здоровья')) return 'HP';
-  if (normalized.includes('ускорения умений')) return 'AH';
-  if (normalized.includes('восстановления маны')) return 'MP';
-  if (normalized.includes('скорости атаки')) return 'AS';
-  if (normalized.includes('скорости передвижения')) return 'MS';
-  if (normalized.includes('вампиризма')) return 'LS';
-
-  return 'STAT';
-};
-
 interface MockPostGameLoadout {
   role: PlayerInfo['mainRole'];
   build: ReturnType<typeof getRecommendedItemBuild>;
@@ -224,7 +176,7 @@ const getMockLobbyInsight = (championName: string): LobbyChampionInsight => {
   };
 };
 
-function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGamePlayerRowProps) {
+function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex }: PostGamePlayerRowProps) {
   const latestMatch = player.recentMatches?.[0];
   const championName = latestMatch?.champion || 'Aatrox';
   const championIcon = getChampionIconUrl(championName);
@@ -236,7 +188,55 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGam
   const csEstimate = Math.max(24, Math.round((latestMatch?.k ?? 0) * 11 + (latestMatch?.a ?? 0) * 4 + player.winRate));
   const isDemoProfile = player.summonerName === 'DemoProfilePlayer';
   const [hoveredItemId, setHoveredItemId] = useState<number | null>(null);
-  const hoveredItem = hoveredItemId !== null ? getItemCatalogEntry(hoveredItemId) : null;
+  const [resolvedItemTooltips, setResolvedItemTooltips] = useState<Record<number, ItemCatalogEntry>>({});
+  const hoveredItem = hoveredItemId !== null
+    ? resolvedItemTooltips[hoveredItemId] ?? getItemCatalogEntry(hoveredItemId) ?? null
+    : null;
+  const shouldOpenTooltipDownward = rowIndex < 2;
+
+  useEffect(() => {
+    const missingItemIds = loadout.items.filter((itemId) => !resolvedItemTooltips[itemId]);
+
+    if (missingItemIds.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadTooltipEntries = async () => {
+      try {
+        const resolvedEntries = await Promise.all(
+          missingItemIds.map(async (itemId) => ({ itemId, entry: await resolveItemTooltipEntry(itemId) }))
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setResolvedItemTooltips((current) => {
+          const nextEntries: Record<number, ItemCatalogEntry> = {};
+
+          resolvedEntries.forEach(({ itemId, entry }) => {
+            if (entry && !current[itemId]) {
+              nextEntries[itemId] = entry;
+            }
+          });
+
+          return Object.keys(nextEntries).length > 0
+            ? { ...current, ...nextEntries }
+            : current;
+        });
+      } catch {
+        // ignore tooltip enrichment failures in post-game card
+      }
+    };
+
+    loadTooltipEntries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadout.items, resolvedItemTooltips]);
 
   return (
     <div style={{
@@ -253,7 +253,9 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGam
           ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 19, 26, 0.72))'
           : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(15, 19, 26, 0.72))',
       border: `1px solid ${isDemoProfile ? 'rgba(34, 211, 238, 0.36)' : isWinner ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.24)'}`,
-      boxShadow: isDemoProfile ? 'inset 0 0 0 1px rgba(125, 211, 252, 0.14)' : 'none'
+      boxShadow: isDemoProfile ? 'inset 0 0 0 1px rgba(125, 211, 252, 0.14)' : 'none',
+      position: 'relative',
+      zIndex: hoveredItem ? 8 : 1
     }}>
       <div style={{ display: 'grid', gridTemplateColumns: '34px 14px', gap: '4px', alignItems: 'center' }}>
         <img
@@ -364,12 +366,23 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGam
         position: 'relative'
       }}>
         {loadout.items.map((itemId) => {
-          const item = getItemCatalogEntry(itemId);
+          const item = resolvedItemTooltips[itemId] ?? getItemCatalogEntry(itemId);
 
           return (
             <div
               key={`${displayName}-item-${itemId}`}
-              onMouseEnter={() => setHoveredItemId(itemId)}
+              onMouseEnter={() => {
+                setHoveredItemId(itemId);
+                if (!resolvedItemTooltips[itemId]) {
+                  resolveItemTooltipEntry(itemId).then((entry) => {
+                    if (entry) {
+                      setResolvedItemTooltips((current) => current[itemId] ? current : { ...current, [itemId]: entry });
+                    }
+                  }).catch(() => {
+                    // ignore tooltip enrichment failures on hover
+                  });
+                }
+              }}
               onMouseLeave={() => setHoveredItemId((current) => current === itemId ? null : current)}
               style={{ position: 'relative' }}
             >
@@ -385,115 +398,31 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel }: PostGam
           );
         })}
         {hoveredItem && (
-          <div style={{
-            position: 'absolute',
-            right: '-6px',
-            bottom: 'calc(100% + 10px)',
-            width: '260px',
-            padding: '10px 12px',
-            borderRadius: '12px',
-            background: 'linear-gradient(180deg, rgba(7, 10, 18, 0.98), rgba(3, 5, 10, 0.98))',
-            border: '1px solid rgba(250, 204, 21, 0.24)',
-            boxShadow: '0 18px 36px rgba(0, 0, 0, 0.45)',
-            zIndex: 5,
-            pointerEvents: 'none'
-          }}>
-            <div style={{ color: '#facc15', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px', lineHeight: 1.2 }}>
-              {hoveredItem.name}
-            </div>
-            {hoveredItem.shortStats?.length ? (
-              <div style={{ display: 'grid', gap: '3px', marginBottom: '10px' }}>
-                {hoveredItem.shortStats.map((stat) => (
-                  <div key={stat} style={{ display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr)', gap: '7px', alignItems: 'start' }}>
-                    <span style={{
-                      color: getItemStatColor(stat),
-                      fontSize: '8px',
-                      lineHeight: 1,
-                      fontWeight: 'bold',
-                      padding: '4px 0',
-                      borderRadius: '999px',
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: `1px solid ${getItemStatColor(stat)}33`,
-                      textAlign: 'center',
-                      letterSpacing: '0.03em'
-                    }}>
-                      {getItemStatMarker(stat)}
-                    </span>
-                    <div style={{ color: getItemStatColor(stat), fontSize: '11px', lineHeight: 1.35, fontWeight: 600 }}>
-                      {stat}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ marginBottom: '10px', color: '#d1d5db', fontSize: '11px', lineHeight: 1.45 }}>
-                Базовый командный предмет из demo-каталога. Подробные live-статы здесь пока не подключены.
-              </div>
-            )}
-            {hoveredItem.passiveTitle && hoveredItem.passiveText && (
-              <div style={{
-                marginBottom: '10px',
-                padding: '8px 9px',
-                borderRadius: '9px',
-                background: 'rgba(250, 204, 21, 0.08)',
-                border: '1px solid rgba(250, 204, 21, 0.16)'
-              }}>
-                <div style={{ color: '#fde68a', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.05em', marginBottom: '5px', textTransform: 'uppercase' }}>
-                  {hoveredItem.passiveTitle}
-                </div>
-                <div style={{ color: '#e5e7eb', fontSize: '11px', lineHeight: 1.45 }}>
-                  {hoveredItem.passiveText}
-                </div>
-              </div>
-            )}
-            {!hoveredItem.passiveTitle && !hoveredItem.passiveText && hoveredItem.tags.length > 0 && (
-              <div style={{
-                marginBottom: '10px',
-                padding: '8px 9px',
-                borderRadius: '9px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#d1d5db',
-                fontSize: '11px',
-                lineHeight: 1.45
-              }}>
-                Этот предмет чаще всего используется в профиле: {hoveredItem.tags.join(', ')}.
-              </div>
-            )}
-            {(hoveredItem.totalCost || hoveredItem.combineCost) && (
-              <div style={{
-                margin: '0 -12px -10px',
-                padding: '8px 12px',
-                borderTop: '1px solid rgba(250, 204, 21, 0.14)',
-                background: 'rgba(245, 158, 11, 0.07)',
-                borderBottomLeftRadius: '12px',
-                borderBottomRightRadius: '12px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '8px',
-                alignItems: 'center'
-              }}>
-                <span style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
-                  СТОИМОСТЬ
-                </span>
-                <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 'bold' }}>
-                  {hoveredItem.totalCost ?? '-'}{hoveredItem.combineCost ? ` (${hoveredItem.combineCost})` : ''}
-                </span>
-              </div>
-            )}
-            <div style={{
-              position: 'absolute',
-              right: '22px',
-              top: '100%',
-              width: '10px',
-              height: '10px',
-              background: 'rgba(3, 5, 10, 0.98)',
-              borderRight: '1px solid rgba(250, 204, 21, 0.24)',
-              borderBottom: '1px solid rgba(250, 204, 21, 0.24)',
-              transform: 'translateY(-5px) rotate(45deg)'
-            }} />
-          </div>
-        )}
+            <ItemTooltip
+              item={hoveredItem}
+              fallbackDescription="Базовый командный предмет из demo-каталога. Подробные live-статы здесь пока не подключены."
+              positionStyle={shouldOpenTooltipDownward
+                ? {
+                    right: '-6px',
+                    top: 'calc(100% + 12px)'
+                  }
+                : {
+                    right: '-6px',
+                    bottom: 'calc(100% + 12px)'
+                  }}
+              showArrow
+              arrowDirection={shouldOpenTooltipDownward ? 'up' : 'down'}
+              arrowStyle={shouldOpenTooltipDownward
+                ? {
+                    right: '22px',
+                    bottom: '100%'
+                  }
+                : {
+                    right: '22px',
+                    top: '100%'
+                  }}
+            />
+          )}
       </div>
     </div>
   );
@@ -1052,6 +981,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                   displayName={getDisplayName(player, index, true)}
                   isWinner={allyTeamWon !== false}
                   laneLabel={laneLabels[lane]}
+                  rowIndex={index}
                 />
               ))}
             </div>
@@ -1063,6 +993,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                   displayName={getDisplayName(player, index, false)}
                   isWinner={allyTeamWon === false}
                   laneLabel={laneLabels[lane]}
+                  rowIndex={index}
                 />
               ))}
             </div>
@@ -1186,7 +1117,8 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
     <div style={{ 
       padding: '10px', 
       height: '100%', 
-      overflow: 'hidden',
+      overflowX: 'hidden',
+      overflowY: 'visible',
       background: 'linear-gradient(180deg, rgba(8, 11, 18, 0.66), rgba(10, 14, 22, 0.5))',
       borderRadius: '14px',
       border: '1px solid rgba(31, 41, 55, 0.8)',

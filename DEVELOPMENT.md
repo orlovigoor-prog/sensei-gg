@@ -13,12 +13,12 @@ npm install
 copy .env.example .env
 ```
 
-2. Для локальной разработки добавь Riot API ключ в `.env`:
+2. Для локальной разработки добавь Riot API ключ в `.env` для локального backend:
 ```env
-VITE_RIOT_API_KEY=RGAPI-your-key-here
+RIOT_API_KEY=RGAPI-your-key-here
 ```
 
-Пользовательский ввод ключа из интерфейса отключен.
+Пользовательский ввод ключа из интерфейса отключен, клиент не должен использовать `VITE_RIOT_API_KEY`.
 
 ### Запуск:
 ```bash
@@ -32,6 +32,7 @@ npm run ai:server
 
 Сервер поддерживает:
 - `POST /api/review` для post-game AI review
+- `GET /api/riot/profile-search?region=ru&summonerName=nickname` для безопасного profile lookup через локальный backend
 - `GET /api/subscription/config` для scaffolding Overwolf/Tebex integration
 - `GET /api/subscription/entitlements` для локального dev entitlement state
 - `GET /api/subscription/dev-state` для просмотра активного локального сценария подписки

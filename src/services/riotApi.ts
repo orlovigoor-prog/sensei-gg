@@ -1,13 +1,5 @@
-// Riot API Service
-const RIOT_API_BASE = 'https://americas.api.riotgames.com';
+// Riot API / LCU helpers used by the client UI.
 const LCU_API_BASE = 'http://127.0.0.1:2999';
-
-// Получение API ключа из окружения приложения
-const getApiKey = (): string | null => {
-  // @ts-ignore - VITE_ переменные доступны через import.meta.env в Vite
-  const envKey = import.meta.env.VITE_RIOT_API_KEY;
-  return envKey || null;
-};
 
 export interface Summoner {
   id: string;
@@ -124,90 +116,18 @@ export class LcuService {
       if (response.ok) {
         console.log('LCU API доступен');
       }
-    } catch (error) {
+    } catch {
       console.log('LCU API недоступен, клиент может быть закрыт');
     }
   }
 
-  async getCurrentGame(): Promise<any> {
+  async getCurrentGame(): Promise<unknown | null> {
     try {
       const response = await fetch(`${LCU_API_BASE}/liveclientdata/allgamedata`);
       if (!response.ok) throw new Error('No game in progress');
       return await response.json();
-    } catch (error) {
+    } catch {
       return null;
-    }
-  }
-
-  async getSummonerByName(name: string): Promise<Summoner | null> {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      console.warn('Riot API ключ не настроен в окружении приложения');
-      return null;
-    }
-
-    try {
-      const response = await fetch(
-        `${RIOT_API_BASE}/lol/summoner/v4/summoners/by-name/${encodeURIComponent(name)}?api_key=${apiKey}`
-      );
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.error('Игрок не найден');
-        } else if (response.status === 429) {
-          console.error('Превышен лимит запросов Riot API');
-        }
-        return null;
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching summoner:', error);
-      return null;
-    }
-  }
-
-  async getRankedStats(puuid: string): Promise<RankedStats[]> {
-    const apiKey = getApiKey();
-    if (!apiKey) return [];
-
-    try {
-      const response = await fetch(
-        `${RIOT_API_BASE}/lol/league/v4/entries/by-puuid/${puuid}?api_key=${apiKey}`
-      );
-      
-      if (!response.ok) return [];
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching ranked stats:', error);
-      return [];
-    }
-  }
-
-  async getMatchHistory(puuid: string, count: number = 10): Promise<Match[]> {
-    const apiKey = getApiKey();
-    if (!apiKey) return [];
-
-    try {
-      const response = await fetch(
-        `${RIOT_API_BASE}/lol/match/v5/matches/by-puuid/${puuid}/ids?count=${count}&api_key=${apiKey}`
-      );
-      
-      if (!response.ok) return [];
-      const matchIds: string[] = await response.json();
-      
-      const matches = await Promise.all(
-        matchIds.map(async (matchId) => {
-          const matchResponse = await fetch(
-            `${RIOT_API_BASE}/lol/match/v5/matches/${matchId}?api_key=${apiKey}`
-          );
-          return matchResponse.ok ? await matchResponse.json() : null;
-        })
-      );
-
-      return matches.filter((m): m is Match => m !== null);
-    } catch (error) {
-      console.error('Error fetching match history:', error);
-      return [];
     }
   }
 

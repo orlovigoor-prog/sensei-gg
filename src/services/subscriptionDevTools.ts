@@ -415,6 +415,14 @@ export const fetchSubscriptionServiceJson = async <T>(path: string, init: Reques
   }
 };
 
+export const fetchSubscriptionServiceResponse = async (path: string, init: RequestInit = {}, timeoutMs = 4000): Promise<Response | null> => {
+  try {
+    return await fetchWithTimeout(`${getSubscriptionServiceBaseUrl()}${path}`, init, timeoutMs);
+  } catch {
+    return null;
+  }
+};
+
 export const fetchSubscriptionDiagnostics = async (): Promise<SubscriptionDiagnosticsResponse | null> => {
   return fetchSubscriptionServiceJson<SubscriptionDiagnosticsResponse>('/api/subscription/diagnostics');
 };

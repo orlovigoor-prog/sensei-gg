@@ -48,6 +48,7 @@ const MODEL = process.env.AI_PROVIDER_MODEL || 'deepseek-chat';
 const OPENROUTER_API_KEY = process.env.AI_OPENROUTER_API_KEY || '';
 const OPENROUTER_URL = process.env.AI_OPENROUTER_URL || 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_MODEL = process.env.AI_OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash:free';
+const RIOT_API_KEY = process.env.RIOT_API_KEY || '';
 const SUBSCRIPTION_PROVIDER = process.env.SUBSCRIPTION_PROVIDER || 'overwolf-tebex';
 const SUBSCRIPTION_STORE_ID = process.env.OVERWOLF_SUBSCRIPTION_STORE_ID || '';
 const SUBSCRIPTION_PREMIUM_PLAN_ID = Number.parseInt(process.env.OVERWOLF_SUBSCRIPTION_PREMIUM_PLAN_ID || '0', 10);
@@ -565,6 +566,17 @@ const formatDuration = (seconds) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
 
+const formatGold = (value) => {
+  if (!Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  return `${Math.round(value).toLocaleString('en-US')} G`;
+};
+
+let championIdNameMapCache = null;
+let championIdNameMapCacheExpiresAt = 0;
+
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 
 const normalizeJsonCandidate = (value) => {
@@ -678,6 +690,439 @@ const readJsonBody = async (req) => {
 
   const raw = Buffer.concat(chunks).toString('utf8');
   return raw ? JSON.parse(raw) : null;
+};
+
+const riotPlatformHosts = {
+  ru: 'ru.api.riotgames.com',
+  euw: 'euw1.api.riotgames.com',
+  eune: 'eun1.api.riotgames.com',
+  tr: 'tr1.api.riotgames.com',
+  na: 'na1.api.riotgames.com',
+  br: 'br1.api.riotgames.com',
+  la1: 'la1.api.riotgames.com',
+  la2: 'la2.api.riotgames.com',
+  kr: 'kr.api.riotgames.com',
+  jp: 'jp1.api.riotgames.com'
+};
+
+const riotAccountHosts = {
+  ru: 'europe.api.riotgames.com',
+  euw: 'europe.api.riotgames.com',
+  eune: 'europe.api.riotgames.com',
+  tr: 'europe.api.riotgames.com',
+  na: 'americas.api.riotgames.com',
+  br: 'americas.api.riotgames.com',
+  la1: 'americas.api.riotgames.com',
+  la2: 'americas.api.riotgames.com',
+  kr: 'asia.api.riotgames.com',
+  jp: 'asia.api.riotgames.com'
+};
+
+const normalizeRiotRegion = (value) => {
+  if (!isNonEmptyString(value)) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(riotPlatformHosts, normalized) ? normalized : null;
+};
+
+const fetchRiotJson = async ({ host, pathname }) => {
+  const response = await fetch(`https://${host}${pathname}`, {
+    headers: {
+      'X-Riot-Token': RIOT_API_KEY
+    }
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    let responseBody = null;
+
+    if (isNonEmptyString(responseText)) {
+      try {
+        responseBody = JSON.parse(responseText);
+      } catch {
+        responseBody = responseText.trim();
+      }
+    }
+
+    const error = new Error(`Riot API request failed with status ${response.status}`);
+    error.statusCode = response.status;
+    error.riotBody = responseBody;
+    error.riotHost = host;
+    error.riotPathname = pathname;
+    throw error;
+  }
+
+  return response.json();
+};
+
+const fetchChampionIdNameMap = async () => {
+  if (championIdNameMapCache && championIdNameMapCacheExpiresAt > Date.now()) {
+    return championIdNameMapCache;
+  }
+
+  const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+  if (!response.ok) {
+    throw new Error(`Champion catalog request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const championEntries = Object.values(data?.data || {});
+  const championIdNameMap = championEntries.reduce((accumulator, champion) => {
+    if (champion?.key && champion?.name) {
+      accumulator[String(champion.key)] = champion.name;
+    }
+
+    return accumulator;
+  }, {});
+
+  championIdNameMapCache = championIdNameMap;
+  championIdNameMapCacheExpiresAt = Date.now() + (1000 * 60 * 60 * 6);
+  return championIdNameMapCache;
+};
+
+const normalizeProfileRecentMatch = (match, puuid) => {
+  const participants = Array.isArray(match?.info?.participants) ? match.info.participants : [];
+  const player = participants.find((participant) => participant?.puuid === puuid);
+
+  if (!player) {
+    return null;
+  }
+
+  const durationSeconds = Number(match?.info?.gameDuration || 0);
+  const totalCs = Number(player.totalMinionsKilled || 0) + Number(player.neutralMinionsKilled || 0);
+  const items = [player.item0, player.item1, player.item2, player.item3, player.item4, player.item5, player.item6]
+    .filter((itemId) => Number.isFinite(itemId) && itemId > 0);
+
+  return {
+    matchId: typeof match?.metadata?.matchId === 'string' ? match.metadata.matchId : null,
+    champion: player.championName || 'Unknown Champion',
+    queueId: Number.isFinite(match?.info?.queueId) ? match.info.queueId : null,
+    result: player.win ? 'Победа' : 'Поражение',
+    kda: `${Number(player.kills || 0)} / ${Number(player.deaths || 0)} / ${Number(player.assists || 0)}`,
+    cs: totalCs,
+    duration: formatDuration(durationSeconds) || '0:00',
+    goldEarned: Number.isFinite(player.goldEarned) ? player.goldEarned : 0,
+    goldLabel: formatGold(Number(player.goldEarned || 0)) || '0 G',
+    items
+  };
+};
+
+const buildChampionPoolFromMatches = (matches, puuid) => {
+  const championStats = new Map();
+
+  matches.forEach((match) => {
+    const participants = Array.isArray(match?.info?.participants) ? match.info.participants : [];
+    const player = participants.find((participant) => participant?.puuid === puuid);
+
+    if (!player || !isNonEmptyString(player.championName)) {
+      return;
+    }
+
+    const durationSeconds = Number(match?.info?.gameDuration || 0);
+    const totalCs = Number(player.totalMinionsKilled || 0) + Number(player.neutralMinionsKilled || 0);
+    const championName = player.championName.trim();
+    const current = championStats.get(championName) || {
+      champion: championName,
+      games: 0,
+      wins: 0,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      totalCs: 0,
+      totalDurationSeconds: 0,
+      totalGoldEarned: 0
+    };
+
+    current.games += 1;
+    current.wins += player.win ? 1 : 0;
+    current.kills += Number(player.kills || 0);
+    current.deaths += Number(player.deaths || 0);
+    current.assists += Number(player.assists || 0);
+    current.totalCs += totalCs;
+    current.totalDurationSeconds += Math.max(0, durationSeconds);
+    current.totalGoldEarned += Number(player.goldEarned || 0);
+
+    championStats.set(championName, current);
+  });
+
+  return Array.from(championStats.values())
+    .map((entry) => {
+      const csPerMinute = entry.totalDurationSeconds > 0
+        ? entry.totalCs / (entry.totalDurationSeconds / 60)
+        : 0;
+      const avgGold = entry.games > 0 ? entry.totalGoldEarned / entry.games : 0;
+
+      return {
+        champion: entry.champion,
+        games: entry.games,
+        winRate: entry.games > 0 ? Number(((entry.wins / entry.games) * 100).toFixed(1)) : 0,
+        kda: `${(entry.kills / entry.games).toFixed(1)} / ${(entry.deaths / entry.games).toFixed(1)} / ${(entry.assists / entry.games).toFixed(1)}`,
+        csPerMinute: Number(csPerMinute.toFixed(1)),
+        averageGoldEarned: Math.round(avgGold),
+        averageGoldLabel: formatGold(avgGold) || '0 G'
+      };
+    })
+    .sort((left, right) => {
+      if (right.games !== left.games) {
+        return right.games - left.games;
+      }
+
+      return right.winRate - left.winRate;
+    })
+    .slice(0, 5);
+};
+
+const buildProfileSummaryFromMatches = (matches, puuid) => {
+  let games = 0;
+  let wins = 0;
+  let kills = 0;
+  let deaths = 0;
+  let assists = 0;
+  let totalCs = 0;
+  let totalDurationSeconds = 0;
+  let totalGoldEarned = 0;
+
+  matches.forEach((match) => {
+    const participants = Array.isArray(match?.info?.participants) ? match.info.participants : [];
+    const player = participants.find((participant) => participant?.puuid === puuid);
+
+    if (!player) {
+      return;
+    }
+
+    const durationSeconds = Number(match?.info?.gameDuration || 0);
+    games += 1;
+    wins += player.win ? 1 : 0;
+    kills += Number(player.kills || 0);
+    deaths += Number(player.deaths || 0);
+    assists += Number(player.assists || 0);
+    totalCs += Number(player.totalMinionsKilled || 0) + Number(player.neutralMinionsKilled || 0);
+    totalDurationSeconds += Math.max(0, durationSeconds);
+    totalGoldEarned += Number(player.goldEarned || 0);
+  });
+
+  const csPerMinute = totalDurationSeconds > 0 ? totalCs / (totalDurationSeconds / 60) : 0;
+  const averageGold = games > 0 ? totalGoldEarned / games : 0;
+
+  return {
+    games,
+    wins,
+    losses: Math.max(0, games - wins),
+    winRate: games > 0 ? Number(((wins / games) * 100).toFixed(1)) : 0,
+    averageKda: games > 0
+      ? `${(kills / games).toFixed(1)} / ${(deaths / games).toFixed(1)} / ${(assists / games).toFixed(1)}`
+      : '0.0 / 0.0 / 0.0',
+    averageCs: games > 0 ? Number((totalCs / games).toFixed(1)) : 0,
+    csPerMinute: Number(csPerMinute.toFixed(1)),
+    averageGoldEarned: Math.round(averageGold),
+    averageGoldLabel: formatGold(averageGold) || '0 G'
+  };
+};
+
+const normalizeChampionMastery = (entry, championIdNameMap) => ({
+  championId: Number(entry?.championId || 0),
+  champion: championIdNameMap[String(entry?.championId || '')] || `Champion ${entry?.championId || 'Unknown'}`,
+  championLevel: Number(entry?.championLevel || 0),
+  championPoints: Number(entry?.championPoints || 0),
+  lastPlayTime: Number(entry?.lastPlayTime || 0)
+});
+
+const handleRiotProfileSearch = async (req, res, requestUrl) => {
+  if (!RIOT_API_KEY) {
+    sendJson(res, 503, {
+      ok: false,
+      error: 'Riot API ключ не настроен на локальном backend.'
+    });
+    return;
+  }
+
+  const region = normalizeRiotRegion(requestUrl.searchParams.get('region'));
+  const riotId = requestUrl.searchParams.get('riotId')?.trim() || '';
+
+  if (!region) {
+    sendJson(res, 400, {
+      ok: false,
+      error: 'Некорректный регион поиска.'
+    });
+    return;
+  }
+
+  if (!riotId) {
+    sendJson(res, 400, {
+      ok: false,
+      error: 'Нужно указать Riot ID в формате Name#TAG.'
+    });
+    return;
+  }
+
+  const riotIdSeparatorIndex = riotId.lastIndexOf('#');
+  const gameName = riotIdSeparatorIndex > 0 ? riotId.slice(0, riotIdSeparatorIndex).trim() : '';
+  const tagLine = riotIdSeparatorIndex > 0 ? riotId.slice(riotIdSeparatorIndex + 1).trim() : '';
+
+  if (!gameName || !tagLine) {
+    sendJson(res, 400, {
+      ok: false,
+      error: 'Riot ID должен быть в формате Name#TAG.'
+    });
+    return;
+  }
+
+  const accountHost = riotAccountHosts[region];
+  const platformHost = riotPlatformHosts[region];
+  const matchHost = riotAccountHosts[region];
+
+  try {
+    const account = await fetchRiotJson({
+      host: accountHost,
+      pathname: `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`
+    });
+
+    const summoner = await fetchRiotJson({
+      host: platformHost,
+      pathname: `/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(account.puuid)}`
+    });
+
+    let recentMatches = [];
+    let championMasteries = [];
+    let championPool = [];
+    let profileSummary = null;
+
+    try {
+      const matchIds = await fetchRiotJson({
+        host: matchHost,
+        pathname: `/lol/match/v5/matches/by-puuid/${encodeURIComponent(account.puuid)}/ids?start=0&count=5`
+      });
+
+      if (Array.isArray(matchIds) && matchIds.length > 0) {
+        const matchDetails = await Promise.all(
+          matchIds.map((matchId) => fetchRiotJson({
+            host: matchHost,
+            pathname: `/lol/match/v5/matches/${encodeURIComponent(matchId)}`
+          }))
+        );
+
+        recentMatches = matchDetails
+          .map((match) => normalizeProfileRecentMatch(match, account.puuid))
+          .filter(Boolean);
+        championPool = buildChampionPoolFromMatches(matchDetails, account.puuid);
+        profileSummary = buildProfileSummaryFromMatches(matchDetails, account.puuid);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch Riot match history for profile search:', error);
+    }
+
+    try {
+      const [masteryEntries, championIdNameMap] = await Promise.all([
+        fetchRiotJson({
+          host: platformHost,
+          pathname: `/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(account.puuid)}/top?count=5`
+        }),
+        fetchChampionIdNameMap()
+      ]);
+
+      if (Array.isArray(masteryEntries)) {
+        championMasteries = masteryEntries.map((entry) => normalizeChampionMastery(entry, championIdNameMap));
+      }
+    } catch (error) {
+      console.warn('Failed to fetch Riot champion mastery for profile search:', error);
+    }
+
+    let rankedStats = [];
+
+    try {
+      rankedStats = await fetchRiotJson({
+        host: platformHost,
+        pathname: `/lol/league/v4/entries/by-puuid/${encodeURIComponent(summoner.puuid)}`
+      });
+    } catch (error) {
+      if (error?.statusCode !== 404) {
+        throw error;
+      }
+    }
+
+    const soloRank = Array.isArray(rankedStats)
+      ? rankedStats.find((item) => item?.queueType === 'RANKED_SOLO_5x5') || null
+      : null;
+
+    sendJson(res, 200, {
+      ok: true,
+      region,
+      summoner: {
+        ...summoner,
+        name: account.gameName || summoner.name
+      },
+      riotId: {
+        gameName: account.gameName || gameName,
+        tagLine: account.tagLine || tagLine
+      },
+      rankedStats: soloRank,
+      recentMatches,
+      championMasteries,
+      championPool,
+      profileSummary
+    });
+  } catch (error) {
+    const statusCode = error?.statusCode;
+    const riotBody = error?.riotBody;
+    const riotStatusMessage = typeof riotBody?.status?.message === 'string'
+      ? riotBody.status.message
+      : typeof riotBody === 'string'
+        ? riotBody
+        : null;
+    const diagnostics = {
+      upstreamStatus: Number.isFinite(statusCode) ? statusCode : null,
+      upstreamMessage: riotStatusMessage,
+      requestRegion: region,
+      requestRiotId: `${gameName}#${tagLine}`,
+      requestPath: error?.riotPathname || null,
+      requestHost: error?.riotHost || null
+    };
+
+    if (statusCode === 404) {
+      sendJson(res, 404, {
+        ok: false,
+        error: 'Игрок не найден.',
+        diagnostics
+      });
+      return;
+    }
+
+    if (statusCode === 401) {
+      sendJson(res, 502, {
+        ok: false,
+        error: 'Riot API отклонил запрос без валидной авторизации. Проверь, что backend читает актуальный RIOT_API_KEY без лишних символов.',
+        diagnostics
+      });
+      return;
+    }
+
+    if (statusCode === 403) {
+      sendJson(res, 502, {
+        ok: false,
+        error: 'Riot API отклонил ключ. Обычно это invalid или blocked API key на стороне Riot.',
+        diagnostics
+      });
+      return;
+    }
+
+    if (statusCode === 429) {
+      sendJson(res, 429, {
+        ok: false,
+        error: 'Превышен лимит запросов Riot API. Подождите минуту.',
+        diagnostics
+      });
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown Riot API error';
+    sendJson(res, 502, {
+      ok: false,
+      error: message,
+      diagnostics
+    });
+  }
 };
 
 const createFallbackAnalysis = (payload) => {
@@ -847,6 +1292,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const requestUrl = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
+
   if (req.method === 'OPTIONS') {
     sendJson(res, 204, {});
     return;
@@ -859,6 +1306,7 @@ const server = http.createServer(async (req, res) => {
       model: MODEL,
       openRouterConfigured: Boolean(OPENROUTER_API_KEY),
       openRouterModel: OPENROUTER_MODEL,
+      riotApiConfigured: Boolean(RIOT_API_KEY),
       subscriptions: {
         provider: SUBSCRIPTION_PROVIDER,
         storeIdConfigured: Boolean(SUBSCRIPTION_STORE_ID),
@@ -882,6 +1330,11 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && req.url === '/api/subscription/config') {
     sendJson(res, 200, getSubscriptionFoundationState());
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/api/riot/profile-search') {
+    await handleRiotProfileSearch(req, res, requestUrl);
     return;
   }
 
@@ -1209,6 +1662,7 @@ server.listen(PORT, HOST, () => {
   console.log(`Sensei AI review server listening on http://${HOST}:${PORT}`);
   console.log(`Primary provider configured: ${API_KEY ? 'yes' : 'no'}`);
   console.log(`OpenRouter backup configured: ${OPENROUTER_API_KEY ? 'yes' : 'no'}`);
+  console.log(`Riot API configured: ${RIOT_API_KEY ? 'yes' : 'no'}`);
   console.log(`Subscription provider: ${SUBSCRIPTION_PROVIDER}`);
   console.log(`Subscription store configured: ${SUBSCRIPTION_STORE_ID ? 'yes' : 'no'}`);
   console.log(`Premium plan configured: ${Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0 ? 'yes' : 'no'}`);
