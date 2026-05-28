@@ -147,7 +147,7 @@ export function ItemTooltip({
           <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '5px', textTransform: 'uppercase' }}>
             {item.passiveTitle}
           </div>
-          <div style={{ color: '#e5e7eb', fontSize: '11px', lineHeight: 1.45 }}>
+          <div style={{ color: '#e5e7eb', fontSize: '11px', lineHeight: 1.45, whiteSpace: 'pre-line' }}>
             {item.passiveText}
           </div>
         </div>
