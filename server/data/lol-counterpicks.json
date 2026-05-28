@@ -1,0 +1,1176 @@
+{
+  "version": 1,
+  "game": "league-of-legends",
+  "queue": "ranked-solo-duo",
+  "defaultRankBracket": "emerald_plus",
+  "defaultPatchWindow": "30",
+  "updatedAt": "2026-05-28T11:41:20.701Z",
+  "source": {
+    "provider": "lolalytics",
+    "baseUrl": "https://lolalytics.com/lol",
+    "mode": "backend-snapshot",
+    "refreshCadence": "weekly",
+    "note": "Internal backend counterpick database. Do not render this label in the client UI. Runtime client scraping is intentionally disabled."
+  },
+  "coverage": {
+    "championCatalog": "data-dragon",
+    "championEntities": "all-known-champions-on-last-refresh",
+    "matchupRows": "sparse-until-weekly-updater-populates-each-role"
+  },
+  "champions": {
+    "Aatrox": {
+      "slug": "aatrox",
+      "dataDragonId": "Aatrox",
+      "dataDragonKey": "266",
+      "roles": {
+        "TOP": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "globalWinRate": 49.5,
+          "overallMatches": 156679,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Zilean",
+              "slug": "zilean",
+              "targetChampionWinRate": 39.35,
+              "matchupWinRate": 60.65,
+              "allChampsWinRateVsCounter": 44.82,
+              "delta1": -5.47,
+              "delta2": -6.91,
+              "matches": 216
+            },
+            {
+              "champion": "Kalista",
+              "slug": "kalista",
+              "targetChampionWinRate": 43.24,
+              "matchupWinRate": 56.76,
+              "allChampsWinRateVsCounter": 51.55,
+              "delta1": -8.31,
+              "delta2": -9.75,
+              "matches": 222
+            },
+            {
+              "champion": "Ekko",
+              "slug": "ekko",
+              "targetChampionWinRate": 43.29,
+              "matchupWinRate": 56.71,
+              "allChampsWinRateVsCounter": 49.84,
+              "delta1": -6.55,
+              "delta2": -7.99,
+              "matches": 164
+            },
+            {
+              "champion": "LeBlanc",
+              "slug": "leblanc",
+              "targetChampionWinRate": 43.7,
+              "matchupWinRate": 56.3,
+              "allChampsWinRateVsCounter": 50.72,
+              "delta1": -7.02,
+              "delta2": -8.46,
+              "matches": 135
+            },
+            {
+              "champion": "Zoe",
+              "slug": "zoe",
+              "targetChampionWinRate": 44.16,
+              "matchupWinRate": 55.84,
+              "allChampsWinRateVsCounter": 47.67,
+              "delta1": -3.51,
+              "delta2": -4.95,
+              "matches": 197
+            },
+            {
+              "champion": "Singed",
+              "slug": "singed",
+              "targetChampionWinRate": 45.02,
+              "matchupWinRate": 54.98,
+              "allChampsWinRateVsCounter": 46.78,
+              "delta1": -1.76,
+              "delta2": -3.2,
+              "matches": 4909
+            }
+          ]
+        }
+      }
+    },
+    "Ahri": {
+      "slug": "ahri",
+      "dataDragonId": "Ahri",
+      "dataDragonKey": "103",
+      "roles": {
+        "MID": {
+          "rankBracket": "platinum_plus",
+          "patchWindow": "16.11",
+          "sampleLabel": "Platinum+, Ranked Solo",
+          "globalWinRate": 49.4,
+          "overallMatches": 2413,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Morgana",
+              "slug": "morgana",
+              "matchupWinRate": 77.8,
+              "matches": 9
+            },
+            {
+              "champion": "Vel'Koz",
+              "slug": "velkoz",
+              "matchupWinRate": 70,
+              "matches": 10
+            },
+            {
+              "champion": "Brand",
+              "slug": "brand",
+              "matchupWinRate": 64.3,
+              "matches": 14
+            },
+            {
+              "champion": "Sylas",
+              "slug": "sylas",
+              "matchupWinRate": 63.9,
+              "matches": 133
+            },
+            {
+              "champion": "Ryze",
+              "slug": "ryze",
+              "matchupWinRate": 60.9,
+              "matches": 46
+            }
+          ]
+        }
+      }
+    },
+    "Jinx": {
+      "slug": "jinx",
+      "dataDragonId": "Jinx",
+      "dataDragonKey": "222",
+      "roles": {
+        "ADC": {
+          "rankBracket": "platinum_plus",
+          "sampleLabel": "Platinum+, Ranked Solo",
+          "globalWinRate": 48.5,
+          "overallMatches": 319204,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Seraphine",
+              "slug": "seraphine",
+              "matchupWinRate": 54.8,
+              "matches": 1322
+            },
+            {
+              "champion": "Swain",
+              "slug": "swain",
+              "matchupWinRate": 53.2,
+              "matches": 1753
+            },
+            {
+              "champion": "Karthus",
+              "slug": "karthus",
+              "matchupWinRate": 52.8,
+              "matches": 1306
+            },
+            {
+              "champion": "Ziggs",
+              "slug": "ziggs",
+              "matchupWinRate": 52.2,
+              "matches": 2270
+            },
+            {
+              "champion": "Twitch",
+              "slug": "twitch",
+              "matchupWinRate": 51.9,
+              "matches": 9783
+            }
+          ]
+        }
+      }
+    },
+    "Akali": {
+      "slug": "akali",
+      "dataDragonId": "Akali",
+      "dataDragonKey": "84",
+      "roles": {}
+    },
+    "Akshan": {
+      "slug": "akshan",
+      "dataDragonId": "Akshan",
+      "dataDragonKey": "166",
+      "roles": {}
+    },
+    "Alistar": {
+      "slug": "alistar",
+      "dataDragonId": "Alistar",
+      "dataDragonKey": "12",
+      "roles": {}
+    },
+    "Amumu": {
+      "slug": "amumu",
+      "dataDragonId": "Amumu",
+      "dataDragonKey": "32",
+      "roles": {}
+    },
+    "Anivia": {
+      "slug": "anivia",
+      "dataDragonId": "Anivia",
+      "dataDragonKey": "34",
+      "roles": {}
+    },
+    "Annie": {
+      "slug": "annie",
+      "dataDragonId": "Annie",
+      "dataDragonKey": "1",
+      "roles": {}
+    },
+    "Aphelios": {
+      "slug": "aphelios",
+      "dataDragonId": "Aphelios",
+      "dataDragonKey": "523",
+      "roles": {}
+    },
+    "Ashe": {
+      "slug": "ashe",
+      "dataDragonId": "Ashe",
+      "dataDragonKey": "22",
+      "roles": {}
+    },
+    "Aurelion Sol": {
+      "slug": "aurelionsol",
+      "dataDragonId": "AurelionSol",
+      "dataDragonKey": "136",
+      "roles": {}
+    },
+    "Azir": {
+      "slug": "azir",
+      "dataDragonId": "Azir",
+      "dataDragonKey": "268",
+      "roles": {}
+    },
+    "Bard": {
+      "slug": "bard",
+      "dataDragonId": "Bard",
+      "dataDragonKey": "432",
+      "roles": {}
+    },
+    "Bel'Veth": {
+      "slug": "belveth",
+      "dataDragonId": "Belveth",
+      "dataDragonKey": "200",
+      "roles": {}
+    },
+    "Blitzcrank": {
+      "slug": "blitzcrank",
+      "dataDragonId": "Blitzcrank",
+      "dataDragonKey": "53",
+      "roles": {}
+    },
+    "Brand": {
+      "slug": "brand",
+      "dataDragonId": "Brand",
+      "dataDragonKey": "63",
+      "roles": {}
+    },
+    "Braum": {
+      "slug": "braum",
+      "dataDragonId": "Braum",
+      "dataDragonKey": "201",
+      "roles": {}
+    },
+    "Briar": {
+      "slug": "briar",
+      "dataDragonId": "Briar",
+      "dataDragonKey": "233",
+      "roles": {}
+    },
+    "Caitlyn": {
+      "slug": "caitlyn",
+      "dataDragonId": "Caitlyn",
+      "dataDragonKey": "51",
+      "roles": {}
+    },
+    "Camille": {
+      "slug": "camille",
+      "dataDragonId": "Camille",
+      "dataDragonKey": "164",
+      "roles": {}
+    },
+    "Cassiopeia": {
+      "slug": "cassiopeia",
+      "dataDragonId": "Cassiopeia",
+      "dataDragonKey": "69",
+      "roles": {}
+    },
+    "Cho'Gath": {
+      "slug": "chogath",
+      "dataDragonId": "Chogath",
+      "dataDragonKey": "31",
+      "roles": {}
+    },
+    "Corki": {
+      "slug": "corki",
+      "dataDragonId": "Corki",
+      "dataDragonKey": "42",
+      "roles": {}
+    },
+    "Darius": {
+      "slug": "darius",
+      "dataDragonId": "Darius",
+      "dataDragonKey": "122",
+      "roles": {}
+    },
+    "Diana": {
+      "slug": "diana",
+      "dataDragonId": "Diana",
+      "dataDragonKey": "131",
+      "roles": {}
+    },
+    "Dr. Mundo": {
+      "slug": "drmundo",
+      "dataDragonId": "DrMundo",
+      "dataDragonKey": "36",
+      "roles": {}
+    },
+    "Draven": {
+      "slug": "draven",
+      "dataDragonId": "Draven",
+      "dataDragonKey": "119",
+      "roles": {}
+    },
+    "Ekko": {
+      "slug": "ekko",
+      "dataDragonId": "Ekko",
+      "dataDragonKey": "245",
+      "roles": {}
+    },
+    "Elise": {
+      "slug": "elise",
+      "dataDragonId": "Elise",
+      "dataDragonKey": "60",
+      "roles": {}
+    },
+    "Evelynn": {
+      "slug": "evelynn",
+      "dataDragonId": "Evelynn",
+      "dataDragonKey": "28",
+      "roles": {}
+    },
+    "Ezreal": {
+      "slug": "ezreal",
+      "dataDragonId": "Ezreal",
+      "dataDragonKey": "81",
+      "roles": {}
+    },
+    "Fiddlesticks": {
+      "slug": "fiddlesticks",
+      "dataDragonId": "Fiddlesticks",
+      "dataDragonKey": "9",
+      "roles": {}
+    },
+    "Fiora": {
+      "slug": "fiora",
+      "dataDragonId": "Fiora",
+      "dataDragonKey": "114",
+      "roles": {}
+    },
+    "Fizz": {
+      "slug": "fizz",
+      "dataDragonId": "Fizz",
+      "dataDragonKey": "105",
+      "roles": {}
+    },
+    "Galio": {
+      "slug": "galio",
+      "dataDragonId": "Galio",
+      "dataDragonKey": "3",
+      "roles": {}
+    },
+    "Gangplank": {
+      "slug": "gangplank",
+      "dataDragonId": "Gangplank",
+      "dataDragonKey": "41",
+      "roles": {}
+    },
+    "Garen": {
+      "slug": "garen",
+      "dataDragonId": "Garen",
+      "dataDragonKey": "86",
+      "roles": {}
+    },
+    "Gnar": {
+      "slug": "gnar",
+      "dataDragonId": "Gnar",
+      "dataDragonKey": "150",
+      "roles": {}
+    },
+    "Gragas": {
+      "slug": "gragas",
+      "dataDragonId": "Gragas",
+      "dataDragonKey": "79",
+      "roles": {}
+    },
+    "Graves": {
+      "slug": "graves",
+      "dataDragonId": "Graves",
+      "dataDragonKey": "104",
+      "roles": {}
+    },
+    "Gwen": {
+      "slug": "gwen",
+      "dataDragonId": "Gwen",
+      "dataDragonKey": "887",
+      "roles": {}
+    },
+    "Hecarim": {
+      "slug": "hecarim",
+      "dataDragonId": "Hecarim",
+      "dataDragonKey": "120",
+      "roles": {}
+    },
+    "Heimerdinger": {
+      "slug": "heimerdinger",
+      "dataDragonId": "Heimerdinger",
+      "dataDragonKey": "74",
+      "roles": {}
+    },
+    "Hwei": {
+      "slug": "hwei",
+      "dataDragonId": "Hwei",
+      "dataDragonKey": "910",
+      "roles": {}
+    },
+    "Illaoi": {
+      "slug": "illaoi",
+      "dataDragonId": "Illaoi",
+      "dataDragonKey": "420",
+      "roles": {}
+    },
+    "Irelia": {
+      "slug": "irelia",
+      "dataDragonId": "Irelia",
+      "dataDragonKey": "39",
+      "roles": {}
+    },
+    "Ivern": {
+      "slug": "ivern",
+      "dataDragonId": "Ivern",
+      "dataDragonKey": "427",
+      "roles": {}
+    },
+    "Janna": {
+      "slug": "janna",
+      "dataDragonId": "Janna",
+      "dataDragonKey": "40",
+      "roles": {}
+    },
+    "Jarvan IV": {
+      "slug": "jarvaniv",
+      "dataDragonId": "JarvanIV",
+      "dataDragonKey": "59",
+      "roles": {}
+    },
+    "Jax": {
+      "slug": "jax",
+      "dataDragonId": "Jax",
+      "dataDragonKey": "24",
+      "roles": {}
+    },
+    "Jayce": {
+      "slug": "jayce",
+      "dataDragonId": "Jayce",
+      "dataDragonKey": "126",
+      "roles": {}
+    },
+    "Jhin": {
+      "slug": "jhin",
+      "dataDragonId": "Jhin",
+      "dataDragonKey": "202",
+      "roles": {}
+    },
+    "K'Sante": {
+      "slug": "ksante",
+      "dataDragonId": "KSante",
+      "dataDragonKey": "897",
+      "roles": {}
+    },
+    "Kai'Sa": {
+      "slug": "kaisa",
+      "dataDragonId": "Kaisa",
+      "dataDragonKey": "145",
+      "roles": {}
+    },
+    "Kalista": {
+      "slug": "kalista",
+      "dataDragonId": "Kalista",
+      "dataDragonKey": "429",
+      "roles": {}
+    },
+    "Karma": {
+      "slug": "karma",
+      "dataDragonId": "Karma",
+      "dataDragonKey": "43",
+      "roles": {}
+    },
+    "Karthus": {
+      "slug": "karthus",
+      "dataDragonId": "Karthus",
+      "dataDragonKey": "30",
+      "roles": {}
+    },
+    "Kassadin": {
+      "slug": "kassadin",
+      "dataDragonId": "Kassadin",
+      "dataDragonKey": "38",
+      "roles": {}
+    },
+    "Katarina": {
+      "slug": "katarina",
+      "dataDragonId": "Katarina",
+      "dataDragonKey": "55",
+      "roles": {}
+    },
+    "Kayle": {
+      "slug": "kayle",
+      "dataDragonId": "Kayle",
+      "dataDragonKey": "10",
+      "roles": {}
+    },
+    "Kayn": {
+      "slug": "kayn",
+      "dataDragonId": "Kayn",
+      "dataDragonKey": "141",
+      "roles": {}
+    },
+    "Kennen": {
+      "slug": "kennen",
+      "dataDragonId": "Kennen",
+      "dataDragonKey": "85",
+      "roles": {}
+    },
+    "Kha'Zix": {
+      "slug": "khazix",
+      "dataDragonId": "Khazix",
+      "dataDragonKey": "121",
+      "roles": {}
+    },
+    "Kindred": {
+      "slug": "kindred",
+      "dataDragonId": "Kindred",
+      "dataDragonKey": "203",
+      "roles": {}
+    },
+    "Kled": {
+      "slug": "kled",
+      "dataDragonId": "Kled",
+      "dataDragonKey": "240",
+      "roles": {}
+    },
+    "Kog'Maw": {
+      "slug": "kogmaw",
+      "dataDragonId": "KogMaw",
+      "dataDragonKey": "96",
+      "roles": {}
+    },
+    "LeBlanc": {
+      "slug": "leblanc",
+      "dataDragonId": "Leblanc",
+      "dataDragonKey": "7",
+      "roles": {}
+    },
+    "Lee Sin": {
+      "slug": "leesin",
+      "dataDragonId": "LeeSin",
+      "dataDragonKey": "64",
+      "roles": {}
+    },
+    "Leona": {
+      "slug": "leona",
+      "dataDragonId": "Leona",
+      "dataDragonKey": "89",
+      "roles": {}
+    },
+    "Lillia": {
+      "slug": "lillia",
+      "dataDragonId": "Lillia",
+      "dataDragonKey": "876",
+      "roles": {}
+    },
+    "Lissandra": {
+      "slug": "lissandra",
+      "dataDragonId": "Lissandra",
+      "dataDragonKey": "127",
+      "roles": {}
+    },
+    "Lucian": {
+      "slug": "lucian",
+      "dataDragonId": "Lucian",
+      "dataDragonKey": "236",
+      "roles": {}
+    },
+    "Lulu": {
+      "slug": "lulu",
+      "dataDragonId": "Lulu",
+      "dataDragonKey": "117",
+      "roles": {}
+    },
+    "Lux": {
+      "slug": "lux",
+      "dataDragonId": "Lux",
+      "dataDragonKey": "99",
+      "roles": {}
+    },
+    "Malphite": {
+      "slug": "malphite",
+      "dataDragonId": "Malphite",
+      "dataDragonKey": "54",
+      "roles": {}
+    },
+    "Malzahar": {
+      "slug": "malzahar",
+      "dataDragonId": "Malzahar",
+      "dataDragonKey": "90",
+      "roles": {}
+    },
+    "Maokai": {
+      "slug": "maokai",
+      "dataDragonId": "Maokai",
+      "dataDragonKey": "57",
+      "roles": {}
+    },
+    "Master Yi": {
+      "slug": "masteryi",
+      "dataDragonId": "MasterYi",
+      "dataDragonKey": "11",
+      "roles": {}
+    },
+    "Milio": {
+      "slug": "milio",
+      "dataDragonId": "Milio",
+      "dataDragonKey": "902",
+      "roles": {}
+    },
+    "Miss Fortune": {
+      "slug": "missfortune",
+      "dataDragonId": "MissFortune",
+      "dataDragonKey": "21",
+      "roles": {}
+    },
+    "Mordekaiser": {
+      "slug": "mordekaiser",
+      "dataDragonId": "Mordekaiser",
+      "dataDragonKey": "82",
+      "roles": {}
+    },
+    "Morgana": {
+      "slug": "morgana",
+      "dataDragonId": "Morgana",
+      "dataDragonKey": "25",
+      "roles": {}
+    },
+    "Naafiri": {
+      "slug": "naafiri",
+      "dataDragonId": "Naafiri",
+      "dataDragonKey": "950",
+      "roles": {}
+    },
+    "Nami": {
+      "slug": "nami",
+      "dataDragonId": "Nami",
+      "dataDragonKey": "267",
+      "roles": {}
+    },
+    "Nasus": {
+      "slug": "nasus",
+      "dataDragonId": "Nasus",
+      "dataDragonKey": "75",
+      "roles": {}
+    },
+    "Nautilus": {
+      "slug": "nautilus",
+      "dataDragonId": "Nautilus",
+      "dataDragonKey": "111",
+      "roles": {}
+    },
+    "Neeko": {
+      "slug": "neeko",
+      "dataDragonId": "Neeko",
+      "dataDragonKey": "518",
+      "roles": {}
+    },
+    "Nidalee": {
+      "slug": "nidalee",
+      "dataDragonId": "Nidalee",
+      "dataDragonKey": "76",
+      "roles": {}
+    },
+    "Nilah": {
+      "slug": "nilah",
+      "dataDragonId": "Nilah",
+      "dataDragonKey": "895",
+      "roles": {}
+    },
+    "Nocturne": {
+      "slug": "nocturne",
+      "dataDragonId": "Nocturne",
+      "dataDragonKey": "56",
+      "roles": {}
+    },
+    "Nunu & Willump": {
+      "slug": "nunu",
+      "dataDragonId": "Nunu",
+      "dataDragonKey": "20",
+      "roles": {}
+    },
+    "Olaf": {
+      "slug": "olaf",
+      "dataDragonId": "Olaf",
+      "dataDragonKey": "2",
+      "roles": {}
+    },
+    "Orianna": {
+      "slug": "orianna",
+      "dataDragonId": "Orianna",
+      "dataDragonKey": "61",
+      "roles": {}
+    },
+    "Ornn": {
+      "slug": "ornn",
+      "dataDragonId": "Ornn",
+      "dataDragonKey": "516",
+      "roles": {}
+    },
+    "Pantheon": {
+      "slug": "pantheon",
+      "dataDragonId": "Pantheon",
+      "dataDragonKey": "80",
+      "roles": {}
+    },
+    "Poppy": {
+      "slug": "poppy",
+      "dataDragonId": "Poppy",
+      "dataDragonKey": "78",
+      "roles": {}
+    },
+    "Pyke": {
+      "slug": "pyke",
+      "dataDragonId": "Pyke",
+      "dataDragonKey": "555",
+      "roles": {}
+    },
+    "Qiyana": {
+      "slug": "qiyana",
+      "dataDragonId": "Qiyana",
+      "dataDragonKey": "246",
+      "roles": {}
+    },
+    "Quinn": {
+      "slug": "quinn",
+      "dataDragonId": "Quinn",
+      "dataDragonKey": "133",
+      "roles": {}
+    },
+    "Rakan": {
+      "slug": "rakan",
+      "dataDragonId": "Rakan",
+      "dataDragonKey": "497",
+      "roles": {}
+    },
+    "Rammus": {
+      "slug": "rammus",
+      "dataDragonId": "Rammus",
+      "dataDragonKey": "33",
+      "roles": {}
+    },
+    "Rek'Sai": {
+      "slug": "reksai",
+      "dataDragonId": "RekSai",
+      "dataDragonKey": "421",
+      "roles": {}
+    },
+    "Rell": {
+      "slug": "rell",
+      "dataDragonId": "Rell",
+      "dataDragonKey": "526",
+      "roles": {}
+    },
+    "Renata Glasc": {
+      "slug": "renata",
+      "dataDragonId": "Renata",
+      "dataDragonKey": "888",
+      "roles": {}
+    },
+    "Renekton": {
+      "slug": "renekton",
+      "dataDragonId": "Renekton",
+      "dataDragonKey": "58",
+      "roles": {}
+    },
+    "Rengar": {
+      "slug": "rengar",
+      "dataDragonId": "Rengar",
+      "dataDragonKey": "107",
+      "roles": {}
+    },
+    "Riven": {
+      "slug": "riven",
+      "dataDragonId": "Riven",
+      "dataDragonKey": "92",
+      "roles": {}
+    },
+    "Rumble": {
+      "slug": "rumble",
+      "dataDragonId": "Rumble",
+      "dataDragonKey": "68",
+      "roles": {}
+    },
+    "Ryze": {
+      "slug": "ryze",
+      "dataDragonId": "Ryze",
+      "dataDragonKey": "13",
+      "roles": {}
+    },
+    "Samira": {
+      "slug": "samira",
+      "dataDragonId": "Samira",
+      "dataDragonKey": "360",
+      "roles": {}
+    },
+    "Sejuani": {
+      "slug": "sejuani",
+      "dataDragonId": "Sejuani",
+      "dataDragonKey": "113",
+      "roles": {}
+    },
+    "Senna": {
+      "slug": "senna",
+      "dataDragonId": "Senna",
+      "dataDragonKey": "235",
+      "roles": {}
+    },
+    "Seraphine": {
+      "slug": "seraphine",
+      "dataDragonId": "Seraphine",
+      "dataDragonKey": "147",
+      "roles": {}
+    },
+    "Sett": {
+      "slug": "sett",
+      "dataDragonId": "Sett",
+      "dataDragonKey": "875",
+      "roles": {}
+    },
+    "Shaco": {
+      "slug": "shaco",
+      "dataDragonId": "Shaco",
+      "dataDragonKey": "35",
+      "roles": {}
+    },
+    "Shen": {
+      "slug": "shen",
+      "dataDragonId": "Shen",
+      "dataDragonKey": "98",
+      "roles": {}
+    },
+    "Shyvana": {
+      "slug": "shyvana",
+      "dataDragonId": "Shyvana",
+      "dataDragonKey": "102",
+      "roles": {}
+    },
+    "Singed": {
+      "slug": "singed",
+      "dataDragonId": "Singed",
+      "dataDragonKey": "27",
+      "roles": {}
+    },
+    "Sion": {
+      "slug": "sion",
+      "dataDragonId": "Sion",
+      "dataDragonKey": "14",
+      "roles": {}
+    },
+    "Sivir": {
+      "slug": "sivir",
+      "dataDragonId": "Sivir",
+      "dataDragonKey": "15",
+      "roles": {}
+    },
+    "Skarner": {
+      "slug": "skarner",
+      "dataDragonId": "Skarner",
+      "dataDragonKey": "72",
+      "roles": {}
+    },
+    "Smolder": {
+      "slug": "smolder",
+      "dataDragonId": "Smolder",
+      "dataDragonKey": "901",
+      "roles": {}
+    },
+    "Sona": {
+      "slug": "sona",
+      "dataDragonId": "Sona",
+      "dataDragonKey": "37",
+      "roles": {}
+    },
+    "Soraka": {
+      "slug": "soraka",
+      "dataDragonId": "Soraka",
+      "dataDragonKey": "16",
+      "roles": {}
+    },
+    "Swain": {
+      "slug": "swain",
+      "dataDragonId": "Swain",
+      "dataDragonKey": "50",
+      "roles": {}
+    },
+    "Sylas": {
+      "slug": "sylas",
+      "dataDragonId": "Sylas",
+      "dataDragonKey": "517",
+      "roles": {}
+    },
+    "Syndra": {
+      "slug": "syndra",
+      "dataDragonId": "Syndra",
+      "dataDragonKey": "134",
+      "roles": {}
+    },
+    "Tahm Kench": {
+      "slug": "tahmkench",
+      "dataDragonId": "TahmKench",
+      "dataDragonKey": "223",
+      "roles": {}
+    },
+    "Taliyah": {
+      "slug": "taliyah",
+      "dataDragonId": "Taliyah",
+      "dataDragonKey": "163",
+      "roles": {}
+    },
+    "Talon": {
+      "slug": "talon",
+      "dataDragonId": "Talon",
+      "dataDragonKey": "91",
+      "roles": {}
+    },
+    "Taric": {
+      "slug": "taric",
+      "dataDragonId": "Taric",
+      "dataDragonKey": "44",
+      "roles": {}
+    },
+    "Teemo": {
+      "slug": "teemo",
+      "dataDragonId": "Teemo",
+      "dataDragonKey": "17",
+      "roles": {}
+    },
+    "Thresh": {
+      "slug": "thresh",
+      "dataDragonId": "Thresh",
+      "dataDragonKey": "412",
+      "roles": {}
+    },
+    "Tristana": {
+      "slug": "tristana",
+      "dataDragonId": "Tristana",
+      "dataDragonKey": "18",
+      "roles": {}
+    },
+    "Trundle": {
+      "slug": "trundle",
+      "dataDragonId": "Trundle",
+      "dataDragonKey": "48",
+      "roles": {}
+    },
+    "Tryndamere": {
+      "slug": "tryndamere",
+      "dataDragonId": "Tryndamere",
+      "dataDragonKey": "23",
+      "roles": {}
+    },
+    "Twisted Fate": {
+      "slug": "twistedfate",
+      "dataDragonId": "TwistedFate",
+      "dataDragonKey": "4",
+      "roles": {}
+    },
+    "Twitch": {
+      "slug": "twitch",
+      "dataDragonId": "Twitch",
+      "dataDragonKey": "29",
+      "roles": {}
+    },
+    "Udyr": {
+      "slug": "udyr",
+      "dataDragonId": "Udyr",
+      "dataDragonKey": "77",
+      "roles": {}
+    },
+    "Urgot": {
+      "slug": "urgot",
+      "dataDragonId": "Urgot",
+      "dataDragonKey": "6",
+      "roles": {}
+    },
+    "Varus": {
+      "slug": "varus",
+      "dataDragonId": "Varus",
+      "dataDragonKey": "110",
+      "roles": {}
+    },
+    "Vayne": {
+      "slug": "vayne",
+      "dataDragonId": "Vayne",
+      "dataDragonKey": "67",
+      "roles": {}
+    },
+    "Veigar": {
+      "slug": "veigar",
+      "dataDragonId": "Veigar",
+      "dataDragonKey": "45",
+      "roles": {}
+    },
+    "Vel'Koz": {
+      "slug": "velkoz",
+      "dataDragonId": "Velkoz",
+      "dataDragonKey": "161",
+      "roles": {}
+    },
+    "Vex": {
+      "slug": "vex",
+      "dataDragonId": "Vex",
+      "dataDragonKey": "711",
+      "roles": {}
+    },
+    "Vi": {
+      "slug": "vi",
+      "dataDragonId": "Vi",
+      "dataDragonKey": "254",
+      "roles": {}
+    },
+    "Viego": {
+      "slug": "viego",
+      "dataDragonId": "Viego",
+      "dataDragonKey": "234",
+      "roles": {}
+    },
+    "Viktor": {
+      "slug": "viktor",
+      "dataDragonId": "Viktor",
+      "dataDragonKey": "112",
+      "roles": {}
+    },
+    "Vladimir": {
+      "slug": "vladimir",
+      "dataDragonId": "Vladimir",
+      "dataDragonKey": "8",
+      "roles": {}
+    },
+    "Volibear": {
+      "slug": "volibear",
+      "dataDragonId": "Volibear",
+      "dataDragonKey": "106",
+      "roles": {}
+    },
+    "Warwick": {
+      "slug": "warwick",
+      "dataDragonId": "Warwick",
+      "dataDragonKey": "19",
+      "roles": {}
+    },
+    "Wukong": {
+      "slug": "monkeyking",
+      "dataDragonId": "MonkeyKing",
+      "dataDragonKey": "62",
+      "roles": {}
+    },
+    "Xayah": {
+      "slug": "xayah",
+      "dataDragonId": "Xayah",
+      "dataDragonKey": "498",
+      "roles": {}
+    },
+    "Xerath": {
+      "slug": "xerath",
+      "dataDragonId": "Xerath",
+      "dataDragonKey": "101",
+      "roles": {}
+    },
+    "Xin Zhao": {
+      "slug": "xinzhao",
+      "dataDragonId": "XinZhao",
+      "dataDragonKey": "5",
+      "roles": {}
+    },
+    "Yasuo": {
+      "slug": "yasuo",
+      "dataDragonId": "Yasuo",
+      "dataDragonKey": "157",
+      "roles": {}
+    },
+    "Yone": {
+      "slug": "yone",
+      "dataDragonId": "Yone",
+      "dataDragonKey": "777",
+      "roles": {}
+    },
+    "Yorick": {
+      "slug": "yorick",
+      "dataDragonId": "Yorick",
+      "dataDragonKey": "83",
+      "roles": {}
+    },
+    "Yuumi": {
+      "slug": "yuumi",
+      "dataDragonId": "Yuumi",
+      "dataDragonKey": "350",
+      "roles": {}
+    },
+    "Zac": {
+      "slug": "zac",
+      "dataDragonId": "Zac",
+      "dataDragonKey": "154",
+      "roles": {}
+    },
+    "Zed": {
+      "slug": "zed",
+      "dataDragonId": "Zed",
+      "dataDragonKey": "238",
+      "roles": {}
+    },
+    "Zeri": {
+      "slug": "zeri",
+      "dataDragonId": "Zeri",
+      "dataDragonKey": "221",
+      "roles": {}
+    },
+    "Ziggs": {
+      "slug": "ziggs",
+      "dataDragonId": "Ziggs",
+      "dataDragonKey": "115",
+      "roles": {}
+    },
+    "Zilean": {
+      "slug": "zilean",
+      "dataDragonId": "Zilean",
+      "dataDragonKey": "26",
+      "roles": {}
+    },
+    "Zoe": {
+      "slug": "zoe",
+      "dataDragonId": "Zoe",
+      "dataDragonKey": "142",
+      "roles": {}
+    },
+    "Zyra": {
+      "slug": "zyra",
+      "dataDragonId": "Zyra",
+      "dataDragonKey": "143",
+      "roles": {}
+    }
+  }
+}

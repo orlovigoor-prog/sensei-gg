@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "build:overwolf": "vite build",
     "ai:server": "node server/ai-review-server.mjs",
+    "meta:init-counterpicks": "node server/update-lolalytics-counterpicks.mjs --init-only",
+    "meta:update-counterpicks": "node server/update-lolalytics-counterpicks.mjs",
     "verify:foundation-catalog": "node server/verify-foundation-test-case-catalog.mjs",
     "verify:foundation-smoke": "node server/verify-foundation-smoke.mjs",
     "verify:foundation-matrix": "node server/verify-foundation-matrix.mjs",

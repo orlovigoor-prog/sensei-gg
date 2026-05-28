@@ -43,6 +43,7 @@ loadEnvFile();
 
 const PORT = Number.parseInt(process.env.AI_REVIEW_PORT || '8787', 10);
 const HOST = process.env.AI_REVIEW_HOST || '127.0.0.1';
+const COUNTERPICK_DATABASE_PATH = path.resolve(process.cwd(), 'server/data/lol-counterpicks.json');
 const API_KEY = process.env.AI_PROVIDER_API_KEY || '';
 const API_URL = process.env.AI_PROVIDER_URL || 'https://api.deepseek.com/chat/completions';
 const MODEL = process.env.AI_PROVIDER_MODEL || 'deepseek-chat';
@@ -640,6 +641,11 @@ const findSnapshotTier = (championName, role) => {
 };
 
 const getSnapshotMatchup = (championName, role, rankBracket) => {
+  const counterpickMatchup = getCounterpickDatabaseMatchup(championName, role, rankBracket);
+  if (counterpickMatchup) {
+    return counterpickMatchup;
+  }
+
   const rankMatchups = lolMetaSnapshot.matchups[rankBracket] ?? lolMetaSnapshot.matchups['platinum-plus'];
   const roleMatchups = rankMatchups?.[role];
   const normalizedChampion = normalizeMetaKey(championName);
@@ -650,6 +656,71 @@ const getSnapshotMatchup = (championName, role, rankBracket) => {
 
   const [, matchup] = Object.entries(roleMatchups).find(([candidate]) => normalizeMetaKey(candidate) === normalizedChampion) ?? [];
   return matchup ?? null;
+};
+
+const loadCounterpickDatabase = () => {
+  try {
+    return JSON.parse(fs.readFileSync(COUNTERPICK_DATABASE_PATH, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+
+const normalizeRankBracketForCounterpicks = (rankBracket) => {
+  const normalized = String(rankBracket || '').trim().toLowerCase().replace(/-/g, '_');
+
+  if (normalized === 'platinum_plus' || normalized === 'platinumplus') {
+    return 'platinum_plus';
+  }
+
+  if (normalized === 'diamond2_plus' || normalized === 'diamond2plus' || normalized === 'diamond_plus' || normalized === 'diamondplus') {
+    return 'diamond_plus';
+  }
+
+  if (normalized === 'emerald_plus' || normalized === 'emeraldplus') {
+    return 'emerald_plus';
+  }
+
+  return normalized || 'emerald_plus';
+};
+
+const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
+  const database = loadCounterpickDatabase();
+  const normalizedChampion = normalizeMetaKey(championName);
+  const normalizedRank = normalizeRankBracketForCounterpicks(rankBracket);
+
+  if (!database?.champions || !normalizedChampion) {
+    return null;
+  }
+
+  const [, championEntry] = Object.entries(database.champions).find(([candidateName, candidateEntry]) => (
+    normalizeMetaKey(candidateName) === normalizedChampion || normalizeMetaKey(candidateEntry?.slug) === normalizedChampion
+  )) ?? [];
+  const roleEntry = championEntry?.roles?.[role];
+
+  if (!roleEntry || !Array.isArray(roleEntry.counters) || roleEntry.counters.length === 0) {
+    return null;
+  }
+
+  const entryRank = normalizeRankBracketForCounterpicks(roleEntry.rankBracket || database.defaultRankBracket);
+
+  return {
+    globalWinRate: Number.isFinite(roleEntry.globalWinRate) ? roleEntry.globalWinRate : null,
+    overallMatches: Number.isFinite(roleEntry.overallMatches) ? roleEntry.overallMatches : null,
+    sourcePatch: roleEntry.patchWindow || database.defaultPatchWindow || null,
+    sampleLabel: roleEntry.sampleLabel || `${entryRank}, Ranked Solo/Duo`,
+    rankBracket: entryRank || normalizedRank,
+    sourceUpdatedAt: roleEntry.sourceUpdatedAt || database.updatedAt || null,
+    counters: roleEntry.counters.map((counter) => ({
+      champion: counter.champion,
+      matchupWinRate: counter.matchupWinRate,
+      matches: counter.matches,
+      delta1: counter.delta1,
+      delta2: counter.delta2,
+      targetChampionWinRate: counter.targetChampionWinRate,
+      allChampsWinRateVsCounter: counter.allChampsWinRateVsCounter
+    })).filter((counter) => isNonEmptyString(counter.champion) && Number.isFinite(counter.matchupWinRate))
+  };
 };
 
 const buildChampionMetaInsight = (championName, role, rankBracket) => {
