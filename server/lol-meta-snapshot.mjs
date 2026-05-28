@@ -52,14 +52,17 @@ export const lolMetaSnapshot = {
     'platinum-plus': {
       TOP: {
         Aatrox: {
-          globalWinRate: 49.4,
-          overallMatches: null,
+          globalWinRate: 49.5,
+          overallMatches: 156679,
+          sourcePatch: '16.10',
+          sampleLabel: 'Emerald+, Ranked Solo',
           counters: [
-            { champion: 'Vayne', matchupWinRate: 53.2 },
+            { champion: 'Singed', matchupWinRate: 55.6, matches: 2401 },
+            { champion: 'Kled', matchupWinRate: 54.0, matches: 1338 },
+            { champion: 'Malphite', matchupWinRate: 53.4, matches: 5413 },
+            { champion: 'Vayne', matchupWinRate: 53.3, matches: 2923 },
             { champion: 'Kennen', matchupWinRate: 52.9, matches: 1385 },
-            { champion: 'Irelia', matchupWinRate: 52.9, matches: 3976 },
-            { champion: 'Ornn', matchupWinRate: 52.2, matches: 3354 },
-            { champion: 'Kayle', matchupWinRate: 52.2, matches: 1766 }
+            { champion: 'Irelia', matchupWinRate: 52.9, matches: 3976 }
           ]
         }
       },
@@ -94,4 +97,3 @@ export const lolMetaSnapshot = {
     }
   }
 };
-
