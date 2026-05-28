@@ -5,3 +5,4 @@ export * from './gameData/spells';
 export * from './gameData/runes';
 export * from './gameData/ranks';
 export * from './gameData/scenarios';
+export * from './gameData/lobbyInsights';

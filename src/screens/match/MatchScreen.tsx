@@ -17,11 +17,10 @@ import {
   resolveItemTooltipEntry,
   getDefaultRuneLoadout,
   getDefaultSummonerSpells,
-  mockCounterPool,
-  patchTierVisuals,
+  getLobbyChampionInsight,
   summonerSpellPool
 } from '../../services/gameData';
-import type { RuneLoadout } from '../../services/gameData';
+import type { LobbyCounterpickInsight, RuneLoadout } from '../../services/gameData';
 import type { ItemCatalogEntry } from '../../services/gameData/items';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
@@ -49,7 +48,6 @@ interface PlayerCardProps {
   displayName?: string;
   searchDisabled?: boolean;
   variant?: 'lobby' | 'in-game';
-  reviewMode?: boolean;
 }
 
 interface MatchScreenProps {
@@ -67,18 +65,6 @@ interface PostGamePlayerRowProps {
   isWinner: boolean;
   laneLabel: string;
   rowIndex: number;
-}
-
-interface LobbyCounterpick {
-  champion: string;
-  matchupWinRate: number;
-}
-
-interface LobbyChampionInsight {
-  counters: LobbyCounterpick[];
-  globalWinRate: number;
-  patchTier: string;
-  tierColor: string;
 }
 
 const getAiSourceMeta = (source: StructuredAiReview['source']) => {
@@ -165,33 +151,6 @@ const getMockPostGameLoadout = (championName: string, role: PlayerInfo['mainRole
     ],
     runes: getDefaultRuneLoadout(role, championName),
     items: build?.items.slice(0, 5) ?? []
-  };
-};
-
-const getMockLobbyInsight = (championName: string): LobbyChampionInsight => {
-  const seed = hashChampionName(championName || 'Aatrox');
-  const uniqueCounters: LobbyCounterpick[] = [];
-
-  for (let step = 0; step < mockCounterPool.length && uniqueCounters.length < 5; step += 1) {
-    const counter = mockCounterPool[(seed + step) % mockCounterPool.length];
-    if (counter === championName || uniqueCounters.some((item) => item.champion === counter)) {
-      continue;
-    }
-
-    uniqueCounters.push({
-      champion: counter,
-      matchupWinRate: Number((55.8 - uniqueCounters.length * 1.4 - ((seed + step) % 4) * 0.3).toFixed(1))
-    });
-  }
-
-  const tierSteps = ['S+', 'S', 'A', 'B'] as const;
-  const patchTier = tierSteps[seed % tierSteps.length];
-
-  return {
-    counters: uniqueCounters,
-    globalWinRate: Number((48.4 + (seed % 37) * 0.14).toFixed(1)),
-    patchTier,
-    tierColor: patchTierVisuals[patchTier]
   };
 };
 
@@ -437,7 +396,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
   );
 }
 
-function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game', reviewMode = false }: PlayerCardProps) {
+function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game' }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? '#10b981' : '#ef4444';
   const cardTitle = displayName || player.summonerName;
   const totalGames = player.wins + player.losses;
@@ -458,11 +417,11 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const averageDeaths = champTotal > 0 ? (totalDeaths / champTotal).toFixed(1) : '0.0';
   const averageAssists = champTotal > 0 ? (totalAssists / champTotal).toFixed(1) : '0.0';
   const rankLabel = formatPlayerRankLabel(player);
-  const lobbyInsight = getMockLobbyInsight(championLabel);
+  const lobbyInsight = selectedChampion ? getLobbyChampionInsight(championLabel) : null;
   const playerLoadout = getPlayerLoadout(player, championLabel);
   
   const [showChampTooltip, setShowChampTooltip] = useState(false);
-  const [hoveredCounter, setHoveredCounter] = useState<LobbyCounterpick | null>(null);
+  const [hoveredCounter, setHoveredCounter] = useState<LobbyCounterpickInsight | null>(null);
 
   return (
     <div 
@@ -547,7 +506,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   {championLabel}
                 </div>
               </div>
-              {reviewMode ? (
+              {lobbyInsight ? (
                 <div style={{
                   background: 'rgba(0, 0, 0, 0.3)',
                   padding: '7px 8px',
@@ -558,7 +517,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   minWidth: 0
                 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Глобальный WR</div>
+                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>WR патча</div>
                     <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {lobbyInsight.globalWinRate}%
                     </div>
@@ -577,9 +536,9 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   borderRadius: '7px',
                   minWidth: 0
                 }}>
-                  <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Безопасный режим лобби</div>
+                  <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Нет мета-данных</div>
                   <div style={{ color: '#d1d5db', fontWeight: 'bold', fontSize: '10px', lineHeight: 1.35 }}>
-                    До реальной интеграции здесь показывается только базовая информация о пике без демонстрационных matchup-оценок.
+                    Для этого пика пока нет проверенного snapshot по контрпикам и тиру.
                   </div>
                 </div>
               )}
@@ -643,7 +602,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
       </div>
 
       {variant === 'lobby' ? (
-        reviewMode ? (
+        lobbyInsight ? (
         <div style={{
           position: 'relative',
           background: 'rgba(0, 0, 0, 0.3)',
@@ -651,7 +610,10 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           borderRadius: '6px',
           marginTop: 'auto'
         }}>
-          <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '5px' }}>Контрпики</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', marginBottom: '5px' }}>
+            <div style={{ color: '#6b7280', fontSize: '8px' }}>Контрпики</div>
+            <div style={{ color: '#64748b', fontSize: '8px', whiteSpace: 'nowrap' }}>{lobbyInsight.source} · {lobbyInsight.patch}</div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '5px' }}>
             {lobbyInsight.counters.map((counter) => (
               <div
@@ -692,7 +654,10 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
               zIndex: 3
             }}>
               <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '10px', marginBottom: '2px' }}>{hoveredCounter.champion}</div>
-              <div style={{ color: '#9ca3af', fontSize: '9px' }}>Общий винрейт в матчапе: {hoveredCounter.matchupWinRate}%</div>
+              <div style={{ color: '#9ca3af', fontSize: '9px' }}>Винрейт против {championLabel}: {hoveredCounter.matchupWinRate}%</div>
+              {hoveredCounter.matches ? (
+                <div style={{ color: '#64748b', fontSize: '8px', marginTop: '2px' }}>{hoveredCounter.matches.toLocaleString('ru-RU')} матчей</div>
+              ) : null}
             </div>
           )}
         </div>
@@ -705,7 +670,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           }}>
             <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '4px' }}>Matchup-инсайты</div>
             <div style={{ color: '#9ca3af', fontSize: '9px', lineHeight: 1.35 }}>
-              Демонстрационные контрпики доступны только в Review Mode.
+              Нет проверенных данных для выбранного чемпиона. Рандомные подсказки отключены.
             </div>
           </div>
         )
@@ -1201,7 +1166,6 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 displayName={getDisplayName(player, index, true)}
                 searchDisabled={isNameHidden(player, index, true)}
                 variant={playerCardVariant}
-                reviewMode={reviewMode}
               />
             </div>
           ))}
@@ -1255,7 +1219,6 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 displayName={getDisplayName(player, index, false)}
                 searchDisabled={isNameHidden(player, index, false)}
                 variant={playerCardVariant}
-                reviewMode={reviewMode}
               />
             </div>
           ))}
