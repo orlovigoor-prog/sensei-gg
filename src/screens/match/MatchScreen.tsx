@@ -2,6 +2,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../store';
 import { useEffect, useState } from 'react';
 import { ItemTooltip } from '../../components/ItemTooltip';
+import { PlayerLoadoutIcons } from '../../components/PlayerLoadoutIcons';
 import type { PlayerInfo } from '../../store/lobbySlice';
 import type { CompletedMatchSummary, StructuredAiReview } from '../../store/gameSlice';
 import { getRankColor, getRankIconUrl } from '../../services/rankAssets';
@@ -14,11 +15,13 @@ import {
   getItemIconUrl,
   getRecommendedItemBuild,
   resolveItemTooltipEntry,
-  getSummonerSpellIconUrl,
+  getDefaultRuneLoadout,
+  getDefaultSummonerSpells,
   mockCounterPool,
   patchTierVisuals,
   summonerSpellPool
 } from '../../services/gameData';
+import type { RuneLoadout } from '../../services/gameData';
 import type { ItemCatalogEntry } from '../../services/gameData/items';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
@@ -131,8 +134,23 @@ interface MockPostGameLoadout {
   role: PlayerInfo['mainRole'];
   build: ReturnType<typeof getRecommendedItemBuild>;
   spells: number[];
+  runes: RuneLoadout;
   items: number[];
 }
+
+const getPlayerLoadout = (player: PlayerInfo, championName?: string) => {
+  const latestMatch = player.recentMatches?.[0];
+  const resolvedChampion = championName || latestMatch?.champion;
+
+  return {
+    spells: player.summonerSpells?.length === 2
+      ? player.summonerSpells
+      : latestMatch?.summonerSpells?.length === 2
+        ? latestMatch.summonerSpells
+        : getDefaultSummonerSpells(player.mainRole, resolvedChampion),
+    runes: player.runes ?? latestMatch?.runes ?? getDefaultRuneLoadout(player.mainRole, resolvedChampion)
+  };
+};
 
 const getMockPostGameLoadout = (championName: string, role: PlayerInfo['mainRole']): MockPostGameLoadout => {
   const seed = hashChampionName(`${championName}-${role}`);
@@ -145,6 +163,7 @@ const getMockPostGameLoadout = (championName: string, role: PlayerInfo['mainRole
       summonerSpellPool[seed % summonerSpellPool.length],
       summonerSpellPool[(seed + 3) % summonerSpellPool.length]
     ],
+    runes: getDefaultRuneLoadout(role, championName),
     items: build?.items.slice(0, 5) ?? []
   };
 };
@@ -183,8 +202,10 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
   const championMeta = getChampionCatalogEntry(championName);
   const kdaText = latestMatch?.kda || `${Math.max(1, Math.round(player.winRate / 10))} / ${Math.max(1, Math.round((100 - player.winRate) / 18))} / ${Math.max(2, Math.round(player.wins / 12))}`;
   const totalGames = player.wins + player.losses;
-  const loadout = getMockPostGameLoadout(championName, player.mainRole);
-  const buildLabel = loadout.build?.name;
+  const mockLoadout = getMockPostGameLoadout(championName, player.mainRole);
+  const playerLoadout = getPlayerLoadout(player, championName);
+  const loadout = { ...mockLoadout, spells: playerLoadout.spells, runes: playerLoadout.runes };
+  const buildLabel = mockLoadout.build?.name;
   const csEstimate = Math.max(24, Math.round((latestMatch?.k ?? 0) * 11 + (latestMatch?.a ?? 0) * 4 + player.winRate));
   const isDemoProfile = player.summonerName === 'DemoProfilePlayer';
   const [hoveredItemId, setHoveredItemId] = useState<number | null>(null);
@@ -257,7 +278,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
       position: 'relative',
       zIndex: hoveredItem ? 8 : 1
     }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '34px 14px', gap: '4px', alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '34px auto', gap: '4px', alignItems: 'center' }}>
         <img
           src={championIcon}
           alt={championName}
@@ -266,19 +287,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
           }}
           style={{ width: '34px', height: '34px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}
         />
-        <div style={{ display: 'grid', gap: '3px' }}>
-          {loadout.spells.map((spellId) => (
-              <img
-                key={`${displayName}-spell-${spellId}`}
-                src={getSummonerSpellIconUrl(spellId)}
-                alt={`spell-${spellId}`}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-              }}
-              style={{ width: '14px', height: '14px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-            />
-          ))}
-        </div>
+        <PlayerLoadoutIcons spells={loadout.spells} runes={loadout.runes} size={14} compact />
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ marginBottom: '2px' }}>
@@ -450,6 +459,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const averageAssists = champTotal > 0 ? (totalAssists / champTotal).toFixed(1) : '0.0';
   const rankLabel = formatPlayerRankLabel(player);
   const lobbyInsight = getMockLobbyInsight(championLabel);
+  const playerLoadout = getPlayerLoadout(player, championLabel);
   
   const [showChampTooltip, setShowChampTooltip] = useState(false);
   const [hoveredCounter, setHoveredCounter] = useState<LobbyCounterpick | null>(null);
@@ -502,7 +512,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '54px minmax(0, 1fr)', gap: variant === 'lobby' ? '8px' : '10px', alignItems: 'center', marginBottom: variant === 'lobby' ? '6px' : '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: variant === 'lobby' ? '54px minmax(0, 1fr)' : '54px auto minmax(0, 1fr)', gap: variant === 'lobby' ? '8px' : '10px', alignItems: 'center', marginBottom: variant === 'lobby' ? '6px' : '8px' }}>
         <div 
           style={{ 
             position: 'relative',
@@ -529,6 +539,10 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           />
           {showChampTooltip && champTotal > 0 && null}
         </div>
+
+        {variant !== 'lobby' && (
+          <PlayerLoadoutIcons spells={playerLoadout.spells} runes={playerLoadout.runes} size={22} />
+        )}
 
         <div style={{ minWidth: 0 }}>
           {variant === 'lobby' ? (

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ItemTooltip } from '../../components/ItemTooltip';
+import { PlayerLoadoutIcons } from '../../components/PlayerLoadoutIcons';
 import type { RankedStats, Summoner } from '../../services/riotApi';
 import { getRankIconUrl, type RankTier } from '../../services/rankAssets';
-import { getChampionIconUrl, getProfileIconUrl } from '../../services/gameData';
+import { getChampionIconUrl, getDefaultRuneLoadout, getDefaultSummonerSpells, getProfileIconUrl } from '../../services/gameData';
+import type { RuneLoadout } from '../../services/gameData';
 import { getItemCatalogEntry, getItemIconUrl, resolveItemTooltipEntry, type ItemCatalogEntry } from '../../services/gameData/items';
 import { fetchSubscriptionServiceResponse } from '../../services/subscriptionDevTools';
 import {
@@ -54,6 +56,8 @@ interface ProfileRecentMatch {
   goldEarned?: number;
   goldLabel?: string;
   items?: number[];
+  summonerSpells?: number[];
+  runes?: RuneLoadout;
 }
 
 interface ProfileChampionMastery {
@@ -536,25 +540,37 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
               <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '12px', letterSpacing: '0.06em' }}>ПОСЛЕДНИЕ МАТЧИ</div>
               {isDemoProfile ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
-                  {reviewModeRecentMatches.map((match) => (
-                    <div key={`${match.champion}-${match.duration}`} style={{ display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      <img src={getChampionIconUrl(match.champion)} alt={match.champion} style={{ width: '44px', height: '44px', borderRadius: '10px' }} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{match.champion}</div>
-                        <div style={{ color: '#9ca3af', fontSize: '11px' }}>{match.kda} · {match.cs} CS · {match.duration}</div>
+                  {reviewModeRecentMatches.map((match) => {
+                    const demoSpells = getDefaultSummonerSpells(undefined, match.champion);
+                    const demoRunes = getDefaultRuneLoadout(undefined, match.champion);
+
+                    return (
+                      <div key={`${match.champion}-${match.duration}`} style={{ display: 'grid', gridTemplateColumns: '44px auto minmax(0, 1fr) auto', gap: '10px', alignItems: 'center', padding: '10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                        <img src={getChampionIconUrl(match.champion)} alt={match.champion} style={{ width: '44px', height: '44px', borderRadius: '10px' }} />
+                        <PlayerLoadoutIcons spells={demoSpells} runes={demoRunes} size={18} compact />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{match.champion}</div>
+                          <div style={{ color: '#9ca3af', fontSize: '11px' }}>{match.kda} · {match.cs} CS · {match.duration}</div>
+                        </div>
+                        <div style={{ color: match.result === 'Победа' ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '12px' }}>{match.result}</div>
                       </div>
-                      <div style={{ color: match.result === 'Победа' ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '12px' }}>{match.result}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : recentMatches.length > 0 ? (
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {recentMatches.map((match, index) => (
                     <div key={match.matchId || `${match.champion}-${index}`} style={{ display: 'grid', gap: '10px', padding: '12px', borderRadius: '14px', background: 'linear-gradient(180deg, rgba(20, 27, 42, 0.96), rgba(13, 18, 31, 0.98))', border: '1px solid rgba(96, 165, 250, 0.14)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)', position: 'relative', overflow: 'visible' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '52px minmax(0, 1fr) auto', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '52px auto minmax(0, 1fr) auto', gap: '12px', alignItems: 'center' }}>
                         <img src={getChampionIconUrl(match.champion)} alt={match.champion} onError={(e) => {
                           (e.target as HTMLImageElement).src = getChampionIconUrl('Aatrox');
                         }} style={{ width: '52px', height: '52px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        <PlayerLoadoutIcons
+                          spells={match.summonerSpells?.length === 2 ? match.summonerSpells : getDefaultSummonerSpells(undefined, match.champion)}
+                          runes={match.runes ?? getDefaultRuneLoadout(undefined, match.champion)}
+                          size={20}
+                          compact
+                        />
                         <div style={{ minWidth: 0, display: 'grid', gap: '4px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                             <span style={{ color: getResultAccent(match.result), fontWeight: 'bold', fontSize: '24px', lineHeight: 1 }}>{match.result}</span>

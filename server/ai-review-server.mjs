@@ -794,6 +794,9 @@ const normalizeProfileRecentMatch = (match, puuid) => {
   const totalCs = Number(player.totalMinionsKilled || 0) + Number(player.neutralMinionsKilled || 0);
   const items = [player.item0, player.item1, player.item2, player.item3, player.item4, player.item5, player.item6]
     .filter((itemId) => Number.isFinite(itemId) && itemId > 0);
+  const primaryRuneStyle = Array.isArray(player.perks?.styles) ? player.perks.styles[0] : null;
+  const secondaryRuneStyle = Array.isArray(player.perks?.styles) ? player.perks.styles[1] : null;
+  const keystoneSelection = Array.isArray(primaryRuneStyle?.selections) ? primaryRuneStyle.selections[0] : null;
 
   return {
     matchId: typeof match?.metadata?.matchId === 'string' ? match.metadata.matchId : null,
@@ -805,7 +808,14 @@ const normalizeProfileRecentMatch = (match, puuid) => {
     duration: formatDuration(durationSeconds) || '0:00',
     goldEarned: Number.isFinite(player.goldEarned) ? player.goldEarned : 0,
     goldLabel: formatGold(Number(player.goldEarned || 0)) || '0 G',
-    items
+    items,
+    summonerSpells: [player.summoner1Id, player.summoner2Id]
+      .filter((spellId) => Number.isFinite(spellId) && spellId > 0),
+    runes: {
+      keystoneId: Number.isFinite(keystoneSelection?.perk) ? keystoneSelection.perk : null,
+      primaryStyleId: Number.isFinite(primaryRuneStyle?.style) ? primaryRuneStyle.style : null,
+      secondaryStyleId: Number.isFinite(secondaryRuneStyle?.style) ? secondaryRuneStyle.style : null
+    }
   };
 };
 

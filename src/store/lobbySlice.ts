@@ -13,6 +13,12 @@ export interface PlayerInfo {
   championMastery: number;
   championPoints: number;
   isPro: boolean;
+  summonerSpells?: number[];
+  runes?: {
+    keystoneId?: number | null;
+    primaryStyleId?: number | null;
+    secondaryStyleId?: number | null;
+  };
   recentMatches: {
     result: 'W' | 'L';
     champion: string;
@@ -21,6 +27,12 @@ export interface PlayerInfo {
     d: number;
     a: number;
     gameType?: 'RANKED' | 'NORMAL';
+    summonerSpells?: number[];
+    runes?: {
+      keystoneId?: number | null;
+      primaryStyleId?: number | null;
+      secondaryStyleId?: number | null;
+    };
   }[];
 }
 
