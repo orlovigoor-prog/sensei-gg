@@ -15,7 +15,7 @@
   "coverage": {
     "championCatalog": "data-dragon",
     "championEntities": "all-known-champions-on-last-refresh",
-    "matchupRows": "demo-lobby-core-champions-plus-weekly-updater-rows"
+    "matchupRows": "role-aware-demo-lobby-core-champions-plus-weekly-updater-rows"
   },
   "champions": {
     "Aatrox": {

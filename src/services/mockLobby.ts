@@ -536,14 +536,13 @@ const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mai
 
 export const createMockPlayers = (): PlayerInfo[] => {
   const basePlayers = createBaseMockPlayers();
-  const allyRoles = takeUniqueRandom(roleOrder, roleOrder.length);
-  const enemyRoles = takeUniqueRandom(roleOrder, roleOrder.length);
+  const randomizedAllies = takeUniqueRandom(basePlayers.slice(0, 5), 5);
+  const randomizedEnemies = takeUniqueRandom(basePlayers.slice(5, 10), 5);
 
-  return basePlayers.map((player, index) => buildRandomizedDemoPlayer(
-    player,
-    index < 5 ? allyRoles[index] : enemyRoles[index - 5],
-    index
-  ));
+  return [
+    ...randomizedAllies.map((player, index) => buildRandomizedDemoPlayer(player, roleOrder[index], index)),
+    ...randomizedEnemies.map((player, index) => buildRandomizedDemoPlayer(player, roleOrder[index], index + 5))
+  ];
 };
 
 export interface ReviewModeScenario {
