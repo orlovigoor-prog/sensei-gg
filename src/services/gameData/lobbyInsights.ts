@@ -1,7 +1,8 @@
 import type { PlayerInfo } from '../../store/lobbySlice';
+import { fetchSubscriptionServiceJson } from '../subscriptionDevTools';
 import { patchTierVisuals, type PatchTier } from './core';
 
-export type LobbyRankBracket = 'platinum-plus';
+export type LobbyRankBracket = 'platinum-plus' | 'diamond2-plus';
 
 export interface LobbyCounterpickInsight {
   champion: string;
@@ -13,7 +14,7 @@ export interface LobbyChampionInsight {
   role: PlayerInfo['mainRole'];
   rankBracket: LobbyRankBracket;
   counters: LobbyCounterpickInsight[];
-  globalWinRate: number;
+  globalWinRate?: number | null;
   overallMatches?: number;
   patchTier: PatchTier;
   tierColor: string;
@@ -89,4 +90,44 @@ export const getLobbyChampionInsight = (
   }
 
   return roleInsightCatalog[role]?.[championName] ?? null;
+};
+
+interface BackendLobbyChampionInsightResponse {
+  ok: boolean;
+  insight?: {
+    role: PlayerInfo['mainRole'];
+    rankBracket: LobbyRankBracket;
+    counters?: LobbyCounterpickInsight[];
+    globalWinRate?: number | null;
+    overallMatches?: number | null;
+    patchTier?: PatchTier | null;
+    patch?: string;
+    sampleLabel?: string;
+  } | null;
+}
+
+export const fetchLobbyChampionInsight = async (
+  championName: string,
+  role: PlayerInfo['mainRole'],
+  rankBracket: LobbyRankBracket = 'platinum-plus'
+): Promise<LobbyChampionInsight | null> => {
+  const query = new URLSearchParams({ champion: championName, role, rank: rankBracket });
+  const response = await fetchSubscriptionServiceJson<BackendLobbyChampionInsightResponse>(`/api/lol/meta/champion-insight?${query.toString()}`);
+  const insight = response?.insight;
+
+  if (!response?.ok || !insight?.patchTier) {
+    return getLobbyChampionInsight(championName, role, rankBracket === 'diamond2-plus' ? 'platinum-plus' : rankBracket);
+  }
+
+  return {
+    role: insight.role,
+    rankBracket: insight.rankBracket,
+    counters: Array.isArray(insight.counters) ? insight.counters : [],
+    globalWinRate: Number.isFinite(insight.globalWinRate) ? insight.globalWinRate : null,
+    overallMatches: Number.isFinite(insight.overallMatches) ? insight.overallMatches ?? undefined : undefined,
+    patchTier: insight.patchTier,
+    tierColor: patchTierVisuals[insight.patchTier] ?? patchTierVisuals.B,
+    patch: insight.patch || patch,
+    sampleLabel: insight.sampleLabel || sampleLabel
+  };
 };

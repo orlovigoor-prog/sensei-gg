@@ -17,7 +17,7 @@ import {
   resolveItemTooltipEntry,
   getDefaultRuneLoadout,
   getDefaultSummonerSpells,
-  getLobbyChampionInsight,
+  fetchLobbyChampionInsight,
   summonerSpellPool
 } from '../../services/gameData';
 import type { LobbyCounterpickInsight, LobbyRankBracket, RuneLoadout } from '../../services/gameData';
@@ -443,11 +443,32 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const averageDeaths = champTotal > 0 ? (totalDeaths / champTotal).toFixed(1) : '0.0';
   const averageAssists = champTotal > 0 ? (totalAssists / champTotal).toFixed(1) : '0.0';
   const rankLabel = formatPlayerRankLabel(player);
-  const lobbyInsight = selectedChampion ? getLobbyChampionInsight(championLabel, player.mainRole, lobbyRankBracket) : null;
   const playerLoadout = getPlayerLoadout(player, championLabel);
   
   const [showChampTooltip, setShowChampTooltip] = useState(false);
   const [hoveredCounter, setHoveredCounter] = useState<LobbyCounterpickInsight | null>(null);
+  const [lobbyInsight, setLobbyInsight] = useState<Awaited<ReturnType<typeof fetchLobbyChampionInsight>>>(null);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (variant !== 'lobby' || !selectedChampion) {
+      setLobbyInsight(null);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    fetchLobbyChampionInsight(championLabel, player.mainRole, lobbyRankBracket).then((insight) => {
+      if (isCurrent) {
+        setLobbyInsight(insight);
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [championLabel, lobbyRankBracket, player.mainRole, selectedChampion, variant]);
 
   return (
     <div 
@@ -543,9 +564,9 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   minWidth: 0
                 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>WR патча</div>
+                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Винрейт</div>
                     <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {lobbyInsight.globalWinRate}%
+                      {Number.isFinite(lobbyInsight.globalWinRate) ? `${lobbyInsight.globalWinRate}%` : '—'}
                     </div>
                   </div>
                   <div style={{ minWidth: 0 }}>

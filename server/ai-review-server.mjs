@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildFoundationTestCaseCatalog, buildMatrixAssertions } from './foundation-test-case-catalog.mjs';
+import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
 import {
   accountSessionScenarioFixtures,
   foundationScenarioFixtures,
@@ -578,6 +579,143 @@ let championIdNameMapCache = null;
 let championIdNameMapCacheExpiresAt = 0;
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+
+const normalizeMetaKey = (value) => isNonEmptyString(value) ? value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+
+const roleAliases = {
+  TOP: 'TOP',
+  JUNGLE: 'JUNGLE',
+  JG: 'JUNGLE',
+  MID: 'MID',
+  MIDDLE: 'MID',
+  BOT: 'ADC',
+  BOTTOM: 'ADC',
+  ADC: 'ADC',
+  SUPPORT: 'SUPPORT',
+  SUP: 'SUPPORT',
+  UTILITY: 'SUPPORT'
+};
+
+const normalizeMetaRole = (value) => {
+  if (!isNonEmptyString(value)) {
+    return null;
+  }
+
+  return roleAliases[value.trim().toUpperCase()] ?? null;
+};
+
+const findSnapshotChampionName = (championName, role) => {
+  const normalizedChampion = normalizeMetaKey(championName);
+  const roleSnapshot = lolMetaSnapshot.roles[role];
+
+  if (!normalizedChampion || !roleSnapshot) {
+    return null;
+  }
+
+  for (const champions of Object.values(roleSnapshot.tiers)) {
+    const match = champions.find((candidate) => normalizeMetaKey(candidate) === normalizedChampion);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+};
+
+const findSnapshotTier = (championName, role) => {
+  const normalizedChampion = normalizeMetaKey(championName);
+  const roleSnapshot = lolMetaSnapshot.roles[role];
+
+  if (!normalizedChampion || !roleSnapshot) {
+    return null;
+  }
+
+  for (const [tier, champions] of Object.entries(roleSnapshot.tiers)) {
+    if (champions.some((candidate) => normalizeMetaKey(candidate) === normalizedChampion)) {
+      return tier;
+    }
+  }
+
+  return null;
+};
+
+const getSnapshotMatchup = (championName, role, rankBracket) => {
+  const rankMatchups = lolMetaSnapshot.matchups[rankBracket] ?? lolMetaSnapshot.matchups['platinum-plus'];
+  const roleMatchups = rankMatchups?.[role];
+  const normalizedChampion = normalizeMetaKey(championName);
+
+  if (!roleMatchups || !normalizedChampion) {
+    return null;
+  }
+
+  const [, matchup] = Object.entries(roleMatchups).find(([candidate]) => normalizeMetaKey(candidate) === normalizedChampion) ?? [];
+  return matchup ?? null;
+};
+
+const buildChampionMetaInsight = (championName, role, rankBracket) => {
+  const patchTier = findSnapshotTier(championName, role);
+  const displayChampion = findSnapshotChampionName(championName, role) ?? championName;
+  const matchup = getSnapshotMatchup(displayChampion, role, rankBracket);
+
+  if (!patchTier && !matchup) {
+    return null;
+  }
+
+  return {
+    champion: displayChampion,
+    role,
+    rankBracket,
+    rankLabel: rankBracket === 'platinum-plus' ? 'Platinum+' : lolMetaSnapshot.rankLabel,
+    patchTier,
+    patch: lolMetaSnapshot.patch,
+    matchupPatch: matchup?.sourcePatch ?? null,
+    sampleLabel: matchup?.sampleLabel ?? lolMetaSnapshot.rankLabel,
+    globalWinRate: Number.isFinite(matchup?.globalWinRate) ? matchup.globalWinRate : null,
+    overallMatches: Number.isFinite(matchup?.overallMatches) ? matchup.overallMatches : null,
+    counters: Array.isArray(matchup?.counters) ? matchup.counters : []
+  };
+};
+
+const handleLolMetaChampionInsight = (res, requestUrl) => {
+  const champion = requestUrl.searchParams.get('champion');
+  const role = normalizeMetaRole(requestUrl.searchParams.get('role'));
+  const rankBracket = isNonEmptyString(requestUrl.searchParams.get('rank')) ? requestUrl.searchParams.get('rank').trim() : lolMetaSnapshot.rankBracket;
+
+  if (!isNonEmptyString(champion) || !role) {
+    sendJson(res, 400, { ok: false, error: 'champion and role query parameters are required' });
+    return;
+  }
+
+  sendJson(res, 200, {
+    ok: true,
+    snapshot: {
+      patch: lolMetaSnapshot.patch,
+      rankBracket: lolMetaSnapshot.rankBracket,
+      rankLabel: lolMetaSnapshot.rankLabel,
+      updatedAt: lolMetaSnapshot.updatedAt
+    },
+    insight: buildChampionMetaInsight(champion, role, rankBracket)
+  });
+};
+
+const handleLolMetaTierList = (res, requestUrl) => {
+  const role = normalizeMetaRole(requestUrl.searchParams.get('role'));
+  const roles = role ? { [role]: lolMetaSnapshot.roles[role] } : lolMetaSnapshot.roles;
+
+  if (role && !lolMetaSnapshot.roles[role]) {
+    sendJson(res, 404, { ok: false, error: 'Unknown role' });
+    return;
+  }
+
+  sendJson(res, 200, {
+    ok: true,
+    patch: lolMetaSnapshot.patch,
+    rankBracket: lolMetaSnapshot.rankBracket,
+    rankLabel: lolMetaSnapshot.rankLabel,
+    updatedAt: lolMetaSnapshot.updatedAt,
+    roles
+  });
+};
 
 const normalizeJsonCandidate = (value) => {
   if (!isNonEmptyString(value)) {
@@ -1345,6 +1483,16 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && requestUrl.pathname === '/api/riot/profile-search') {
     await handleRiotProfileSearch(req, res, requestUrl);
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/api/lol/meta/champion-insight') {
+    handleLolMetaChampionInsight(res, requestUrl);
+    return;
+  }
+
+  if (req.method === 'GET' && requestUrl.pathname === '/api/lol/meta/tier-list') {
+    handleLolMetaTierList(res, requestUrl);
     return;
   }
 

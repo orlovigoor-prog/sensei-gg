@@ -19,6 +19,17 @@ export const championAssetMap: Record<string, string> = {
   "Rek'Sai": 'RekSai',
   "Kog'Maw": 'KogMaw',
   "Nunu & Willump": 'Nunu',
+  'Dr. Mundo': 'DrMundo',
+  'Jarvan IV': 'JarvanIV',
+  "K'Sante": 'KSante',
+  'Lee Sin': 'LeeSin',
+  'Master Yi': 'MasterYi',
+  'Xin Zhao': 'XinZhao',
+  'Twisted Fate': 'TwistedFate',
+  'Aurelion Sol': 'AurelionSol',
+  'Miss Fortune': 'MissFortune',
+  'Tahm Kench': 'TahmKench',
+  'Renata Glasc': 'Renata',
   LeBlanc: 'Leblanc',
   Wukong: 'MonkeyKing'
 };
