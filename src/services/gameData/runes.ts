@@ -12,6 +12,14 @@ const runeStyleIconPaths: Record<number, string> = {
   8400: 'Styles/7204_Resolve.png'
 };
 
+const runeStyleLabels: Record<number, string> = {
+  8000: 'Точность',
+  8100: 'Доминирование',
+  8200: 'Колдовство',
+  8300: 'Вдохновение',
+  8400: 'Храбрость'
+};
+
 const keystoneIconPaths: Record<number, string> = {
   8005: 'Styles/Precision/PressTheAttack/PressTheAttack.png',
   8008: 'Styles/Precision/LethalTempo/LethalTempoTemp.png',
@@ -32,6 +40,26 @@ const keystoneIconPaths: Record<number, string> = {
   8465: 'Styles/Resolve/Guardian/Guardian.png'
 };
 
+const keystoneLabels: Record<number, string> = {
+  8005: 'Решительное наступление',
+  8008: 'Смертельный темп',
+  8021: 'Искусное лавирование',
+  8010: 'Завоеватель',
+  8112: 'Казнь электричеством',
+  8124: 'Хищник',
+  8128: 'Темная жатва',
+  9923: 'Град клинков',
+  8214: 'Призыв Пушинки',
+  8229: 'Магическая комета',
+  8230: 'Фазовый рывок',
+  8351: 'Ледяное наращивание',
+  8360: 'Раскрытая книга заклинаний',
+  8369: 'Первый удар',
+  8437: 'Хватка нежити',
+  8439: 'Дрожь земли',
+  8465: 'Страж'
+};
+
 const runeCdnBaseUrl = 'https://ddragon.leagueoflegends.com/cdn/img/perk-images';
 
 export const getRuneStyleIconUrl = (styleId?: number | null) => {
@@ -39,10 +67,16 @@ export const getRuneStyleIconUrl = (styleId?: number | null) => {
   return iconPath ? `${runeCdnBaseUrl}/${iconPath}` : null;
 };
 
+export const getRuneStyleLabel = (styleId?: number | null) => styleId ? runeStyleLabels[styleId] ?? `Ветка рун ${styleId}` : 'Ветка рун';
+
 export const getKeystoneIconUrl = (keystoneId?: number | null, fallbackStyleId?: number | null) => {
   const iconPath = keystoneId ? keystoneIconPaths[keystoneId] : undefined;
   return iconPath ? `${runeCdnBaseUrl}/${iconPath}` : getRuneStyleIconUrl(fallbackStyleId);
 };
+
+export const getKeystoneLabel = (keystoneId?: number | null, fallbackStyleId?: number | null) => (
+  keystoneId ? keystoneLabels[keystoneId] ?? `Ключевая руна ${keystoneId}` : getRuneStyleLabel(fallbackStyleId)
+);
 
 export const getDefaultRuneLoadout = (role?: string, championName?: string): RuneLoadout => {
   if (role === 'JUNGLE') {

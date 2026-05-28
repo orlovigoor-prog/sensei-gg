@@ -262,7 +262,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: '52px minmax(0, 1fr) 58px 84px 112px',
+      gridTemplateColumns: '76px minmax(0, 1fr) 58px 84px 112px',
       gap: '8px',
       alignItems: 'center',
       padding: '8px 9px',
@@ -287,7 +287,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
           }}
           style={{ width: '34px', height: '34px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}
         />
-        <PlayerLoadoutIcons spells={loadout.spells} runes={loadout.runes} size={14} compact />
+        <PlayerLoadoutIcons spells={loadout.spells} runes={loadout.runes} size={14} compact tooltipPlacement={shouldOpenTooltipDownward ? 'bottom' : 'top'} />
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ marginBottom: '2px' }}>
@@ -504,11 +504,6 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           <div title={cardTitle} style={{ color: '#fff', fontWeight: 'bold', fontSize: '15px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
             {cardTitle}
           </div>
-          {variant !== 'lobby' && (
-            <div style={{ color: '#6b7280', fontSize: '10px', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Ранг {rankLabel} · {totalGames} матчей в сезоне
-            </div>
-          )}
         </div>
       </div>
 

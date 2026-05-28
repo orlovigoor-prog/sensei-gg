@@ -16,10 +16,26 @@ const summonerSpellIconNames: Record<number, string> = {
   32: 'Snowball'
 };
 
+const summonerSpellLabels: Record<number, string> = {
+  1: 'Очищение',
+  3: 'Изнурение',
+  4: 'Скачок',
+  6: 'Призрак',
+  7: 'Исцеление',
+  11: 'Кара',
+  12: 'Телепорт',
+  13: 'Ясность',
+  14: 'Воспламенение',
+  21: 'Барьер',
+  32: 'Снежок'
+};
+
 export const getSummonerSpellIconUrl = (spellId: number) => {
   const iconName = summonerSpellIconNames[spellId] ?? 'Flash';
   return `https://ddragon.leagueoflegends.com/cdn/${dragonVersion}/img/spell/Summoner${iconName}.png`;
 };
+
+export const getSummonerSpellLabel = (spellId: number) => summonerSpellLabels[spellId] ?? `Summoner spell ${spellId}`;
 
 export const getDefaultSummonerSpells = (role?: string, championName?: string): number[] => {
   if (role === 'JUNGLE') {
