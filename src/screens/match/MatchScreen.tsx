@@ -20,7 +20,7 @@ import {
   getLobbyChampionInsight,
   summonerSpellPool
 } from '../../services/gameData';
-import type { LobbyCounterpickInsight, RuneLoadout } from '../../services/gameData';
+import type { LobbyCounterpickInsight, LobbyRankBracket, RuneLoadout } from '../../services/gameData';
 import type { ItemCatalogEntry } from '../../services/gameData/items';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
@@ -31,6 +31,31 @@ const laneLabels: Record<(typeof laneOrder)[number], string> = {
   MID: 'Мид',
   ADC: 'Бот',
   SUPPORT: 'Саппорт'
+};
+
+const rankTierScores: Record<PlayerInfo['tier'], number> = {
+  IRON: 1,
+  BRONZE: 2,
+  SILVER: 3,
+  GOLD: 4,
+  PLATINUM: 5,
+  EMERALD: 6,
+  DIAMOND: 7,
+  MASTER: 8,
+  GRANDMASTER: 9,
+  CHALLENGER: 10
+};
+
+const resolveLobbyRankBracket = (players: PlayerInfo[]): LobbyRankBracket => {
+  const rankedPlayers = players.filter((player) => rankTierScores[player.tier]);
+
+  if (rankedPlayers.length === 0) {
+    return 'platinum-plus';
+  }
+
+  const averageTierScore = rankedPlayers.reduce((sum, player) => sum + rankTierScores[player.tier], 0) / rankedPlayers.length;
+
+  return averageTierScore >= rankTierScores.PLATINUM ? 'platinum-plus' : 'platinum-plus';
 };
 
 const sectionLabelStyle = {
@@ -48,6 +73,7 @@ interface PlayerCardProps {
   displayName?: string;
   searchDisabled?: boolean;
   variant?: 'lobby' | 'in-game';
+  lobbyRankBracket?: LobbyRankBracket;
 }
 
 interface MatchScreenProps {
@@ -396,7 +422,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
   );
 }
 
-function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game' }: PlayerCardProps) {
+function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game', lobbyRankBracket = 'platinum-plus' }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? '#10b981' : '#ef4444';
   const cardTitle = displayName || player.summonerName;
   const totalGames = player.wins + player.losses;
@@ -417,7 +443,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const averageDeaths = champTotal > 0 ? (totalDeaths / champTotal).toFixed(1) : '0.0';
   const averageAssists = champTotal > 0 ? (totalAssists / champTotal).toFixed(1) : '0.0';
   const rankLabel = formatPlayerRankLabel(player);
-  const lobbyInsight = selectedChampion ? getLobbyChampionInsight(championLabel) : null;
+  const lobbyInsight = selectedChampion ? getLobbyChampionInsight(championLabel, player.mainRole, lobbyRankBracket) : null;
   const playerLoadout = getPlayerLoadout(player, championLabel);
   
   const [showChampTooltip, setShowChampTooltip] = useState(false);
@@ -538,7 +564,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                 }}>
                   <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Нет мета-данных</div>
                   <div style={{ color: '#d1d5db', fontWeight: 'bold', fontSize: '10px', lineHeight: 1.35 }}>
-                    Для этого пика пока нет проверенного snapshot по контрпикам и тиру.
+                    Для этой роли и ранга пока нет данных по контрпикам и тиру.
                   </div>
                 </div>
               )}
@@ -610,10 +636,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           borderRadius: '6px',
           marginTop: 'auto'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', marginBottom: '5px' }}>
-            <div style={{ color: '#6b7280', fontSize: '8px' }}>Контрпики</div>
-            <div style={{ color: '#64748b', fontSize: '8px', whiteSpace: 'nowrap' }}>{lobbyInsight.source} · {lobbyInsight.patch}</div>
-          </div>
+          <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '5px' }}>Контрпики</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '5px' }}>
             {lobbyInsight.counters.map((counter) => (
               <div
@@ -670,7 +693,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           }}>
             <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '4px' }}>Matchup-инсайты</div>
             <div style={{ color: '#9ca3af', fontSize: '9px', lineHeight: 1.35 }}>
-              Нет проверенных данных для выбранного чемпиона. Рандомные подсказки отключены.
+              Для этой роли и ранга пока нет данных по контрпикам.
             </div>
           </div>
         )
@@ -699,6 +722,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
   const subscriptionState = useSelector((state: RootState) => state.subscription);
   const allies = lobbyState.players.allies;
   const enemies = lobbyState.players.enemies;
+  const lobbyRankBracket = resolveLobbyRankBracket([...allies, ...enemies]);
   const isRankedSoloDuoChampSelect = lobbyState.gameMode === 'RANKED_SOLO_5x5' && lobbyState.phase === 'champ-select';
 
   const getDisplayName = (player: PlayerInfo, index: number, isAlly: boolean) => {
@@ -1166,6 +1190,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 displayName={getDisplayName(player, index, true)}
                 searchDisabled={isNameHidden(player, index, true)}
                 variant={playerCardVariant}
+                lobbyRankBracket={lobbyRankBracket}
               />
             </div>
           ))}
@@ -1219,6 +1244,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                 displayName={getDisplayName(player, index, false)}
                 searchDisabled={isNameHidden(player, index, false)}
                 variant={playerCardVariant}
+                lobbyRankBracket={lobbyRankBracket}
               />
             </div>
           ))}
