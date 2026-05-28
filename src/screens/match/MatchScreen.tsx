@@ -555,22 +555,23 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
               </div>
               {lobbyInsight ? (
                 <div style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
+                  background: `linear-gradient(135deg, rgba(15, 23, 42, 0.74), ${lobbyInsight.tierColor}22)`,
                   padding: '7px 8px',
                   borderRadius: '7px',
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                   gap: '8px',
-                  minWidth: 0
+                  minWidth: 0,
+                  border: `1px solid ${lobbyInsight.tierColor}33`
                 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Винрейт</div>
+                    <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '3px' }}>Винрейт</div>
                     <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {Number.isFinite(lobbyInsight.globalWinRate) ? `${lobbyInsight.globalWinRate}%` : '—'}
                     </div>
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '3px' }}>Тир чемпиона</div>
+                    <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '3px' }}>Тир чемпиона</div>
                     <div style={{ color: lobbyInsight.tierColor, fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {lobbyInsight.patchTier}
                     </div>
@@ -649,22 +650,27 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
       </div>
 
       {variant === 'lobby' ? (
-        lobbyInsight ? (
+        lobbyInsight && lobbyInsight.counters.length > 0 ? (
         <div style={{
           position: 'relative',
-          background: 'rgba(0, 0, 0, 0.3)',
-          padding: '6px 8px',
-          borderRadius: '6px',
-          marginTop: 'auto'
+          background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.72), rgba(15, 23, 42, 0.58))',
+          padding: '7px 8px',
+          borderRadius: '8px',
+          marginTop: 'auto',
+          border: '1px solid rgba(148, 163, 184, 0.12)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
-          <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '5px' }}>Контрпики</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '6px' }}>
+            <div style={{ color: '#94a3b8', fontSize: '8px', fontWeight: 700, letterSpacing: '0.04em' }}>УЯЗВИМ К</div>
+            <div style={{ color: '#64748b', fontSize: '8px' }}>{lobbyInsight.sampleLabel.replace('Emerald+, ', '')}</div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '5px' }}>
-            {lobbyInsight.counters.map((counter) => (
+            {lobbyInsight.counters.slice(0, 5).map((counter) => (
               <div
                 key={`${championLabel}-${counter.champion}`}
                 onMouseEnter={() => setHoveredCounter(counter)}
                 onMouseLeave={() => setHoveredCounter((current) => current?.champion === counter.champion ? null : current)}
-                style={{ position: 'relative' }}
+                style={{ position: 'relative', minWidth: 0 }}
               >
                 <img
                   src={getChampionIconUrl(counter.champion)}
@@ -676,10 +682,25 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                     width: '100%',
                     aspectRatio: '1 / 1',
                     borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    display: 'block'
+                    border: '1px solid rgba(248, 113, 113, 0.35)',
+                    display: 'block',
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.28)'
                   }}
                 />
+                <div style={{
+                  position: 'absolute',
+                  right: '-2px',
+                  bottom: '-2px',
+                  padding: '1px 4px',
+                  borderRadius: '999px',
+                  background: 'rgba(127, 29, 29, 0.92)',
+                  color: '#fecaca',
+                  fontSize: '7px',
+                  fontWeight: 800,
+                  border: '1px solid rgba(254, 202, 202, 0.24)'
+                }}>
+                  {Math.round(counter.matchupWinRate)}%
+                </div>
               </div>
             ))}
           </div>
@@ -698,23 +719,37 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
               zIndex: 3
             }}>
               <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '10px', marginBottom: '2px' }}>{hoveredCounter.champion}</div>
-              <div style={{ color: '#9ca3af', fontSize: '9px' }}>Винрейт против {championLabel}: {hoveredCounter.matchupWinRate}%</div>
+              <div style={{ color: '#9ca3af', fontSize: '9px' }}>Винрейт контрпика против {championLabel}: {hoveredCounter.matchupWinRate}%</div>
               {hoveredCounter.matches ? (
                 <div style={{ color: '#64748b', fontSize: '8px', marginTop: '2px' }}>{hoveredCounter.matches.toLocaleString('ru-RU')} матчей</div>
               ) : null}
             </div>
           )}
         </div>
+        ) : lobbyInsight ? (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.68), rgba(30, 41, 59, 0.48))',
+            padding: '7px 8px',
+            borderRadius: '8px',
+            marginTop: 'auto',
+            border: '1px solid rgba(148, 163, 184, 0.12)'
+          }}>
+            <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Мета-профиль</div>
+            <div style={{ color: '#cbd5e1', fontSize: '9px', lineHeight: 1.35 }}>
+              Тир и винрейт есть, но matchup-строки для этой роли еще не заполнены.
+            </div>
+          </div>
         ) : (
           <div style={{
-            background: 'rgba(0, 0, 0, 0.3)',
-            padding: '6px 8px',
-            borderRadius: '6px',
-            marginTop: 'auto'
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(30, 41, 59, 0.38))',
+            padding: '7px 8px',
+            borderRadius: '8px',
+            marginTop: 'auto',
+            border: '1px solid rgba(148, 163, 184, 0.1)'
           }}>
-            <div style={{ color: '#6b7280', fontSize: '8px', marginBottom: '4px' }}>Matchup-инсайты</div>
-            <div style={{ color: '#9ca3af', fontSize: '9px', lineHeight: 1.35 }}>
-              Для этой роли и ранга пока нет данных по контрпикам.
+            <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Matchup-инсайты</div>
+            <div style={{ color: '#cbd5e1', fontSize: '9px', lineHeight: 1.35 }}>
+              Выбираем роль-aware данные для этого пика. Если snapshot пустой, блок остается нейтральным без выдуманных цифр.
             </div>
           </div>
         )

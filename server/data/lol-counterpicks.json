@@ -4,7 +4,7 @@
   "queue": "ranked-solo-duo",
   "defaultRankBracket": "emerald_plus",
   "defaultPatchWindow": "30",
-  "updatedAt": "2026-05-28T11:41:20.701Z",
+  "updatedAt": "2026-05-28T15:05:08.664Z",
   "source": {
     "provider": "lolalytics",
     "baseUrl": "https://lolalytics.com/lol",
@@ -15,7 +15,7 @@
   "coverage": {
     "championCatalog": "data-dragon",
     "championEntities": "all-known-champions-on-last-refresh",
-    "matchupRows": "sparse-until-weekly-updater-populates-each-role"
+    "matchupRows": "demo-lobby-core-champions-plus-weekly-updater-rows"
   },
   "champions": {
     "Aatrox": {
@@ -148,41 +148,60 @@
       "dataDragonKey": "222",
       "roles": {
         "ADC": {
-          "rankBracket": "platinum_plus",
-          "sampleLabel": "Platinum+, Ranked Solo",
-          "globalWinRate": 48.5,
-          "overallMatches": 319204,
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
           "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
           "counters": [
             {
-              "champion": "Seraphine",
-              "slug": "seraphine",
-              "matchupWinRate": 54.8,
-              "matches": 1322
+              "champion": "Olaf",
+              "slug": "olaf",
+              "targetChampionWinRate": 34.95,
+              "matchupWinRate": 65.05,
+              "allChampsWinRateVsCounter": 45.91,
+              "delta1": -10.96,
+              "delta2": -14.33,
+              "matches": 103
             },
             {
-              "champion": "Swain",
-              "slug": "swain",
-              "matchupWinRate": 53.2,
-              "matches": 1753
+              "champion": "Zyra",
+              "slug": "zyra",
+              "targetChampionWinRate": 42.3,
+              "matchupWinRate": 57.7,
+              "allChampsWinRateVsCounter": 46.44,
+              "delta1": -4.14,
+              "delta2": -7.52,
+              "matches": 461
+            },
+            {
+              "champion": "Tahm Kench",
+              "slug": "tahmkench",
+              "targetChampionWinRate": 46.05,
+              "matchupWinRate": 53.95,
+              "allChampsWinRateVsCounter": 46.5,
+              "delta1": -0.45,
+              "delta2": -3.83,
+              "matches": 582
             },
             {
               "champion": "Karthus",
               "slug": "karthus",
-              "matchupWinRate": 52.8,
-              "matches": 1306
+              "targetChampionWinRate": 46.25,
+              "matchupWinRate": 53.75,
+              "allChampsWinRateVsCounter": 45.69,
+              "delta1": 0.56,
+              "delta2": -2.81,
+              "matches": 2398
             },
             {
-              "champion": "Ziggs",
-              "slug": "ziggs",
-              "matchupWinRate": 52.2,
-              "matches": 2270
-            },
-            {
-              "champion": "Twitch",
-              "slug": "twitch",
-              "matchupWinRate": 51.9,
-              "matches": 9783
+              "champion": "Xerath",
+              "slug": "xerath",
+              "targetChampionWinRate": 46.45,
+              "matchupWinRate": 53.55,
+              "allChampsWinRateVsCounter": 46.07,
+              "delta1": 0.38,
+              "delta2": -2.99,
+              "matches": 1649
             }
           ]
         }
@@ -288,13 +307,93 @@
       "slug": "caitlyn",
       "dataDragonId": "Caitlyn",
       "dataDragonKey": "51",
-      "roles": {}
+      "roles": {
+        "ADC": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "globalWinRate": 48.62,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Ryze",
+              "slug": "ryze",
+              "matchupWinRate": 62,
+              "matches": 100
+            },
+            {
+              "champion": "Zyra",
+              "slug": "zyra",
+              "matchupWinRate": 59.07,
+              "matches": 645
+            },
+            {
+              "champion": "Xerath",
+              "slug": "xerath",
+              "matchupWinRate": 57.6,
+              "matches": 2842
+            },
+            {
+              "champion": "Seraphine",
+              "slug": "seraphine",
+              "matchupWinRate": 57.49,
+              "matches": 4345
+            },
+            {
+              "champion": "Riven",
+              "slug": "riven",
+              "matchupWinRate": 56.88,
+              "matches": 109
+            }
+          ]
+        }
+      }
     },
     "Camille": {
       "slug": "camille",
       "dataDragonId": "Camille",
       "dataDragonKey": "164",
-      "roles": {}
+      "roles": {
+        "TOP": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "globalWinRate": 52.71,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Zac",
+              "slug": "zac",
+              "matchupWinRate": 57.33,
+              "matches": 307
+            },
+            {
+              "champion": "Lissandra",
+              "slug": "lissandra",
+              "matchupWinRate": 56.93,
+              "matches": 202
+            },
+            {
+              "champion": "Heimerdinger",
+              "slug": "heimerdinger",
+              "matchupWinRate": 56.17,
+              "matches": 575
+            },
+            {
+              "champion": "Teemo",
+              "slug": "teemo",
+              "matchupWinRate": 55.81,
+              "matches": 3607
+            },
+            {
+              "champion": "Zilean",
+              "slug": "zilean",
+              "matchupWinRate": 55.73,
+              "matches": 131
+            }
+          ]
+        }
+      }
     },
     "Cassiopeia": {
       "slug": "cassiopeia",
@@ -402,7 +501,66 @@
       "slug": "gnar",
       "dataDragonId": "Gnar",
       "dataDragonKey": "150",
-      "roles": {}
+      "roles": {
+        "TOP": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Azir",
+              "slug": "azir",
+              "targetChampionWinRate": 37.93,
+              "matchupWinRate": 62.07,
+              "allChampsWinRateVsCounter": 47.26,
+              "delta1": -9.33,
+              "delta2": -9.78,
+              "matches": 116
+            },
+            {
+              "champion": "Fiddlesticks",
+              "slug": "fiddlesticks",
+              "targetChampionWinRate": 40.74,
+              "matchupWinRate": 59.26,
+              "allChampsWinRateVsCounter": 47.25,
+              "delta1": -6.51,
+              "delta2": -6.96,
+              "matches": 297
+            },
+            {
+              "champion": "Karthus",
+              "slug": "karthus",
+              "targetChampionWinRate": 40.95,
+              "matchupWinRate": 59.05,
+              "allChampsWinRateVsCounter": 49.48,
+              "delta1": -8.53,
+              "delta2": -8.98,
+              "matches": 105
+            },
+            {
+              "champion": "Sejuani",
+              "slug": "sejuani",
+              "targetChampionWinRate": 43.2,
+              "matchupWinRate": 56.8,
+              "allChampsWinRateVsCounter": 48.93,
+              "delta1": -5.73,
+              "delta2": -6.18,
+              "matches": 294
+            },
+            {
+              "champion": "Maokai",
+              "slug": "maokai",
+              "targetChampionWinRate": 43.67,
+              "matchupWinRate": 56.33,
+              "allChampsWinRateVsCounter": 50.23,
+              "delta1": -6.56,
+              "delta2": -7.01,
+              "matches": 403
+            }
+          ]
+        }
+      }
     },
     "Gragas": {
       "slug": "gragas",
@@ -582,7 +740,66 @@
       "slug": "leesin",
       "dataDragonId": "LeeSin",
       "dataDragonKey": "64",
-      "roles": {}
+      "roles": {
+        "JUNGLE": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Cho'Gath",
+              "slug": "chogath",
+              "targetChampionWinRate": 47.24,
+              "matchupWinRate": 52.76,
+              "allChampsWinRateVsCounter": 47.01,
+              "delta1": 0.23,
+              "delta2": -1.84,
+              "matches": 1050
+            },
+            {
+              "champion": "Rek'Sai",
+              "slug": "reksai",
+              "targetChampionWinRate": 47.54,
+              "matchupWinRate": 52.46,
+              "allChampsWinRateVsCounter": 47.17,
+              "delta1": 0.37,
+              "delta2": -1.7,
+              "matches": 12076
+            },
+            {
+              "champion": "Zaahen",
+              "slug": "zaahen",
+              "targetChampionWinRate": 48.07,
+              "matchupWinRate": 51.93,
+              "allChampsWinRateVsCounter": 48.17,
+              "delta1": -0.1,
+              "delta2": -2.17,
+              "matches": 1841
+            },
+            {
+              "champion": "Naafiri",
+              "slug": "naafiri",
+              "targetChampionWinRate": 48.35,
+              "matchupWinRate": 51.65,
+              "allChampsWinRateVsCounter": 48.87,
+              "delta1": -0.52,
+              "delta2": -2.59,
+              "matches": 26986
+            },
+            {
+              "champion": "Nocturne",
+              "slug": "nocturne",
+              "targetChampionWinRate": 48.6,
+              "matchupWinRate": 51.4,
+              "allChampsWinRateVsCounter": 47.13,
+              "delta1": 1.47,
+              "delta2": -0.6,
+              "matches": 29680
+            }
+          ]
+        }
+      }
     },
     "Leona": {
       "slug": "leona",
@@ -606,7 +823,66 @@
       "slug": "lucian",
       "dataDragonId": "Lucian",
       "dataDragonKey": "236",
-      "roles": {}
+      "roles": {
+        "ADC": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Seraphine",
+              "slug": "seraphine",
+              "targetChampionWinRate": 42.87,
+              "matchupWinRate": 57.13,
+              "allChampsWinRateVsCounter": 45.58,
+              "delta1": -2.71,
+              "delta2": -4.05,
+              "matches": 1873
+            },
+            {
+              "champion": "Vladimir",
+              "slug": "vladimir",
+              "targetChampionWinRate": 43.57,
+              "matchupWinRate": 56.43,
+              "allChampsWinRateVsCounter": 47.47,
+              "delta1": -3.9,
+              "delta2": -5.24,
+              "matches": 1368
+            },
+            {
+              "champion": "Naafiri",
+              "slug": "naafiri",
+              "targetChampionWinRate": 44.74,
+              "matchupWinRate": 55.26,
+              "allChampsWinRateVsCounter": 49.19,
+              "delta1": -4.45,
+              "delta2": -5.79,
+              "matches": 114
+            },
+            {
+              "champion": "Master Yi",
+              "slug": "masteryi",
+              "targetChampionWinRate": 45.28,
+              "matchupWinRate": 54.72,
+              "allChampsWinRateVsCounter": 45.67,
+              "delta1": -0.39,
+              "delta2": -1.73,
+              "matches": 159
+            },
+            {
+              "champion": "Zyra",
+              "slug": "zyra",
+              "targetChampionWinRate": 45.53,
+              "matchupWinRate": 54.47,
+              "allChampsWinRateVsCounter": 46.44,
+              "delta1": -0.91,
+              "delta2": -2.25,
+              "matches": 369
+            }
+          ]
+        }
+      }
     },
     "Lulu": {
       "slug": "lulu",
@@ -690,7 +966,47 @@
       "slug": "nautilus",
       "dataDragonId": "Nautilus",
       "dataDragonKey": "111",
-      "roles": {}
+      "roles": {
+        "SUPPORT": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "globalWinRate": 49.35,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Rammus",
+              "slug": "rammus",
+              "matchupWinRate": 58.05,
+              "matches": 236
+            },
+            {
+              "champion": "Taric",
+              "slug": "taric",
+              "matchupWinRate": 56.64,
+              "matches": 3741
+            },
+            {
+              "champion": "Taliyah",
+              "slug": "taliyah",
+              "matchupWinRate": 55.97,
+              "matches": 268
+            },
+            {
+              "champion": "Rell",
+              "slug": "rell",
+              "matchupWinRate": 54.79,
+              "matches": 11114
+            },
+            {
+              "champion": "Ivern",
+              "slug": "ivern",
+              "matchupWinRate": 53.93,
+              "matches": 356
+            }
+          ]
+        }
+      }
     },
     "Neeko": {
       "slug": "neeko",
@@ -804,7 +1120,66 @@
       "slug": "renekton",
       "dataDragonId": "Renekton",
       "dataDragonKey": "58",
-      "roles": {}
+      "roles": {
+        "TOP": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Kog'Maw",
+              "slug": "kogmaw",
+              "targetChampionWinRate": 37.9,
+              "matchupWinRate": 62.1,
+              "allChampsWinRateVsCounter": 47.67,
+              "delta1": -9.77,
+              "delta2": -10.75,
+              "matches": 124
+            },
+            {
+              "champion": "Ekko",
+              "slug": "ekko",
+              "targetChampionWinRate": 41.78,
+              "matchupWinRate": 58.22,
+              "allChampsWinRateVsCounter": 49.75,
+              "delta1": -7.97,
+              "delta2": -8.95,
+              "matches": 146
+            },
+            {
+              "champion": "Ahri",
+              "slug": "ahri",
+              "targetChampionWinRate": 43.58,
+              "matchupWinRate": 56.42,
+              "allChampsWinRateVsCounter": 47.72,
+              "delta1": -4.14,
+              "delta2": -5.12,
+              "matches": 218
+            },
+            {
+              "champion": "Hwei",
+              "slug": "hwei",
+              "targetChampionWinRate": 44.14,
+              "matchupWinRate": 55.86,
+              "allChampsWinRateVsCounter": 48.9,
+              "delta1": -4.76,
+              "delta2": -5.74,
+              "matches": 111
+            },
+            {
+              "champion": "Aurora",
+              "slug": "aurora",
+              "targetChampionWinRate": 44.71,
+              "matchupWinRate": 55.29,
+              "allChampsWinRateVsCounter": 49.88,
+              "delta1": -5.17,
+              "delta2": -6.15,
+              "matches": 1125
+            }
+          ]
+        }
+      }
     },
     "Rengar": {
       "slug": "rengar",
@@ -936,7 +1311,47 @@
       "slug": "syndra",
       "dataDragonId": "Syndra",
       "dataDragonKey": "134",
-      "roles": {}
+      "roles": {
+        "MID": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "globalWinRate": 49.56,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Master Yi",
+              "slug": "masteryi",
+              "matchupWinRate": 57.75,
+              "matches": 142
+            },
+            {
+              "champion": "Gangplank",
+              "slug": "gangplank",
+              "matchupWinRate": 55.2,
+              "matches": 500
+            },
+            {
+              "champion": "Fizz",
+              "slug": "fizz",
+              "matchupWinRate": 54.88,
+              "matches": 6873
+            },
+            {
+              "champion": "Katarina",
+              "slug": "katarina",
+              "matchupWinRate": 54.88,
+              "matches": 7319
+            },
+            {
+              "champion": "Singed",
+              "slug": "singed",
+              "matchupWinRate": 53.89,
+              "matches": 360
+            }
+          ]
+        }
+      }
     },
     "Tahm Kench": {
       "slug": "tahmkench",
@@ -972,7 +1387,66 @@
       "slug": "thresh",
       "dataDragonId": "Thresh",
       "dataDragonKey": "412",
-      "roles": {}
+      "roles": {
+        "SUPPORT": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Seraphine",
+              "slug": "seraphine",
+              "targetChampionWinRate": 47.86,
+              "matchupWinRate": 52.14,
+              "allChampsWinRateVsCounter": 46.73,
+              "delta1": 1.13,
+              "delta2": -1.59,
+              "matches": 36877
+            },
+            {
+              "champion": "Cassiopeia",
+              "slug": "cassiopeia",
+              "targetChampionWinRate": 48.54,
+              "matchupWinRate": 51.46,
+              "allChampsWinRateVsCounter": 52.34,
+              "delta1": -3.8,
+              "delta2": -6.51,
+              "matches": 103
+            },
+            {
+              "champion": "Brand",
+              "slug": "brand",
+              "targetChampionWinRate": 48.58,
+              "matchupWinRate": 51.42,
+              "allChampsWinRateVsCounter": 48.27,
+              "delta1": 0.31,
+              "delta2": -2.41,
+              "matches": 16391
+            },
+            {
+              "champion": "Amumu",
+              "slug": "amumu",
+              "targetChampionWinRate": 48.75,
+              "matchupWinRate": 51.25,
+              "allChampsWinRateVsCounter": 48.17,
+              "delta1": 0.58,
+              "delta2": -2.14,
+              "matches": 1198
+            },
+            {
+              "champion": "Zilean",
+              "slug": "zilean",
+              "targetChampionWinRate": 48.82,
+              "matchupWinRate": 51.18,
+              "allChampsWinRateVsCounter": 47.35,
+              "delta1": 1.47,
+              "delta2": -1.25,
+              "matches": 8814
+            }
+          ]
+        }
+      }
     },
     "Tristana": {
       "slug": "tristana",
@@ -1050,7 +1524,47 @@
       "slug": "vi",
       "dataDragonId": "Vi",
       "dataDragonKey": "254",
-      "roles": {}
+      "roles": {
+        "JUNGLE": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "globalWinRate": 48.74,
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Cho'Gath",
+              "slug": "chogath",
+              "matchupWinRate": 52.9,
+              "matches": 465
+            },
+            {
+              "champion": "Bel'Veth",
+              "slug": "belveth",
+              "matchupWinRate": 51.98,
+              "matches": 2147
+            },
+            {
+              "champion": "Tryndamere",
+              "slug": "tryndamere",
+              "matchupWinRate": 51.9,
+              "matches": 210
+            },
+            {
+              "champion": "Zyra",
+              "slug": "zyra",
+              "matchupWinRate": 51.87,
+              "matches": 1230
+            },
+            {
+              "champion": "Taliyah",
+              "slug": "taliyah",
+              "matchupWinRate": 51.79,
+              "matches": 952
+            }
+          ]
+        }
+      }
     },
     "Viego": {
       "slug": "viego",
@@ -1140,7 +1654,66 @@
       "slug": "zed",
       "dataDragonId": "Zed",
       "dataDragonKey": "238",
-      "roles": {}
+      "roles": {
+        "MID": {
+          "rankBracket": "emerald_plus",
+          "patchWindow": "30",
+          "sampleLabel": "Emerald+, Ranked Solo/Duo, last 30 days",
+          "sourceUpdatedAt": "2026-05-28T00:00:00.000Z",
+          "counters": [
+            {
+              "champion": "Camille",
+              "slug": "camille",
+              "targetChampionWinRate": 40.61,
+              "matchupWinRate": 59.39,
+              "allChampsWinRateVsCounter": 47.75,
+              "delta1": -7.14,
+              "delta2": -9.92,
+              "matches": 293
+            },
+            {
+              "champion": "Jax",
+              "slug": "jax",
+              "targetChampionWinRate": 41.22,
+              "matchupWinRate": 58.78,
+              "allChampsWinRateVsCounter": 51.18,
+              "delta1": -9.96,
+              "delta2": -12.74,
+              "matches": 131
+            },
+            {
+              "champion": "Nocturne",
+              "slug": "nocturne",
+              "targetChampionWinRate": 42.33,
+              "matchupWinRate": 57.67,
+              "allChampsWinRateVsCounter": 48.97,
+              "delta1": -6.64,
+              "delta2": -9.42,
+              "matches": 163
+            },
+            {
+              "champion": "Elise",
+              "slug": "elise",
+              "targetChampionWinRate": 42.98,
+              "matchupWinRate": 57.02,
+              "allChampsWinRateVsCounter": 46.94,
+              "delta1": -3.96,
+              "delta2": -6.74,
+              "matches": 121
+            },
+            {
+              "champion": "Sejuani",
+              "slug": "sejuani",
+              "targetChampionWinRate": 43.58,
+              "matchupWinRate": 56.42,
+              "allChampsWinRateVsCounter": 48.25,
+              "delta1": -4.67,
+              "delta2": -7.45,
+              "matches": 218
+            }
+          ]
+        }
+      }
     },
     "Zeri": {
       "slug": "zeri",
@@ -1172,5 +1745,16 @@
       "dataDragonKey": "143",
       "roles": {}
     }
+  },
+  "lastManualSeed": {
+    "updatedAt": "2026-05-28T15:05:08.665Z",
+    "source": "Lolalytics public counter pages, Emerald+, Ranked Solo/Duo, last 30 days",
+    "champions": [
+      "Camille",
+      "Vi",
+      "Syndra",
+      "Caitlyn",
+      "Nautilus"
+    ]
   }
 }

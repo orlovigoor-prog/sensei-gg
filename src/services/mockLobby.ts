@@ -191,6 +191,14 @@ const roleChampionPools: Record<PlayerInfo['mainRole'], string[]> = {
   SUPPORT: championCatalog.filter((entry) => entry.primaryRole === 'SUPPORT').map((entry) => entry.name)
 };
 
+const lobbyCounterpickChampionPools: Record<PlayerInfo['mainRole'], string[]> = {
+  TOP: ['Aatrox', 'Renekton', 'Gnar', 'Camille'],
+  JUNGLE: ['LeeSin', 'Vi'],
+  MID: ['Ahri', 'Zed', 'Syndra'],
+  ADC: ['Jinx', 'Lucian', 'Caitlyn'],
+  SUPPORT: ['Thresh', 'Nautilus']
+};
+
 const applyScenarioModifier = (scenario: ChampionScenario, stat: 'kills' | 'deaths' | 'assists', value: number, result: 'W' | 'L') => {
   if (scenario.style === 'lane-bully') {
     if (stat === 'kills') return value + (result === 'W' ? 2 : 1);
@@ -320,7 +328,7 @@ const buildCompletedMatchSummary = (player: PlayerInfo): CompletedMatchSummary =
   };
 };
 
-export const createMockPlayers = (): PlayerInfo[] => ([
+const createBaseMockPlayers = (): PlayerInfo[] => ([
   {
     summonerName: 'Player1',
     rank: 'IV',
@@ -493,6 +501,50 @@ export const createMockPlayers = (): PlayerInfo[] => ([
     ]
   }
 ]);
+
+const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mainRole'], playerIndex: number): PlayerInfo => {
+  const scenario = randomFrom(getChampionScenariosByRole(role));
+  const primaryChampion = randomFrom(lobbyCounterpickChampionPools[role]);
+  const secondaryPool = [
+    ...scenario.champions,
+    ...lobbyCounterpickChampionPools[role],
+    ...takeUniqueRandom(roleChampionPools[role].filter((champion) => champion !== primaryChampion), 3)
+  ].filter((champion) => champion !== primaryChampion);
+  const secondaryChampion = randomFrom(takeUniqueRandom(secondaryPool, 4));
+  const wins = randomInt(42, 134);
+  const losses = randomInt(36, 126);
+  const winRate = Math.round((wins / Math.max(1, wins + losses)) * 100);
+
+  return {
+    ...basePlayer,
+    rank: randomFrom(['I', 'II', 'III', 'IV']),
+    tier: randomFrom(['GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND'] as PlayerInfo['tier'][]),
+    lp: randomInt(0, 99),
+    wins,
+    losses,
+    winRate,
+    mainRole: role,
+    championMastery: randomInt(72000, 520000),
+    championPoints: randomInt(98000, 620000),
+    recentMatches: [
+      buildRecentMatch(primaryChampion, role, playerIndex % 3 === 0 ? 'L' : 'W', scenario),
+      buildRecentMatch(secondaryChampion, role, playerIndex % 2 === 0 ? 'W' : 'L', scenario),
+      buildRecentMatch(primaryChampion, role, playerIndex % 4 === 0 ? 'L' : 'W', scenario)
+    ]
+  };
+};
+
+export const createMockPlayers = (): PlayerInfo[] => {
+  const basePlayers = createBaseMockPlayers();
+  const allyRoles = takeUniqueRandom(roleOrder, roleOrder.length);
+  const enemyRoles = takeUniqueRandom(roleOrder, roleOrder.length);
+
+  return basePlayers.map((player, index) => buildRandomizedDemoPlayer(
+    player,
+    index < 5 ? allyRoles[index] : enemyRoles[index - 5],
+    index
+  ));
+};
 
 export interface ReviewModeScenario {
   players: PlayerInfo[];
