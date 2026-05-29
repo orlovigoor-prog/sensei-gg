@@ -30,6 +30,8 @@ export const championAssetMap: Record<string, string> = {
   'Miss Fortune': 'MissFortune',
   'Tahm Kench': 'TahmKench',
   'Renata Glasc': 'Renata',
+  Aurora: 'Aurora',
+  Zaahen: 'Zaahen',
   LeBlanc: 'Leblanc',
   Wukong: 'MonkeyKing'
 };

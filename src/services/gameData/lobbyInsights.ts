@@ -1,8 +1,9 @@
 import type { PlayerInfo } from '../../store/lobbySlice';
 import { fetchSubscriptionServiceJson } from '../subscriptionDevTools';
 import { patchTierVisuals, type PatchTier } from './core';
+import { canChampionPlayRole } from './championRoles';
 
-export type LobbyRankBracket = 'platinum-plus' | 'diamond2-plus';
+export type LobbyRankBracket = 'emerald_plus' | 'platinum-plus' | 'diamond2-plus';
 
 export interface LobbyCounterpickInsight {
   champion: string;
@@ -22,12 +23,12 @@ export interface LobbyChampionInsight {
   sampleLabel: string;
 }
 
-const patch = '16.11';
-const sampleLabel = 'Platinum+, Ranked Solo';
+const patch = '30';
+const sampleLabel = 'Emerald+, Ranked Solo/Duo, last 30 days';
 
 const buildInsight = (input: Omit<LobbyChampionInsight, 'tierColor' | 'patch' | 'sampleLabel' | 'rankBracket'>): LobbyChampionInsight => ({
   ...input,
-  rankBracket: 'platinum-plus',
+  rankBracket: 'emerald_plus',
   tierColor: patchTierVisuals[input.patchTier] ?? patchTierVisuals.B,
   patch,
   sampleLabel
@@ -37,7 +38,8 @@ const roleInsightCatalog: Partial<Record<PlayerInfo['mainRole'], Record<string, 
   TOP: {
     Aatrox: buildInsight({
       role: 'TOP',
-      globalWinRate: 49.4,
+      globalWinRate: 50.42,
+      overallMatches: 326074,
       patchTier: 'B',
       counters: [
         { champion: 'Vayne', matchupWinRate: 53.2 },
@@ -51,8 +53,8 @@ const roleInsightCatalog: Partial<Record<PlayerInfo['mainRole'], Record<string, 
   MID: {
     Ahri: buildInsight({
       role: 'MID',
-      globalWinRate: 49.4,
-      overallMatches: 2413,
+      globalWinRate: 51.75,
+      overallMatches: 569255,
       patchTier: 'S',
       counters: [
         { champion: 'Morgana', matchupWinRate: 77.8, matches: 9 },
@@ -66,8 +68,8 @@ const roleInsightCatalog: Partial<Record<PlayerInfo['mainRole'], Record<string, 
   ADC: {
     Jinx: buildInsight({
       role: 'ADC',
-      globalWinRate: 48.5,
-      overallMatches: 319204,
+      globalWinRate: 52.42,
+      overallMatches: 631037,
       patchTier: 'B',
       counters: [
         { champion: 'Seraphine', matchupWinRate: 54.8, matches: 1322 },
@@ -83,13 +85,18 @@ const roleInsightCatalog: Partial<Record<PlayerInfo['mainRole'], Record<string, 
 export const getLobbyChampionInsight = (
   championName: string,
   role: PlayerInfo['mainRole'],
-  rankBracket: LobbyRankBracket = 'platinum-plus'
+  rankBracket: LobbyRankBracket = 'emerald_plus'
 ): LobbyChampionInsight | null => {
-  if (rankBracket !== 'platinum-plus') {
+  if (rankBracket !== 'emerald_plus' && rankBracket !== 'platinum-plus') {
     return null;
   }
 
-  return roleInsightCatalog[role]?.[championName] ?? null;
+  const insight = roleInsightCatalog[role]?.[championName] ?? null;
+
+  return insight ? {
+    ...insight,
+    counters: insight.counters.filter((counter) => canChampionPlayRole(counter.champion, role))
+  } : null;
 };
 
 interface BackendLobbyChampionInsightResponse {
@@ -109,20 +116,20 @@ interface BackendLobbyChampionInsightResponse {
 export const fetchLobbyChampionInsight = async (
   championName: string,
   role: PlayerInfo['mainRole'],
-  rankBracket: LobbyRankBracket = 'platinum-plus'
+  rankBracket: LobbyRankBracket = 'emerald_plus'
 ): Promise<LobbyChampionInsight | null> => {
   const query = new URLSearchParams({ champion: championName, role, rank: rankBracket });
   const response = await fetchSubscriptionServiceJson<BackendLobbyChampionInsightResponse>(`/api/lol/meta/champion-insight?${query.toString()}`);
   const insight = response?.insight;
 
   if (!response?.ok || !insight?.patchTier) {
-    return getLobbyChampionInsight(championName, role, rankBracket === 'diamond2-plus' ? 'platinum-plus' : rankBracket);
+    return getLobbyChampionInsight(championName, role, rankBracket === 'diamond2-plus' ? 'emerald_plus' : rankBracket);
   }
 
   return {
     role: insight.role,
     rankBracket: insight.rankBracket,
-    counters: Array.isArray(insight.counters) ? insight.counters : [],
+    counters: Array.isArray(insight.counters) ? insight.counters.filter((counter) => canChampionPlayRole(counter.champion, insight.role)) : [],
     globalWinRate: Number.isFinite(insight.globalWinRate) ? insight.globalWinRate : null,
     overallMatches: Number.isFinite(insight.overallMatches) ? insight.overallMatches ?? undefined : undefined,
     patchTier: insight.patchTier,

@@ -12,7 +12,13 @@ export interface ChampionRoleMatrixEntry {
 
 export const championRoleMatrix = roleMatrixData as ChampionRoleMatrixEntry[];
 
-export const getChampionRoleEntry = (championName: string) => championRoleMatrix.find((entry) => entry.champion === championName);
+const normalizeChampionRoleKey = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+export const getChampionRoleEntry = (championName: string) => {
+  const normalizedChampion = normalizeChampionRoleKey(championName);
+
+  return championRoleMatrix.find((entry) => normalizeChampionRoleKey(entry.champion) === normalizedChampion);
+};
 
 export const canChampionPlayRole = (championName: string, role: PlayerInfo['mainRole']) => {
   const entry = getChampionRoleEntry(championName);

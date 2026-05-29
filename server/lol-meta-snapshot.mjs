@@ -1,50 +1,50 @@
 export const lolMetaSnapshot = {
   version: 1,
   game: 'league-of-legends',
-  queue: 'ranked-solo',
-  rankBracket: 'diamond2-plus',
-  rankLabel: 'Diamond 2+ / High Elo',
-  patch: '26.10',
-  updatedAt: '2026-05-26T00:00:00.000Z',
+  queue: 'ranked-solo-duo',
+  rankBracket: 'emerald_plus',
+  rankLabel: 'Emerald+',
+  patch: '30',
+  updatedAt: '2026-05-29T00:00:00.000Z',
   source: {
-    provider: 'mobalytics-high-elo-tier-list',
-    url: 'https://mobalytics.gg/lol/tier-list/high-elo',
+    provider: 'lolalytics-tier-list',
+    url: 'https://lolalytics.com/lol/tierlist/?tier=emerald_plus&patch=30',
     note: 'Internal backend snapshot. Do not render this label in the client UI.'
   },
   roles: {
     TOP: {
       tiers: {
-        S: ['Malphite', 'Gangplank', 'Aatrox', 'Shen', 'Irelia', 'Fiora', 'Zaahen', 'Jax', 'Ambessa', 'Riven'],
-        A: ['Darius', 'Garen', "K'Sante", 'Sett', 'Camille', 'Olaf', 'Vayne', 'Kayle', 'Yasuo', 'Kennen', 'Sion', 'Gnar', 'Akali', 'Yone', 'Gragas', 'Ornn', 'Renekton', 'Jayce'],
-        B: ['Dr. Mundo', 'Poppy', 'Rumble', 'Urgot', 'Kled', 'Vladimir', 'Mordekaiser', 'Singed', 'Tryndamere', 'Gwen', 'Pantheon', 'Aurora', 'Varus', "Cho'Gath", 'Wukong', 'Volibear']
+        S: ['Olaf', 'Garen', 'Irelia', 'Riven', 'Singed', 'Gangplank', 'Vladimir', 'Yone', 'Anivia', 'Shen'],
+        A: ['Camille', 'Aatrox', 'Fiora', 'Malphite', 'Jax', 'Gnar', 'Renekton', 'Rumble', 'Ornn', 'Kayle', 'Kennen', 'Akshan'],
+        B: ['Dr. Mundo', 'Poppy', 'Urgot', 'Kled', 'Mordekaiser', 'Tryndamere', 'Gwen', 'Pantheon', 'Aurora', "Cho'Gath", 'Volibear', 'Gragas']
       }
     },
     JUNGLE: {
       tiers: {
-        S: ['Hecarim', 'Kindred', 'Viego', 'Nocturne', 'Jarvan IV', 'Talon', 'Naafiri', 'Graves', "Rek'Sai", 'Shyvana', 'Lee Sin'],
-        A: ['Nunu & Willump', 'Master Yi', 'Kayn', 'Nidalee', 'Evelynn', 'Rengar', 'Ivern', "Kha'Zix", 'Ekko', 'Shaco', 'Xin Zhao', 'Zaahen', 'Sylas', "Bel'Veth", 'Elise', 'Fiddlesticks', 'Wukong', 'Briar'],
-        B: ['Diana', 'Dr. Mundo', 'Warwick', 'Vi', 'Zed', 'Udyr', 'Aatrox', 'Zac', 'Gwen', 'Taliyah', 'Karthus', 'Qiyana', 'Volibear', 'Lillia']
+        S: ['Lee Sin', "Rek'Sai", 'Naafiri', 'Nocturne', 'Kayn', 'Master Yi', 'Talon', 'Xin Zhao'],
+        A: ['Jarvan IV', "Bel'Veth", 'Nidalee', 'Nunu & Willump', 'Viego', 'Graves', 'Hecarim', 'Kindred', 'Ivern', "Kha'Zix", 'Ekko', 'Elise'],
+        B: ['Fiddlesticks', 'Wukong', 'Briar', 'Diana', 'Warwick', 'Vi', 'Udyr', 'Zac', 'Taliyah', 'Karthus', 'Volibear', 'Lillia']
       }
     },
     MID: {
       tiers: {
-        S: ['Ahri', 'Zed', 'Twisted Fate', 'Yasuo', 'Katarina', 'Zoe', 'Lissandra', 'Akali', 'LeBlanc', 'Viktor', 'Qiyana', 'Fizz'],
-        A: ['Diana', 'Akshan', 'Aurelion Sol', 'Syndra', 'Kassadin', 'Orianna', 'Anivia', 'Vladimir', 'Naafiri', 'Tryndamere', 'Irelia', 'Cassiopeia', 'Ekko', 'Malzahar', 'Sylas', 'Hwei', 'Mel', 'Xerath'],
-        B: ['Annie', 'Lux', 'Vex', 'Ryze', 'Talon', 'Veigar', 'Azir', 'Taliyah', "Vel'Koz", 'Aurora', 'Yone', 'Galio']
+        S: ['Naafiri', 'Vladimir', 'Zed', 'Ahri', 'Xerath', 'Katarina', 'Twisted Fate', 'Fizz'],
+        A: ['Ekko', 'Viktor', 'Annie', 'Singed', 'Talon', 'Akshan', 'Syndra', 'Orianna', 'Anivia', 'Cassiopeia', 'Sylas', 'Hwei'],
+        B: ['LeBlanc', 'Lissandra', 'Akali', 'Diana', 'Aurelion Sol', 'Kassadin', 'Irelia', 'Malzahar', 'Vex', 'Ryze', 'Veigar', 'Azir', 'Taliyah', "Vel'Koz", 'Aurora', 'Yone', 'Galio']
       }
     },
     ADC: {
       tiers: {
-        S: ['Ashe', 'Caitlyn', 'Smolder', 'Jinx'],
-        A: ['Miss Fortune', 'Sivir', 'Ezreal', 'Vayne', 'Xayah', 'Yasuo', 'Aphelios', 'Samira', 'Draven', "Kai'Sa", 'Twitch', 'Jhin', 'Yunara', 'Lucian', 'Tristana', 'Zeri', 'Senna'],
-        B: ['Corki', "Kog'Maw", 'Seraphine', 'Nilah', 'Kalista', 'Swain', 'Varus', 'Ziggs', 'Mel']
+        S: ['Smolder', 'Karthus', 'Seraphine', 'Jinx'],
+        A: ['Ashe', 'Senna', 'Yasuo', 'Samira', 'Swain', 'Caitlyn', 'Lucian', 'Ezreal', 'Xayah', "Kai'Sa", 'Jhin', 'Draven'],
+        B: ['Miss Fortune', 'Sivir', 'Vayne', 'Aphelios', 'Twitch', 'Tristana', 'Zeri', 'Corki', "Kog'Maw", 'Nilah', 'Kalista', 'Varus', 'Ziggs']
       }
     },
     SUPPORT: {
       tiers: {
-        S: ['Pyke', 'Seraphine', 'Braum', 'Thresh', 'Karma', 'Bard', 'Nautilus', 'Senna', 'Nami'],
-        A: ['Soraka', 'Leona', 'Milio', 'Rakan', 'Zilean', 'Rell', 'Blitzcrank', 'Janna', 'Sona', 'Lulu'],
-        B: ['Lux', 'Poppy', 'Yuumi', 'Tahm Kench', 'Morgana', 'Neeko', 'Renata Glasc', 'Taric', "Vel'Koz", 'Alistar', 'Zyra', 'Elise', 'Maokai', 'Xerath']
+        S: ['Senna', 'Seraphine', 'Thresh', 'Bard', 'Rell', 'Nami', 'Janna', 'Soraka'],
+        A: ['Karma', 'Pyke', 'Sona', 'Milio', 'Leona', 'Elise', 'Lulu', 'Blitzcrank', 'Rakan', 'Nautilus'],
+        B: ['Zilean', 'Braum', 'Lux', 'Poppy', 'Yuumi', 'Tahm Kench', 'Morgana', 'Neeko', 'Renata Glasc', 'Taric', "Vel'Koz", 'Alistar', 'Zyra', 'Maokai', 'Xerath']
       }
     }
   },

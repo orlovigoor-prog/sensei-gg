@@ -44,6 +44,7 @@ loadEnvFile();
 const PORT = Number.parseInt(process.env.AI_REVIEW_PORT || '8787', 10);
 const HOST = process.env.AI_REVIEW_HOST || '127.0.0.1';
 const COUNTERPICK_DATABASE_PATH = path.resolve(process.cwd(), 'server/data/lol-counterpicks.json');
+const CHAMPION_ROLE_MATRIX_PATH = path.resolve(process.cwd(), 'src/services/gameData/champion-role-matrix.json');
 const API_KEY = process.env.AI_PROVIDER_API_KEY || '';
 const API_URL = process.env.AI_PROVIDER_URL || 'https://api.deepseek.com/chat/completions';
 const MODEL = process.env.AI_PROVIDER_MODEL || 'deepseek-chat';
@@ -666,6 +667,25 @@ const loadCounterpickDatabase = () => {
   }
 };
 
+const loadChampionRoleMatrix = () => {
+  try {
+    return JSON.parse(fs.readFileSync(CHAMPION_ROLE_MATRIX_PATH, 'utf8'));
+  } catch {
+    return [];
+  }
+};
+
+const canChampionPlayMetaRole = (championName, role) => {
+  const normalizedChampion = normalizeMetaKey(championName);
+  const entry = loadChampionRoleMatrix().find((candidate) => normalizeMetaKey(candidate?.champion) === normalizedChampion);
+
+  if (!entry) {
+    return false;
+  }
+
+  return [...(entry.primaryRoles || []), ...(entry.secondaryRoles || [])].includes(role);
+};
+
 const normalizeRankBracketForCounterpicks = (rankBracket) => {
   const normalized = String(rankBracket || '').trim().toLowerCase().replace(/-/g, '_');
 
@@ -719,7 +739,11 @@ const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
       delta2: counter.delta2,
       targetChampionWinRate: counter.targetChampionWinRate,
       allChampsWinRateVsCounter: counter.allChampsWinRateVsCounter
-    })).filter((counter) => isNonEmptyString(counter.champion) && Number.isFinite(counter.matchupWinRate))
+    })).filter((counter) => (
+      isNonEmptyString(counter.champion)
+      && Number.isFinite(counter.matchupWinRate)
+      && canChampionPlayMetaRole(counter.champion, role)
+    ))
   };
 };
 

@@ -153,7 +153,7 @@ const getKdaAccent = (match: ProfileRecentMatch) => {
   return kills + assists >= deaths ? '#f8fafc' : '#fca5a5';
 };
 
-export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
+export function ProfileScreen({ reviewMode: _reviewMode = false }: ProfileScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [region, setRegion] = useState<SearchRegion>('ru');
   const [loading, setLoading] = useState(false);
@@ -165,7 +165,6 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
   const [profileSummary, setProfileSummary] = useState<ProfileMatchSummary | null>(null);
   const [hoveredItem, setHoveredItem] = useState<HoveredItemState | null>(null);
   const [resolvedItemTooltips, setResolvedItemTooltips] = useState<Record<number, ItemCatalogEntry>>({});
-  const [resolvedRiotId, setResolvedRiotId] = useState<string>('');
   const [error, setError] = useState('');
 
   const hoveredItemDetails = hoveredItem
@@ -255,7 +254,6 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
     setChampionPool([]);
     setProfileSummary(null);
     setHoveredItem(null);
-    setResolvedRiotId('');
 
     const normalizedQuery = searchQuery.trim();
 
@@ -273,7 +271,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
       );
 
       if (!response) {
-        setError('Локальный backend недоступен. Проверь, что server запущен на 127.0.0.1:8787.');
+        setError('Поиск профиля временно недоступен. Попробуй ещё раз чуть позже.');
         setLoading(false);
         return;
       }
@@ -284,15 +282,15 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
         const upstreamStatus = payload?.diagnostics?.upstreamStatus;
 
         if (upstreamStatus === 401) {
-          setError('Riot API вернул 401: backend отправил ключ, который Riot не смог авторизовать. Проверь актуальность RIOT_API_KEY в .env.');
+          setError('Поиск профиля временно недоступен из-за ошибки авторизации сервиса.');
         } else if (upstreamStatus === 403) {
-          setError('Riot API вернул 403: ключ отклонён Riot как invalid или blocked. Проверь ключ в Riot Developer Portal.');
+          setError('Поиск профиля временно недоступен из-за ограничения доступа сервиса.');
         } else if (upstreamStatus === 429) {
-          setError('Riot API вернул 429: превышен лимит запросов. Подождите минуту и повторите.');
+          setError('Слишком много запросов. Подожди минуту и повтори поиск.');
         } else if (response.status === 404) {
           setError('Игрок не найден.');
         } else {
-          setError(payload?.error || 'Поиск временно недоступен. Проверь локальный backend и Riot API ключ на сервере.');
+          setError(payload?.error || 'Поиск временно недоступен. Попробуй ещё раз позже.');
         }
 
         if (payload?.diagnostics?.upstreamStatus) {
@@ -309,7 +307,6 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
       setChampionMasteries(Array.isArray(payload.championMasteries) ? payload.championMasteries : []);
       setChampionPool(Array.isArray(payload.championPool) ? payload.championPool : []);
       setProfileSummary(payload.profileSummary || null);
-      setResolvedRiotId(payload.riotId ? `${payload.riotId.gameName}#${payload.riotId.tagLine}` : normalizedQuery);
     } catch {
       setError('Ошибка сети. Попробуйте позже.');
     }
@@ -335,20 +332,8 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
             <div>
               <h2 style={{ color: '#f3efe7', margin: '0 0 6px 0', fontSize: '22px' }}>Профиль игрока</h2>
               <p style={{ margin: 0, color: '#6b7280', fontSize: '13px', lineHeight: 1.6 }}>
-                Поиск по Riot ID, обзор ранга и карточка профиля в одном месте. Пока профиль по умолчанию работает как демонстрационный сценарий.
+                Найди игрока, оцени текущую форму, пул чемпионов и последние матчи.
               </p>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {isDemoProfile && (
-                <span style={{ padding: '6px 10px', borderRadius: '999px', background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)', color: '#fdba74', fontSize: '11px', fontWeight: 'bold' }}>
-                  DEMO PROFILE
-                </span>
-              )}
-              {reviewMode && (
-                <span style={{ padding: '6px 10px', borderRadius: '999px', background: 'rgba(0, 255, 204, 0.08)', border: '1px solid rgba(0, 255, 204, 0.3)', color: '#00ffcc', fontSize: '11px', fontWeight: 'bold' }}>
-                  REVIEW MODE
-                </span>
-              )}
             </div>
           </div>
 
@@ -390,12 +375,6 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
               {error}
             </div>
           )}
-
-          {!error && resolvedRiotId && (
-            <div style={{ marginTop: '12px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0, 255, 204, 0.06)', border: '1px solid rgba(0, 255, 204, 0.16)', color: '#b6f7e8', fontSize: '13px' }}>
-              Профиль найден по Riot ID: <strong>{resolvedRiotId}</strong>
-            </div>
-          )}
         </div>
 
         <div style={{ background: 'linear-gradient(180deg, rgba(22, 29, 42, 0.96), rgba(15, 19, 26, 0.98))', border: '1px solid #1f2937', borderRadius: '16px', padding: '18px' }}>
@@ -412,25 +391,8 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                   <span style={{ padding: '4px 8px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', color: '#9ca3af', fontSize: '11px', fontWeight: 'bold' }}>
                     {region.toUpperCase()}
                   </span>
-                  {!isDemoProfile && resolvedRiotId && (
-                    <span style={{ padding: '4px 8px', borderRadius: '999px', background: 'rgba(0,255,204,0.08)', color: '#9fead9', fontSize: '11px', fontWeight: 'bold' }}>
-                      {resolvedRiotId}
-                    </span>
-                  )}
                 </div>
                 <div style={{ color: '#9ca3af', fontSize: '13px' }}>Уровень {profile.summonerLevel}</div>
-              </div>
-            </div>
-
-            <div style={{ minWidth: '220px', padding: '14px 16px', borderRadius: '14px', background: 'rgba(15, 19, 26, 0.75)', border: '1px solid #1f2937' }}>
-              <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '6px', letterSpacing: '0.06em' }}>ОБЩИЙ СИГНАЛ</div>
-              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>
-                {isDemoProfile ? 'Демо-профиль для визуального сценария' : 'Базовый профиль загружен из Riot API'}
-              </div>
-              <div style={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.55 }}>
-                {isDemoProfile
-                  ? 'Расширенные блоки ниже построены на демо-данных, чтобы заранее показать будущий формат профиля в стиле Sensei GG.'
-                  : 'Сейчас реальный поиск даёт карточку профиля, Solo Queue ранг и последние матчи по Riot API через локальный backend.'}
               </div>
             </div>
           </div>
@@ -473,7 +435,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
 
               <div style={{ background: '#0f131a', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px' }}>
                 <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '12px', letterSpacing: '0.06em' }}>
-                  {isDemoProfile ? 'ПУЛ ЧЕМПИОНОВ' : 'CHAMPION POOL'}
+                  ПУЛ ЧЕМПИОНОВ
                 </div>
                 {isDemoProfile ? (
                   <div style={{ display: 'grid', gap: '10px' }}>
@@ -530,7 +492,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                   </div>
                 ) : (
                   <div style={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.6 }}>
-                    Riot API не вернул champion pool для этого профиля. Карточка профиля и ranked-статистика при этом загружены корректно.
+                    Пока недостаточно данных, чтобы уверенно выделить пул чемпионов.
                   </div>
                 )}
               </div>
@@ -621,7 +583,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                 </div>
               ) : (
                 <div style={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.6 }}>
-                  Riot API не вернул последние матчи для этого профиля. Карточка профиля и ranked-статистика при этом загружены корректно.
+                  Последние матчи пока недоступны для этого профиля.
                 </div>
               )}
             </div>
@@ -662,7 +624,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                   <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
                     <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>Следующий шаг</div>
                     <div style={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.55 }}>
-                      После привязки реального профиля этот блок будет строиться не на демо-данных, а на персональной истории матчей и post-game сигналах Sensei GG.
+                      Держи фокус на стабильном фарме и не форсируй драки без преимущества по предметам.
                     </div>
                   </div>
                 </div>
@@ -675,7 +637,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
 
             {!isDemoProfile && championMasteries.length > 0 && (
               <div style={{ background: '#0f131a', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px' }}>
-                <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '12px', letterSpacing: '0.06em' }}>CHAMPION MASTERY</div>
+                <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '12px', letterSpacing: '0.06em' }}>МАСТЕРСТВО ЧЕМПИОНОВ</div>
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {championMasteries.map((mastery) => (
                     <div key={`${mastery.championId}-${mastery.champion}`} style={{ display: 'grid', gridTemplateColumns: '48px minmax(0, 1fr) auto', gap: '12px', alignItems: 'center', padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
@@ -688,7 +650,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '15px' }}>Lv {mastery.championLevel}</div>
-                        <div style={{ color: '#6b7280', fontSize: '10px' }}>Mastery</div>
+                        <div style={{ color: '#6b7280', fontSize: '10px' }}>уровень</div>
                       </div>
                     </div>
                   ))}
@@ -727,7 +689,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
                     <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
                       <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>Следующий шаг</div>
                       <div style={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.55 }}>
-                        После привязки реального профиля этот блок будет строиться не на демо-данных, а на персональной истории матчей и post-game сигналах Sensei GG.
+                        Держи фокус на стабильном фарме и не форсируй драки без преимущества по предметам.
                       </div>
                     </div>
                   </div>

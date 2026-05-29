@@ -50,12 +50,12 @@ const resolveLobbyRankBracket = (players: PlayerInfo[]): LobbyRankBracket => {
   const rankedPlayers = players.filter((player) => rankTierScores[player.tier]);
 
   if (rankedPlayers.length === 0) {
-    return 'platinum-plus';
+    return 'emerald_plus';
   }
 
   const averageTierScore = rankedPlayers.reduce((sum, player) => sum + rankTierScores[player.tier], 0) / rankedPlayers.length;
 
-  return averageTierScore >= rankTierScores.PLATINUM ? 'platinum-plus' : 'platinum-plus';
+  return averageTierScore >= rankTierScores.EMERALD ? 'emerald_plus' : 'emerald_plus';
 };
 
 const sectionLabelStyle = {
@@ -92,6 +92,26 @@ interface PostGamePlayerRowProps {
   laneLabel: string;
   rowIndex: number;
 }
+
+const MIN_RELIABLE_COUNTER_SAMPLE = 500;
+
+const getReliableLobbyCounters = (counters: LobbyCounterpickInsight[]) => counters
+  .filter((counter) => Number.isFinite(counter.matches) && Number(counter.matches) >= MIN_RELIABLE_COUNTER_SAMPLE)
+  .slice(0, 5);
+
+const getLobbyMatchupHint = (champion: string, counters: LobbyCounterpickInsight[]) => {
+  const primaryCounter = counters[0];
+
+  if (!primaryCounter) {
+    return 'Для этой роли пока мало надёжных matchup-данных. Играй от базовой силы пика и не делай выводы по шумной выборке.';
+  }
+
+  if (primaryCounter.matchupWinRate >= 55) {
+    return `${primaryCounter.champion} заметно давит ${champion}: избегай ранних all-in и играй от безопасных разменов.`;
+  }
+
+  return `${primaryCounter.champion} — самый заметный риск для ${champion}. Уважай его окно силы и не отдавай темп в начале.`;
+};
 
 const getAiSourceMeta = (source: StructuredAiReview['source']) => {
   switch (source) {
@@ -422,7 +442,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
   );
 }
 
-function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game', lobbyRankBracket = 'platinum-plus' }: PlayerCardProps) {
+function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled = false, variant = 'in-game', lobbyRankBracket = 'emerald_plus' }: PlayerCardProps) {
   const winRateColor = player.winRate >= 50 ? '#10b981' : '#ef4444';
   const cardTitle = displayName || player.summonerName;
   const totalGames = player.wins + player.losses;
@@ -448,6 +468,10 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const [showChampTooltip, setShowChampTooltip] = useState(false);
   const [hoveredCounter, setHoveredCounter] = useState<LobbyCounterpickInsight | null>(null);
   const [lobbyInsight, setLobbyInsight] = useState<Awaited<ReturnType<typeof fetchLobbyChampionInsight>>>(null);
+  const reliableLobbyCounters = lobbyInsight ? getReliableLobbyCounters(lobbyInsight.counters) : [];
+  const hasLowConfidenceCounters = Boolean(lobbyInsight && lobbyInsight.counters.length > 0 && reliableLobbyCounters.length === 0);
+  const hasReliableGlobalWinRate = Boolean(lobbyInsight && Number.isFinite(lobbyInsight.globalWinRate));
+  const lobbyMatchupHint = lobbyInsight ? getLobbyMatchupHint(championLabel, reliableLobbyCounters) : null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -650,7 +674,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
       </div>
 
       {variant === 'lobby' ? (
-        lobbyInsight && lobbyInsight.counters.length > 0 ? (
+        lobbyInsight && reliableLobbyCounters.length > 0 ? (
         <div style={{
           position: 'relative',
           background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.72), rgba(15, 23, 42, 0.58))',
@@ -665,7 +689,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
             <div style={{ color: '#64748b', fontSize: '8px' }}>{lobbyInsight.sampleLabel.replace('Emerald+, ', '')}</div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '5px' }}>
-            {lobbyInsight.counters.slice(0, 5).map((counter) => (
+            {reliableLobbyCounters.map((counter) => (
               <div
                 key={`${championLabel}-${counter.champion}`}
                 onMouseEnter={() => setHoveredCounter(counter)}
@@ -676,7 +700,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   src={getChampionIconUrl(counter.champion)}
                   alt={counter.champion}
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/Aatrox.png';
+                    (e.currentTarget as HTMLImageElement).src = getChampionIconUrl('Aatrox');
                   }}
                   style={{
                     width: '100%',
@@ -704,6 +728,11 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
               </div>
             ))}
           </div>
+          {lobbyMatchupHint && (
+            <div style={{ color: '#cbd5e1', fontSize: '8px', lineHeight: 1.35, marginTop: '6px' }}>
+              {lobbyMatchupHint}
+            </div>
+          )}
           {hoveredCounter && (
             <div style={{
               position: 'absolute',
@@ -736,7 +765,11 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           }}>
             <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Мета-профиль</div>
             <div style={{ color: '#cbd5e1', fontSize: '9px', lineHeight: 1.35 }}>
-              Тир и винрейт есть, но matchup-строки для этой роли еще не заполнены.
+              {hasLowConfidenceCounters
+                ? 'Данные по матчапам есть, но выборка слишком маленькая для уверенного совета.'
+                : hasReliableGlobalWinRate
+                  ? 'Тир и винрейт есть, но надёжные данные по матчапам для этой роли пока не заполнены.'
+                  : 'Тир есть, но надёжные винрейт и матчапы для этой роли пока не заполнены.'}
             </div>
           </div>
         ) : (
@@ -747,9 +780,9 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
             marginTop: 'auto',
             border: '1px solid rgba(148, 163, 184, 0.1)'
           }}>
-            <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Matchup-инсайты</div>
+            <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Матчапы</div>
             <div style={{ color: '#cbd5e1', fontSize: '9px', lineHeight: 1.35 }}>
-              Выбираем роль-aware данные для этого пика. Если snapshot пустой, блок остается нейтральным без выдуманных цифр.
+              Нет надёжного сигнала по этому пику. Показываем только проверенные данные, без выдуманных цифр.
             </div>
           </div>
         )
