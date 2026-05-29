@@ -1,5 +1,6 @@
 export * from './gameData/core';
 export * from './gameData/champions';
+export * from './gameData/championRoles';
 export * from './gameData/items';
 export * from './gameData/spells';
 export * from './gameData/runes';

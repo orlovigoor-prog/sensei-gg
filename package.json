@@ -12,10 +12,11 @@
     "ai:server": "node server/ai-review-server.mjs",
     "meta:init-counterpicks": "node server/update-lolalytics-counterpicks.mjs --init-only",
     "meta:update-counterpicks": "node server/update-lolalytics-counterpicks.mjs",
+    "verify:lobby-domain": "node server/verify-lobby-domain.mjs",
     "verify:foundation-catalog": "node server/verify-foundation-test-case-catalog.mjs",
     "verify:foundation-smoke": "node server/verify-foundation-smoke.mjs",
     "verify:foundation-matrix": "node server/verify-foundation-matrix.mjs",
-    "verify:foundation-all": "npm run verify:foundation-catalog && npm run build && npm run verify:foundation-smoke && npm run verify:foundation-matrix"
+    "verify:foundation-all": "npm run verify:foundation-catalog && npm run verify:lobby-domain && npm run build && npm run verify:foundation-smoke && npm run verify:foundation-matrix"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",

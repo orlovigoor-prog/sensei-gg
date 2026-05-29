@@ -1,7 +1,7 @@
 import type { PlayerInfo } from '../store/lobbySlice';
 import type { RankedStats, Summoner } from './riotApi';
 import type { CompletedMatchSummary } from '../store/gameSlice';
-import { championCatalog, getChampionScenariosByRole, type ChampionScenario } from './gameData';
+import { demoLobbyChampionPoolsByRole, getChampionsForRole, getChampionScenariosByRole, validateDemoLobbyChampionPools, type ChampionScenario } from './gameData';
 
 export const reviewModePlayerName = 'DemoProfilePlayer';
 
@@ -184,19 +184,11 @@ const takeUniqueRandom = <T>(items: T[], count: number) => {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const roleChampionPools: Record<PlayerInfo['mainRole'], string[]> = {
-  TOP: championCatalog.filter((entry) => entry.primaryRole === 'TOP').map((entry) => entry.name),
-  JUNGLE: championCatalog.filter((entry) => entry.primaryRole === 'JUNGLE').map((entry) => entry.name),
-  MID: championCatalog.filter((entry) => entry.primaryRole === 'MID').map((entry) => entry.name),
-  ADC: championCatalog.filter((entry) => entry.primaryRole === 'ADC').map((entry) => entry.name),
-  SUPPORT: championCatalog.filter((entry) => entry.primaryRole === 'SUPPORT').map((entry) => entry.name)
-};
-
-const lobbyCounterpickChampionPools: Record<PlayerInfo['mainRole'], string[]> = {
-  TOP: ['Aatrox', 'Renekton', 'Gnar', 'Camille'],
-  JUNGLE: ['LeeSin', 'Vi'],
-  MID: ['Ahri', 'Zed', 'Syndra'],
-  ADC: ['Jinx', 'Lucian', 'Caitlyn'],
-  SUPPORT: ['Thresh', 'Nautilus']
+  TOP: getChampionsForRole('TOP'),
+  JUNGLE: getChampionsForRole('JUNGLE'),
+  MID: getChampionsForRole('MID'),
+  ADC: getChampionsForRole('ADC'),
+  SUPPORT: getChampionsForRole('SUPPORT')
 };
 
 const applyScenarioModifier = (scenario: ChampionScenario, stat: 'kills' | 'deaths' | 'assists', value: number, result: 'W' | 'L') => {
@@ -504,10 +496,10 @@ const createBaseMockPlayers = (): PlayerInfo[] => ([
 
 const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mainRole'], playerIndex: number): PlayerInfo => {
   const scenario = randomFrom(getChampionScenariosByRole(role));
-  const primaryChampion = randomFrom(lobbyCounterpickChampionPools[role]);
+  const primaryChampion = randomFrom(demoLobbyChampionPoolsByRole[role]);
   const secondaryPool = [
     ...scenario.champions,
-    ...lobbyCounterpickChampionPools[role],
+    ...demoLobbyChampionPoolsByRole[role],
     ...takeUniqueRandom(roleChampionPools[role].filter((champion) => champion !== primaryChampion), 3)
   ].filter((champion) => champion !== primaryChampion);
   const secondaryChampion = randomFrom(takeUniqueRandom(secondaryPool, 4));
@@ -535,6 +527,12 @@ const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mai
 };
 
 export const createMockPlayers = (): PlayerInfo[] => {
+  const invalidDemoPoolEntries = validateDemoLobbyChampionPools();
+
+  if (invalidDemoPoolEntries.length > 0) {
+    throw new Error(`Invalid demo lobby champion pool: ${invalidDemoPoolEntries.join('; ')}`);
+  }
+
   const basePlayers = createBaseMockPlayers();
   const randomizedAllies = takeUniqueRandom(basePlayers.slice(0, 5), 5);
   const randomizedEnemies = takeUniqueRandom(basePlayers.slice(5, 10), 5);

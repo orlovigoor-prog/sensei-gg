@@ -220,7 +220,8 @@ src/
 1. Запусти `npm run dev`
 2. Открой в Overwolf Developer Hub
 3. Нажми `Ctrl+Shift+D` для dev-панели
-4. Используй симуляцию лобби для тестов
+4. Используй симуляцию лобби для тестов. Review Mode остается временным демонстрационным слоем и должен быть удален после green light от Riot/Overwolf для реальных тестов.
+5. Перед изменениями в demo lobby запускай `npm run verify:lobby-domain`, чтобы проверить role-aware пулы и наличие counterpick rows.
 
 ### Production:
 1. Собирай через `npm run build`
@@ -250,6 +251,7 @@ src/
 - ✅ Информация о чемпионах
 - ✅ Постматч AI-разбор
 - ✅ Статистика игроков
+- ✅ Role-aware demo lobby и проверка domain correctness
 
 ### Future:
 - ⏳ Real-time мониторинг через LCU API
@@ -257,6 +259,7 @@ src/
 - ⏳ Анализ пиков/банов
 - ⏳ История матчей с Riot API
 - ⏳ Поиск игроков по никнейму
+- ⏳ Полное удаление Review Mode после одобрения Riot/Overwolf
 
 ---
 
