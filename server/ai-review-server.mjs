@@ -704,6 +704,30 @@ const normalizeRankBracketForCounterpicks = (rankBracket) => {
   return normalized || 'emerald_plus';
 };
 
+const MIN_RELIABLE_LOBBY_COUNTER_SAMPLE = 500;
+const MIN_STRONG_LOBBY_COUNTERS = 2;
+
+const getReliableLobbyCounters = (counters) => (Array.isArray(counters) ? counters : [])
+  .filter((counter) => Number.isFinite(counter?.matches) && counter.matches >= MIN_RELIABLE_LOBBY_COUNTER_SAMPLE);
+
+const resolveLobbySignalQuality = ({ counters, globalWinRate, patchTier }) => {
+  const reliableCounters = getReliableLobbyCounters(counters);
+
+  if (Number.isFinite(globalWinRate) && reliableCounters.length >= MIN_STRONG_LOBBY_COUNTERS) {
+    return 'strong';
+  }
+
+  if (Number.isFinite(globalWinRate)) {
+    return 'medium';
+  }
+
+  if (patchTier) {
+    return 'tier-only';
+  }
+
+  return 'none';
+};
+
 const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
   const database = loadCounterpickDatabase();
   const normalizedChampion = normalizeMetaKey(championName);
@@ -742,7 +766,6 @@ const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
     })).filter((counter) => (
       isNonEmptyString(counter.champion)
       && Number.isFinite(counter.matchupWinRate)
-      && canChampionPlayMetaRole(counter.champion, role)
     ))
   };
 };
@@ -756,6 +779,9 @@ const buildChampionMetaInsight = (championName, role, rankBracket) => {
     return null;
   }
 
+  const counters = Array.isArray(matchup?.counters) ? matchup.counters : [];
+  const globalWinRate = Number.isFinite(matchup?.globalWinRate) ? matchup.globalWinRate : null;
+
   return {
     champion: displayChampion,
     role,
@@ -765,9 +791,10 @@ const buildChampionMetaInsight = (championName, role, rankBracket) => {
     patch: lolMetaSnapshot.patch,
     matchupPatch: matchup?.sourcePatch ?? null,
     sampleLabel: matchup?.sampleLabel ?? lolMetaSnapshot.rankLabel,
-    globalWinRate: Number.isFinite(matchup?.globalWinRate) ? matchup.globalWinRate : null,
+    globalWinRate,
     overallMatches: Number.isFinite(matchup?.overallMatches) ? matchup.overallMatches : null,
-    counters: Array.isArray(matchup?.counters) ? matchup.counters : []
+    counters,
+    signalQuality: resolveLobbySignalQuality({ counters, globalWinRate, patchTier })
   };
 };
 

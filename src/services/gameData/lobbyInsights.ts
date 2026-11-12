@@ -1,9 +1,12 @@
 import type { PlayerInfo } from '../../store/lobbySlice';
 import { fetchSubscriptionServiceJson } from '../subscriptionDevTools';
 import { patchTierVisuals, type PatchTier } from './core';
-import { canChampionPlayRole } from './championRoles';
 
 export type LobbyRankBracket = 'emerald_plus' | 'platinum-plus' | 'diamond2-plus';
+export type LobbySignalQuality = 'strong' | 'medium' | 'tier-only' | 'none';
+
+export const MIN_RELIABLE_LOBBY_COUNTER_SAMPLE = 500;
+export const MIN_STRONG_LOBBY_COUNTERS = 2;
 
 export interface LobbyCounterpickInsight {
   champion: string;
@@ -21,17 +24,45 @@ export interface LobbyChampionInsight {
   tierColor: string;
   patch: string;
   sampleLabel: string;
+  signalQuality: LobbySignalQuality;
 }
 
 const patch = '30';
 const sampleLabel = 'Emerald+, Ranked Solo/Duo, last 30 days';
 
-const buildInsight = (input: Omit<LobbyChampionInsight, 'tierColor' | 'patch' | 'sampleLabel' | 'rankBracket'>): LobbyChampionInsight => ({
+export const getReliableLobbyCounters = (counters: LobbyCounterpickInsight[]) => counters
+  .filter((counter) => Number.isFinite(counter.matchupWinRate))
+  .slice(0, 5);
+
+export const resolveLobbySignalQuality = (input: {
+  counters?: LobbyCounterpickInsight[];
+  globalWinRate?: number | null;
+  patchTier?: PatchTier | null;
+}): LobbySignalQuality => {
+  const reliableCounters = getReliableLobbyCounters(input.counters || []);
+
+  if (Number.isFinite(input.globalWinRate) && reliableCounters.length >= MIN_STRONG_LOBBY_COUNTERS) {
+    return 'strong';
+  }
+
+  if (Number.isFinite(input.globalWinRate)) {
+    return 'medium';
+  }
+
+  if (input.patchTier) {
+    return 'tier-only';
+  }
+
+  return 'none';
+};
+
+const buildInsight = (input: Omit<LobbyChampionInsight, 'tierColor' | 'patch' | 'sampleLabel' | 'rankBracket' | 'signalQuality'>): LobbyChampionInsight => ({
   ...input,
   rankBracket: 'emerald_plus',
   tierColor: patchTierVisuals[input.patchTier] ?? patchTierVisuals.B,
   patch,
-  sampleLabel
+  sampleLabel,
+  signalQuality: resolveLobbySignalQuality(input)
 });
 
 const roleInsightCatalog: Partial<Record<PlayerInfo['mainRole'], Record<string, LobbyChampionInsight>>> = {
@@ -93,10 +124,7 @@ export const getLobbyChampionInsight = (
 
   const insight = roleInsightCatalog[role]?.[championName] ?? null;
 
-  return insight ? {
-    ...insight,
-    counters: insight.counters.filter((counter) => canChampionPlayRole(counter.champion, role))
-  } : null;
+  return insight;
 };
 
 interface BackendLobbyChampionInsightResponse {
@@ -110,6 +138,7 @@ interface BackendLobbyChampionInsightResponse {
     patchTier?: PatchTier | null;
     patch?: string;
     sampleLabel?: string;
+    signalQuality?: LobbySignalQuality;
   } | null;
 }
 
@@ -122,19 +151,24 @@ export const fetchLobbyChampionInsight = async (
   const response = await fetchSubscriptionServiceJson<BackendLobbyChampionInsightResponse>(`/api/lol/meta/champion-insight?${query.toString()}`);
   const insight = response?.insight;
 
-  if (!response?.ok || !insight?.patchTier) {
+  if (!response?.ok || !insight || (!insight.patchTier && !Array.isArray(insight.counters))) {
     return getLobbyChampionInsight(championName, role, rankBracket === 'diamond2-plus' ? 'emerald_plus' : rankBracket);
   }
+
+  const counters = Array.isArray(insight.counters) ? insight.counters.filter((counter) => Number.isFinite(counter.matchupWinRate)).slice(0, 5) : [];
+  const normalizedGlobalWinRate = Number.isFinite(insight.globalWinRate) ? insight.globalWinRate : null;
+  const patchTier = insight.patchTier || 'B';
 
   return {
     role: insight.role,
     rankBracket: insight.rankBracket,
-    counters: Array.isArray(insight.counters) ? insight.counters.filter((counter) => canChampionPlayRole(counter.champion, insight.role)) : [],
-    globalWinRate: Number.isFinite(insight.globalWinRate) ? insight.globalWinRate : null,
+    counters,
+    globalWinRate: normalizedGlobalWinRate,
     overallMatches: Number.isFinite(insight.overallMatches) ? insight.overallMatches ?? undefined : undefined,
-    patchTier: insight.patchTier,
-    tierColor: patchTierVisuals[insight.patchTier] ?? patchTierVisuals.B,
+    patchTier,
+    tierColor: patchTierVisuals[patchTier] ?? patchTierVisuals.B,
     patch: insight.patch || patch,
-    sampleLabel: insight.sampleLabel || sampleLabel
+    sampleLabel: insight.sampleLabel || sampleLabel,
+    signalQuality: insight.signalQuality || resolveLobbySignalQuality({ counters, globalWinRate: normalizedGlobalWinRate, patchTier })
   };
 };

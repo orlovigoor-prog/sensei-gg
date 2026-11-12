@@ -2,6 +2,8 @@
 
 **Русский** | **English**
 
+> **Riot / external review:** start with [REVIEW.md](REVIEW.md). The public source repository is https://github.com/orlovigoor-prog/sensei-gg.
+
 ---
 
 ## 🎮 О проекте
@@ -66,7 +68,7 @@
 
 ```bash
 # Клонируйте репозиторий
-git clone https://github.com/ваш-ник/sensei-gg.git
+git clone https://github.com/orlovigoor-prog/sensei-gg.git
 
 # Перейдите в директорию проекта
 cd sensei-gg
@@ -117,7 +119,7 @@ npm run build
 
 ### По умолчанию:
 - **Ctrl + X** — Открыть/закрыть оверлей
-- **Ctrl + Shift + D** — Dev-панель (только dev режим)
+- **Ctrl + Shift + Z** — Review Mode / dev-панель (только для локальной проверки)
 
 ### Настройка:
 Откройте **Настройки** → **Горячие клавиши** и задайте удобную комбинацию.
@@ -179,11 +181,9 @@ sensei-gg/
 
 ---
 
-## 📞 Контакты
+## 📞 Контакт для review
 
-- **Разработчик**: Ваш никнейм
-- **Email**: ваш@email.com
-- **Discord**: ваш#0000
+Публичные шаблонные контакты намеренно не публикуются. Для заявки Riot или Overwolf укажите актуальный контакт автора в форме подачи; порядок локальной проверки и границы продукта описаны в [REVIEW.md](REVIEW.md).
 
 ---
 

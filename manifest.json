@@ -6,7 +6,7 @@
     "version": "1.0.0.0",
     "minimum-overwolf-version": "0.195.0",
     "author": "Sensei",
-    "description": "AI-powered League of Legends coach with real-time match analysis",
+    "description": "League of Legends companion for permitted lobby context and post-game performance review.",
     "icon": "icon.png"
   },
   "data": {

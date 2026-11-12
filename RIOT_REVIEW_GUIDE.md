@@ -1,5 +1,13 @@
 # Riot Review Guide - Sensei GG
 
+## Публичная точка входа
+
+- Репозиторий: https://github.com/orlovigoor-prog/sensei-gg
+- Краткий англоязычный пакет для внешнего ревью: [REVIEW.md](REVIEW.md)
+- Прямая ссылка после публикации в `main`: https://github.com/orlovigoor-prog/sensei-gg/blob/main/REVIEW.md
+
+Репозиторий публичный и не требует collaborator access. Этот файл содержит подробный сценарий policy review; `REVIEW.md` — короткая точка входа для проверяющего.
+
 ## Цель документа
 
 Этот файл нужен для быстрого ревью функционала Sensei GG со стороны Riot.
@@ -70,9 +78,9 @@ Sensei GG не пытается давать запрещенные live-под�
 4. Убедиться, что текст review опирается на метрики матча, а не на выдуманные live-факты.
 
 ### Сценарий D. Review Mode
-1. Включить Review Mode.
+1. Нажать `Ctrl+Shift+Z`, чтобы включить Review Mode.
 2. Последовательно показать lobby, profile и post-game AI review.
-3. Проверить, что simulated/demo data визуально отделены от реальных данных.
+3. Проверить маркировку `DEMO / REVIEW` и то, что simulated/demo data визуально отделены от реальных данных.
 
 ## Что стоит приложить к заявке Riot
 
@@ -113,4 +121,4 @@ Sensei GG is a League of Legends overlay focused on safe lobby visibility, playe
 - [ ] `.env` не попал в git
 - [ ] есть свежие скриншоты
 - [ ] есть короткое demo video
-
+- [ ] в форме Riot/Overwolf указан актуальный контакт автора

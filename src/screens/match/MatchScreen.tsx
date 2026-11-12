@@ -18,9 +18,10 @@ import {
   getDefaultRuneLoadout,
   getDefaultSummonerSpells,
   fetchLobbyChampionInsight,
+  getReliableLobbyCounters,
   summonerSpellPool
 } from '../../services/gameData';
-import type { LobbyCounterpickInsight, LobbyRankBracket, RuneLoadout } from '../../services/gameData';
+import type { LobbyRankBracket, RuneLoadout } from '../../services/gameData';
 import type { ItemCatalogEntry } from '../../services/gameData/items';
 
 const laneOrder = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'] as const;
@@ -93,25 +94,7 @@ interface PostGamePlayerRowProps {
   rowIndex: number;
 }
 
-const MIN_RELIABLE_COUNTER_SAMPLE = 500;
-
-const getReliableLobbyCounters = (counters: LobbyCounterpickInsight[]) => counters
-  .filter((counter) => Number.isFinite(counter.matches) && Number(counter.matches) >= MIN_RELIABLE_COUNTER_SAMPLE)
-  .slice(0, 5);
-
-const getLobbyMatchupHint = (champion: string, counters: LobbyCounterpickInsight[]) => {
-  const primaryCounter = counters[0];
-
-  if (!primaryCounter) {
-    return 'Для этой роли пока мало надёжных matchup-данных. Играй от базовой силы пика и не делай выводы по шумной выборке.';
-  }
-
-  if (primaryCounter.matchupWinRate >= 55) {
-    return `${primaryCounter.champion} заметно давит ${champion}: избегай ранних all-in и играй от безопасных разменов.`;
-  }
-
-  return `${primaryCounter.champion} — самый заметный риск для ${champion}. Уважай его окно силы и не отдавай темп в начале.`;
-};
+const formatLobbyPercent = (value: number) => `${value.toFixed(2).replace('.', ',')}%`;
 
 const getAiSourceMeta = (source: StructuredAiReview['source']) => {
   switch (source) {
@@ -466,12 +449,8 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const playerLoadout = getPlayerLoadout(player, championLabel);
   
   const [showChampTooltip, setShowChampTooltip] = useState(false);
-  const [hoveredCounter, setHoveredCounter] = useState<LobbyCounterpickInsight | null>(null);
   const [lobbyInsight, setLobbyInsight] = useState<Awaited<ReturnType<typeof fetchLobbyChampionInsight>>>(null);
   const reliableLobbyCounters = lobbyInsight ? getReliableLobbyCounters(lobbyInsight.counters) : [];
-  const hasLowConfidenceCounters = Boolean(lobbyInsight && lobbyInsight.counters.length > 0 && reliableLobbyCounters.length === 0);
-  const hasReliableGlobalWinRate = Boolean(lobbyInsight && Number.isFinite(lobbyInsight.globalWinRate));
-  const lobbyMatchupHint = lobbyInsight ? getLobbyMatchupHint(championLabel, reliableLobbyCounters) : null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -673,10 +652,8 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
         </div>
       </div>
 
-      {variant === 'lobby' ? (
-        lobbyInsight && reliableLobbyCounters.length > 0 ? (
+      {variant === 'lobby' && lobbyInsight && reliableLobbyCounters.length > 0 && (
         <div style={{
-          position: 'relative',
           background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.72), rgba(15, 23, 42, 0.58))',
           padding: '7px 8px',
           borderRadius: '8px',
@@ -684,16 +661,10 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
           border: '1px solid rgba(148, 163, 184, 0.12)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '6px' }}>
-            <div style={{ color: '#94a3b8', fontSize: '8px', fontWeight: 700, letterSpacing: '0.04em' }}>УЯЗВИМ К</div>
-            <div style={{ color: '#64748b', fontSize: '8px' }}>{lobbyInsight.sampleLabel.replace('Emerald+, ', '')}</div>
-          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '5px' }}>
             {reliableLobbyCounters.map((counter) => (
               <div
                 key={`${championLabel}-${counter.champion}`}
-                onMouseEnter={() => setHoveredCounter(counter)}
-                onMouseLeave={() => setHoveredCounter((current) => current?.champion === counter.champion ? null : current)}
                 style={{ position: 'relative', minWidth: 0 }}
               >
                 <img
@@ -723,70 +694,14 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   fontWeight: 800,
                   border: '1px solid rgba(254, 202, 202, 0.24)'
                 }}>
-                  {Math.round(counter.matchupWinRate)}%
+                  {formatLobbyPercent(counter.matchupWinRate)}
                 </div>
               </div>
             ))}
           </div>
-          {lobbyMatchupHint && (
-            <div style={{ color: '#cbd5e1', fontSize: '8px', lineHeight: 1.35, marginTop: '6px' }}>
-              {lobbyMatchupHint}
-            </div>
-          )}
-          {hoveredCounter && (
-            <div style={{
-              position: 'absolute',
-              left: '8px',
-              right: '8px',
-              bottom: 'calc(100% + 6px)',
-              padding: '6px 8px',
-              borderRadius: '8px',
-              background: 'rgba(10, 14, 22, 0.96)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: '0 8px 18px rgba(0, 0, 0, 0.35)',
-              pointerEvents: 'none',
-              zIndex: 3
-            }}>
-              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '10px', marginBottom: '2px' }}>{hoveredCounter.champion}</div>
-              <div style={{ color: '#9ca3af', fontSize: '9px' }}>Винрейт контрпика против {championLabel}: {hoveredCounter.matchupWinRate}%</div>
-              {hoveredCounter.matches ? (
-                <div style={{ color: '#64748b', fontSize: '8px', marginTop: '2px' }}>{hoveredCounter.matches.toLocaleString('ru-RU')} матчей</div>
-              ) : null}
-            </div>
-          )}
         </div>
-        ) : lobbyInsight ? (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.68), rgba(30, 41, 59, 0.48))',
-            padding: '7px 8px',
-            borderRadius: '8px',
-            marginTop: 'auto',
-            border: '1px solid rgba(148, 163, 184, 0.12)'
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Мета-профиль</div>
-            <div style={{ color: '#cbd5e1', fontSize: '9px', lineHeight: 1.35 }}>
-              {hasLowConfidenceCounters
-                ? 'Данные по матчапам есть, но выборка слишком маленькая для уверенного совета.'
-                : hasReliableGlobalWinRate
-                  ? 'Тир и винрейт есть, но надёжные данные по матчапам для этой роли пока не заполнены.'
-                  : 'Тир есть, но надёжные винрейт и матчапы для этой роли пока не заполнены.'}
-            </div>
-          </div>
-        ) : (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(30, 41, 59, 0.38))',
-            padding: '7px 8px',
-            borderRadius: '8px',
-            marginTop: 'auto',
-            border: '1px solid rgba(148, 163, 184, 0.1)'
-          }}>
-            <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '4px' }}>Матчапы</div>
-            <div style={{ color: '#cbd5e1', fontSize: '9px', lineHeight: 1.35 }}>
-              Нет надёжного сигнала по этому пику. Показываем только проверенные данные, без выдуманных цифр.
-            </div>
-          </div>
-        )
-      ) : (
+      )}
+      {variant !== 'lobby' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px', marginTop: 'auto' }}>
           <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '7px 6px', borderRadius: '6px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxSizing: 'border-box' }}>
             <div style={{ color: winRateColor, fontWeight: 'bold', fontSize: '14px' }}>

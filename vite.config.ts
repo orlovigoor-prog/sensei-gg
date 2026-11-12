@@ -18,7 +18,7 @@ export default defineConfig({
       ]
     })
   ],
-  base: '/',
+  base: process.env.VITE_BASE_PATH || '/',
   build: {
     target: 'es2022',
     outDir: 'dist'

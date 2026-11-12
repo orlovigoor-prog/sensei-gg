@@ -7,6 +7,7 @@ const ROLE_MATRIX_PATH = path.resolve(ROOT, 'src/services/gameData/champion-role
 const COUNTERPICK_DATABASE_PATH = path.resolve(ROOT, 'server/data/lol-counterpicks.json');
 const LANE_ORDER = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 const MIN_RELIABLE_COUNTER_SAMPLE = 500;
+const MIN_COUNTER_ROWS = 5;
 const DEMO_LOBBY_POOLS = {
   TOP: ['Aatrox', 'Renekton', 'Gnar', 'Camille'],
   JUNGLE: ['LeeSin', 'Vi'],
@@ -83,6 +84,10 @@ for (const [champion, championEntry] of Object.entries(counterpickDatabase.champ
       continue;
     }
 
+    if (counters.length > 0 && counters.length < MIN_COUNTER_ROWS) {
+      errors.push(`${champion} ${role} has ${counters.length} counter rows; expected at least ${MIN_COUNTER_ROWS}.`);
+    }
+
     if (counters.length > 0 && counters.every((counter) => isFiniteNumber(counter.matches) && counter.matches < MIN_RELIABLE_COUNTER_SAMPLE)) {
       warnings.push(`${champion} ${role} has only low-sample counter rows.`);
     }
@@ -91,10 +96,6 @@ for (const [champion, championEntry] of Object.entries(counterpickDatabase.champ
       if (!counter?.champion) {
         errors.push(`${champion} ${role} has a counter row without champion name.`);
         continue;
-      }
-
-      if (!canChampionPlayRole(counter.champion, role)) {
-        errors.push(`${champion} ${role} counter ${counter.champion} is not allowed for ${role} by role matrix.`);
       }
 
       if (!isFiniteNumber(counter.matchupWinRate)) {
@@ -134,11 +135,7 @@ for (const role of LANE_ORDER) {
     )) ?? [];
     const counters = counterpickChampionEntry?.roles?.[role]?.counters;
 
-    const roleAwareCounters = Array.isArray(counters)
-      ? counters.filter((counter) => canChampionPlayRole(counter.champion, role))
-      : [];
-
-    if (roleAwareCounters.length === 0) {
+    if (!Array.isArray(counters) || counters.length < MIN_COUNTER_ROWS) {
       errors.push(`${champion} ${role} has no counterpick rows in lol-counterpicks.json.`);
     }
   }

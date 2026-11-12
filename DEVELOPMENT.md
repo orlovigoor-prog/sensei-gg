@@ -219,7 +219,7 @@ src/
 ### Dev режим:
 1. Запусти `npm run dev`
 2. Открой в Overwolf Developer Hub
-3. Нажми `Ctrl+Shift+D` для dev-панели
+3. Нажми `Ctrl+Shift+Z` для Review Mode / dev-панели
 4. Используй симуляцию лобби для тестов. Review Mode остается временным демонстрационным слоем и должен быть удален после green light от Riot/Overwolf для реальных тестов.
 5. Перед изменениями в demo lobby запускай `npm run verify:lobby-domain`, чтобы проверить role-aware пулы и наличие counterpick rows.
 

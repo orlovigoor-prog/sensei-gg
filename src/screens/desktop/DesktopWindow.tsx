@@ -385,7 +385,7 @@ export function DesktopWindow() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #1f2937', paddingBottom: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0 }}>
           <img
-            src="/brand-mark.svg"
+            src={`${import.meta.env.BASE_URL}brand-mark.svg`}
             alt="Sensei logo"
             style={{ width: '38px', height: '38px', flexShrink: 0, display: 'block', marginTop: '-2px' }}
           />

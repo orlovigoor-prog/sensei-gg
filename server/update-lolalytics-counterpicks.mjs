@@ -14,12 +14,15 @@ const LOLALYTICS_LANE_BY_ROLE = {
   ADC: 'bottom',
   SUPPORT: 'support'
 };
+const LOLALYTICS_SLUG_OVERRIDES = {
+  MonkeyKing: 'wukong'
+};
 
 const DEFAULT_OPTIONS = {
-  rank: process.env.LOLALYTICS_RANK || 'emerald_plus',
+  rank: process.env.LOLALYTICS_RANK || 'all',
   patch: process.env.LOLALYTICS_PATCH || '30',
   minGames: Number.parseInt(process.env.LOLALYTICS_MIN_GAMES || '100', 10),
-  maxCounters: Number.parseInt(process.env.LOLALYTICS_MAX_COUNTERS || '8', 10),
+  maxCounters: Number.parseInt(process.env.LOLALYTICS_MAX_COUNTERS || '5', 10),
   timeoutMs: Number.parseInt(process.env.LOLALYTICS_FETCH_TIMEOUT_MS || '15000', 10),
   retries: Number.parseInt(process.env.LOLALYTICS_FETCH_RETRIES || '2', 10),
   retryDelayMs: Number.parseInt(process.env.LOLALYTICS_RETRY_DELAY_MS || '1200', 10),
@@ -43,6 +46,22 @@ const parseNumber = (value) => {
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getRankSampleLabel = (rank) => {
+  const normalizedRank = String(rank || '').trim().toLowerCase();
+
+  if (normalizedRank === 'all') {
+    return 'All ranks';
+  }
+
+  if (normalizedRank === 'emerald_plus') {
+    return 'Emerald+';
+  }
+
+  return normalizedRank.replace(/_/g, ' ');
+};
+
+const getSampleLabel = (options) => `${getRankSampleLabel(options.rank)}, Ranked Solo/Duo, ${options.patch === '30' ? 'last 30 days' : `patch ${options.patch}`}`;
 
 const readJsonFile = async (filePath, fallback) => {
   try {
@@ -109,7 +128,7 @@ const loadDataDragonChampions = async (timeoutMs) => {
     id: entry.id,
     key: entry.key,
     name: entry.name,
-    slug: normalizeKey(entry.id)
+    slug: LOLALYTICS_SLUG_OVERRIDES[entry.id] || normalizeKey(entry.id)
   })).sort((left, right) => left.name.localeCompare(right.name));
 };
 
@@ -158,11 +177,11 @@ const buildEmptyDatabase = () => ({
 const ensureChampionEntities = (database, championCatalog) => {
   championCatalog.forEach((champion) => {
     database.champions[champion.name] = {
+      ...database.champions[champion.name],
       slug: champion.slug,
       dataDragonId: champion.id,
       dataDragonKey: champion.key,
-      roles: database.champions[champion.name]?.roles || {},
-      ...database.champions[champion.name]
+      roles: database.champions[champion.name]?.roles || {}
     };
   });
 };
@@ -180,7 +199,7 @@ const stripHtml = (html) => html
   .replace(/<style[\s\S]*?<\/style>/gi, ' ')
   .replace(/<[^>]+>/g, ' ')
   .replace(/&amp;/g, '&')
-  .replace(/&#x27;|&apos;/g, "'")
+  .replace(/&#x27;|&#39;|&apos;/g, "'")
   .replace(/&quot;/g, '"')
   .replace(/\s+/g, ' ')
   .trim();
@@ -240,26 +259,34 @@ const parseLolalyticsCounters = (html, championName, minGames, maxCounters) => {
   }
 
   const compactHtml = html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\s+/g, ' ');
-  const cardPattern = /<div class="h-\[20px\][\s\S]*?>([^<]+)<\/div>[\s\S]*?<span class="text-green-300">([0-9]+(?:\.[0-9]+)?)%<\/span>[\s\S]*?<span class="text-yellow-400">([0-9.-]+)%<\/span>[\s\S]*?<span class="text-yellow-100">([0-9.-]+)%<\/span>[\s\S]*?<span class="text-green-500">([0-9]+(?:\.[0-9]+)?)%<\/span>/gi;
+  const cardPattern = /<a href="\/lol\/[^/]+\/vs\/([a-z0-9]+)\/build\/[^>]*>([\s\S]*?)<\/a>/gi;
   let cardMatch;
 
   while ((cardMatch = cardPattern.exec(compactHtml)) && counters.length < maxCounters) {
-    const counterChampion = cardMatch[1].trim();
-    const matchesPattern = new RegExp(`${counterChampion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]{0,1600}?([0-9][0-9,]*)\\s+Games`, 'i');
-    const matches = parseNumber(compactHtml.slice(Math.max(0, cardMatch.index - 400), cardMatch.index + 1800).match(matchesPattern)?.[1]) ?? null;
+    const cardHtml = cardMatch[2];
+    const counterChampion = stripHtml(cardHtml.match(/<div class="h-\[20px\][\s\S]*?>([\s\S]*?)<\/div>/i)?.[1] || '').trim();
+    const targetChampionWinRate = toPercent(cardHtml.match(/<div class="text-center text-xs text-(?:green|red)-300">\s*([0-9]+(?:\.[0-9]+)?)/i)?.[1]);
+    const delta1 = toPercent(cardHtml.match(/<span class="text-yellow-400">[\s\S]*?<\/sub>\s*([+-]?[0-9]+(?:\.[0-9]+)?)/i)?.[1]);
+    const delta2 = toPercent(cardHtml.match(/<span class="text-yellow-100">[\s\S]*?<\/sub>\s*([+-]?[0-9]+(?:\.[0-9]+)?)/i)?.[1]);
+    const allChampsWinRateVsCounter = toPercent(cardHtml.match(/<div class="text-xs text-(?:green|red)-500">\s*([0-9]+(?:\.[0-9]+)?)/i)?.[1]);
+    const matches = parseNumber(cardHtml.match(/([0-9][0-9,]*)\s+Games/i)?.[1]) ?? null;
+
+    if (!counterChampion) {
+      continue;
+    }
 
     addCounter({
       counterChampion,
-      targetChampionWinRate: toPercent(cardMatch[2]),
-      delta1: toPercent(cardMatch[3]),
-      delta2: toPercent(cardMatch[4]),
-      allChampsWinRateVsCounter: toPercent(cardMatch[5]),
+      targetChampionWinRate,
+      delta1,
+      delta2,
+      allChampsWinRateVsCounter,
       matches
     });
   }
 
   return {
-    sampleLabel: `Emerald+, Ranked Solo/Duo, ${DEFAULT_OPTIONS.patch === '30' ? 'last 30 days' : `patch ${DEFAULT_OPTIONS.patch}`}`,
+    sampleLabel: getSampleLabel(DEFAULT_OPTIONS),
     averageTierWinRate: averageMatch ? toPercent(averageMatch[1]) : null,
     counters,
     parseWarning: counters.length === 0 ? `No counter rows parsed for ${championName}` : null
@@ -281,7 +308,11 @@ const parseLolalyticsBuildMetrics = (html, championName, role) => {
   };
 };
 
-const filterRoleAwareCounters = (roleMatrix, counters, role) => (counters || []).filter((counter) => canChampionPlayRole(roleMatrix, counter.champion, role));
+const filterCounterpickRows = (counters) => (counters || []).filter((counter) => (
+  counter?.champion
+  && Number.isFinite(counter.matchupWinRate)
+  && (counter.matches === null || counter.matches === undefined || Number.isFinite(counter.matches))
+));
 
 const buildCounterUrl = (championSlug, role, options) => {
   const lane = LOLALYTICS_LANE_BY_ROLE[role];
@@ -339,6 +370,8 @@ const parseArgValue = (name) => {
 const main = async () => {
   const options = {
     ...DEFAULT_OPTIONS,
+    rank: parseArgValue('--rank') || DEFAULT_OPTIONS.rank,
+    patch: parseArgValue('--patch') || DEFAULT_OPTIONS.patch,
     champion: parseArgValue('--champion'),
     role: parseArgValue('--role')?.toUpperCase() || null,
     championsFile: parseArgValue('--champions-file'),
@@ -394,21 +427,21 @@ const main = async () => {
         const buildHtml = await fetchTextWithRetry(buildChampionBuildUrl(champion.slug, role, options), options);
         const buildMetrics = parseLolalyticsBuildMetrics(buildHtml, champion.name, role);
         let parsed = {
-          sampleLabel: existingRoleEntry?.sampleLabel || `Emerald+, Ranked Solo/Duo, ${options.patch === '30' ? 'last 30 days' : `patch ${options.patch}`}`,
+          sampleLabel: existingRoleEntry?.sampleLabel || getSampleLabel(options),
           averageTierWinRate: existingRoleEntry?.averageTierWinRate ?? null,
           parseWarning: null
         };
-        let roleAwareCounters = filterRoleAwareCounters(roleMatrix, existingRoleEntry?.counters || [], role);
+        let counterpickRows = filterCounterpickRows(existingRoleEntry?.counters || []);
 
-        if (options.force || roleAwareCounters.length === 0) {
+        if (options.force || counterpickRows.length < options.maxCounters) {
           const url = buildCounterUrl(champion.slug, role, options);
           const html = await fetchTextWithRetry(url, options);
           parsed = parseLolalyticsCounters(html, champion.name, options.minGames, options.maxCounters);
-          roleAwareCounters = filterRoleAwareCounters(roleMatrix, parsed.counters, role);
+          counterpickRows = filterCounterpickRows(parsed.counters);
         }
 
-        if (roleAwareCounters.length === 0) {
-          failures.push({ champion: champion.name, role, reason: parsed.parseWarning || 'No role-aware counter rows parsed' });
+        if (counterpickRows.length === 0) {
+          failures.push({ champion: champion.name, role, reason: parsed.parseWarning || 'No counter rows parsed' });
           continue;
         }
 
@@ -426,10 +459,10 @@ const main = async () => {
           overallMatches: buildMetrics.overallMatches,
           averageTierWinRate: parsed.averageTierWinRate,
           sourceUpdatedAt: new Date().toISOString(),
-          counters: roleAwareCounters
+          counters: counterpickRows.slice(0, options.maxCounters)
         };
         updatedRows += 1;
-        console.log(`Updated ${champion.name} ${role}: ${roleAwareCounters.length} counters, WR ${buildMetrics.globalWinRate}%`);
+        console.log(`Updated ${champion.name} ${role}: ${counterpickRows.slice(0, options.maxCounters).length} counters, WR ${buildMetrics.globalWinRate}%`);
       } catch (error) {
         failures.push({ champion: champion.name, role, reason: error instanceof Error ? error.message : String(error) });
       }
