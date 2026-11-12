@@ -199,7 +199,8 @@ npm run verify:foundation-all
 ```
 src/
 ├── services/
-│   └── riotApi.ts          # Riot API и LCU сервис
+│   ├── gameData/           # Статический справочник Riot Data Dragon
+│   └── riotApi.ts          # Общие типы профиля и матчей Riot
 ├── components/
 │   ├── ChampionDetail.tsx  # Детали чемпиона
 │   └── PlayerCardWithChampion.tsx
@@ -254,7 +255,7 @@ src/
 - ✅ Role-aware demo lobby и проверка domain correctness
 
 ### Future:
-- ⏳ Real-time мониторинг через LCU API
+- ⏳ Production-доступ к Riot API через серверный backend после одобрения Riot
 - ⏳ Уведомления о начале игры
 - ⏳ Анализ пиков/банов
 - ⏳ История матчей с Riot API

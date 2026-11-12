@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildFoundationTestCaseCatalog, buildMatrixAssertions } from './foundation-test-case-catalog.mjs';
+import { DATA_DRAGON_VERSION } from './game-data-config.mjs';
 import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
 import {
   accountSessionScenarioFixtures,
@@ -1022,7 +1023,7 @@ const fetchChampionIdNameMap = async () => {
     return championIdNameMapCache;
   }
 
-  const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.10.1/data/en_US/champion.json');
+  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${DATA_DRAGON_VERSION}/data/en_US/champion.json`);
   if (!response.ok) {
     throw new Error(`Champion catalog request failed with status ${response.status}`);
   }

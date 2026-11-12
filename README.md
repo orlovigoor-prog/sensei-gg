@@ -3,6 +3,8 @@
 **Русский** | **English**
 
 > **Riot / external review:** start with [REVIEW.md](REVIEW.md). The public source repository is https://github.com/orlovigoor-prog/sensei-gg.
+>
+> **Product boundaries:** [POROFESSOR_SCOPE.md](POROFESSOR_SCOPE.md) documents which public companion-app capability categories Sensei GG retains, defers, or intentionally excludes.
 
 ---
 
@@ -15,6 +17,7 @@
 - **Профиль игрока** — единый экран профиля с поиском и демо-сценарием по умолчанию
 - **Review Mode** — временная безопасная демонстрация будущего профиля и post-game flow до green light от Riot/Overwolf
 - **Настраиваемые горячие клавиши** — открывайте приложение по Ctrl+X в любой момент
+- **Официальный справочник Riot** — чемпионы, предметы и иконки из Data Dragon с единым зафиксированным патчем
 
 ---
 
@@ -207,7 +210,7 @@ sensei-gg/
 - [ ] Уведомления о начале игры
 - [ ] Анализ пиков/банов
 - [ ] История матчей
-- [ ] Интеграция с LCU API
+- [ ] Production-доступ к Riot API через серверный backend после одобрения Riot
 - [ ] Удаление Review Mode после одобрения Riot/Overwolf и переход на реальные тестовые данные
 
 ---

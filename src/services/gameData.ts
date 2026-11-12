@@ -1,4 +1,5 @@
 export * from './gameData/core';
+export * from './gameData/dataDragon';
 export * from './gameData/champions';
 export * from './gameData/championRoles';
 export * from './gameData/items';

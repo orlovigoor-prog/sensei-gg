@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
+import { DATA_DRAGON_VERSION } from './game-data-config.mjs';
 
-const DATA_DRAGON_VERSION = process.env.LOL_DATA_DRAGON_VERSION || '16.11.1';
 const DATA_DRAGON_CHAMPIONS_URL = `https://ddragon.leagueoflegends.com/cdn/${DATA_DRAGON_VERSION}/data/en_US/champion.json`;
 const DATABASE_PATH = path.resolve(process.cwd(), 'server/data/lol-counterpicks.json');
 const ROLE_MATRIX_PATH = path.resolve(process.cwd(), 'src/services/gameData/champion-role-matrix.json');

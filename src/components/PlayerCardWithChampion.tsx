@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PlayerInfo } from '../store/lobbySlice';
 import { ChampionDetail } from './ChampionDetail';
-import { lcuService } from '../services/riotApi';
+import { getChampionIconUrl, getSummonerSpellIconUrl } from '../services/gameData';
 import { getRankColor, getRankIconUrl } from '../services/rankAssets';
 import { formatPlayerRankLabel } from '../services/rankLabel';
 
@@ -22,10 +22,6 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
     MID: '⚡',
     ADC: '🔫',
     SUPPORT: '💚'
-  };
-
-  const getSummonerSpellIcon = (spellId: number) => {
-    return lcuService.getSummonerSpellIcon(spellId);
   };
 
   const handleChampionClick = () => {
@@ -173,7 +169,7 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
             onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <img
-              src={lcuService.getChampionIcon(selectedChampion)}
+              src={getChampionIconUrl(selectedChampion)}
               alt="Champion"
               style={{ width: '56px', height: '56px', borderRadius: '8px', border: '2px solid #00ffcc' }}
             />
@@ -196,8 +192,8 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
             </div>
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
-            <img src={getSummonerSpellIcon(4)} alt="Flash" style={{ width: '40px', height: '40px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
-            <img src={getSummonerSpellIcon(14)} alt="Ignite" style={{ width: '40px', height: '40px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
+            <img src={getSummonerSpellIconUrl(4)} alt="Flash" style={{ width: '40px', height: '40px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
+            <img src={getSummonerSpellIconUrl(14)} alt="Ignite" style={{ width: '40px', height: '40px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
           </div>
         </div>
       )}

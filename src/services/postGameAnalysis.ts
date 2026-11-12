@@ -115,19 +115,19 @@ const getChampionArchetype = (championName: string, role: PlayerInfo['mainRole']
   const champion = getChampionCatalogEntry(championName);
   const tags = champion?.tags ?? [];
 
-  if (tags.includes('utility') || tags.includes('enchanter') || tags.includes('control') || tags.includes('map-play')) {
+  if (tags.includes('support')) {
     return 'utility';
   }
 
-  if (tags.includes('engage') || tags.includes('teamfight') || tags.includes('tank')) {
+  if (tags.includes('tank')) {
     return 'engage';
   }
 
-  if (tags.includes('scaling') || tags.includes('duelist') || tags.includes('carry')) {
+  if (tags.includes('fighter') || tags.includes('marksman')) {
     return 'scaling';
   }
 
-  if (tags.includes('playmaker') || tags.includes('lane-bully') || tags.includes('burst') || tags.includes('assassin') || tags.includes('early-game')) {
+  if (tags.includes('mage') || tags.includes('assassin')) {
     return 'playmaker';
   }
 

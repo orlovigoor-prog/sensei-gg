@@ -73,7 +73,12 @@ export function ItemTooltip({
   arrowDirection = 'down'
 }: ItemTooltipProps) {
   const hasCosts = typeof item.totalCost === 'number' || typeof item.combineCost === 'number';
-  const showTags = !item.passiveTitle && !item.passiveText && item.tags.length > 0;
+  const effectBlocks = item.effectBlocks?.length
+    ? item.effectBlocks
+    : item.passiveText
+      ? [{ title: item.passiveTitle, text: item.passiveText }]
+      : [];
+  const showTags = effectBlocks.length === 0 && item.tags.length > 0;
 
   return (
     <div
@@ -132,26 +137,31 @@ export function ItemTooltip({
         </div>
       ) : (
         <div style={{ marginBottom: '10px', color: '#cbd5e1', fontSize: '11px', lineHeight: 1.45 }}>
-          {fallbackDescription}
+          {item.description ?? fallbackDescription}
         </div>
       )}
 
-      {item.passiveTitle && item.passiveText && (
-        <div style={{
-          marginBottom: '10px',
-          padding: '9px 10px',
-          borderRadius: '10px',
-          background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(59, 130, 246, 0.06))',
-          border: '1px solid rgba(96, 165, 250, 0.16)'
-        }}>
-          <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '5px', textTransform: 'uppercase' }}>
-            {item.passiveTitle}
-          </div>
+      {effectBlocks.map((effect, index) => (
+        <div
+          key={`${item.id}-${effect.title ?? 'description'}-${index}`}
+          style={{
+            marginBottom: '10px',
+            padding: '9px 10px',
+            borderRadius: '10px',
+            background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(59, 130, 246, 0.06))',
+            border: '1px solid rgba(96, 165, 250, 0.16)'
+          }}
+        >
+          {effect.title && (
+            <div style={{ color: '#93c5fd', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '5px', textTransform: 'uppercase' }}>
+              {effect.title}
+            </div>
+          )}
           <div style={{ color: '#e5e7eb', fontSize: '11px', lineHeight: 1.45, whiteSpace: 'pre-line' }}>
-            {item.passiveText}
+            {effect.text}
           </div>
         </div>
-      )}
+      ))}
 
       {showTags && (
         <div style={{
@@ -187,6 +197,12 @@ export function ItemTooltip({
           <span style={{ color: '#f8fafc', fontSize: '11px', fontWeight: 700 }}>
             {typeof item.totalCost === 'number' ? `${item.totalCost}g` : '--'}
           </span>
+        </div>
+      )}
+
+      {item.purchasable === false && (
+        <div style={{ marginTop: '9px', color: '#fbbf24', fontSize: '10px', lineHeight: 1.4 }}>
+          Этот предмет недоступен для покупки в обычном магазине.
         </div>
       )}
 

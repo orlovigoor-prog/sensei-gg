@@ -13,7 +13,7 @@ import {
   getChampionIconUrl,
   getItemCatalogEntry,
   getItemIconUrl,
-  getRecommendedItemBuild,
+  getDemoItemLoadout,
   resolveItemTooltipEntry,
   getDefaultRuneLoadout,
   getDefaultSummonerSpells,
@@ -147,7 +147,7 @@ const hashChampionName = (championName: string) => Array.from(championName).redu
 
 interface MockPostGameLoadout {
   role: PlayerInfo['mainRole'];
-  build: ReturnType<typeof getRecommendedItemBuild>;
+  demoLoadout: ReturnType<typeof getDemoItemLoadout>;
   spells: number[];
   runes: RuneLoadout;
   items: number[];
@@ -169,17 +169,17 @@ const getPlayerLoadout = (player: PlayerInfo, championName?: string) => {
 
 const getMockPostGameLoadout = (championName: string, role: PlayerInfo['mainRole']): MockPostGameLoadout => {
   const seed = hashChampionName(`${championName}-${role}`);
-  const build = getRecommendedItemBuild(championName, role);
+  const demoLoadout = getDemoItemLoadout(championName, role);
 
   return {
     role,
-    build,
+    demoLoadout,
     spells: [
       summonerSpellPool[seed % summonerSpellPool.length],
       summonerSpellPool[(seed + 3) % summonerSpellPool.length]
     ],
     runes: getDefaultRuneLoadout(role, championName),
-    items: build?.items.slice(0, 5) ?? []
+    items: demoLoadout?.items.slice(0, 5) ?? []
   };
 };
 
@@ -193,7 +193,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
   const mockLoadout = getMockPostGameLoadout(championName, player.mainRole);
   const playerLoadout = getPlayerLoadout(player, championName);
   const loadout = { ...mockLoadout, spells: playerLoadout.spells, runes: playerLoadout.runes };
-  const buildLabel = mockLoadout.build?.name;
+  const buildLabel = mockLoadout.demoLoadout?.name ?? 'Демо-набор предметов';
   const csEstimate = Math.max(24, Math.round((latestMatch?.k ?? 0) * 11 + (latestMatch?.a ?? 0) * 4 + player.winRate));
   const isDemoProfile = player.summonerName === 'DemoProfilePlayer';
   const [hoveredItemId, setHoveredItemId] = useState<number | null>(null);
@@ -322,7 +322,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
           <span style={{ color: '#9ca3af' }}>{player.winRate}% WR</span>
           <span style={{ color: '#9ca3af' }}>{totalGames} игр</span>
           {buildLabel && (
-            <span style={{ color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+            <span style={{ color: '#67e8f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
               {buildLabel}
             </span>
           )}
@@ -395,9 +395,9 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, rowIndex 
           );
         })}
         {hoveredItem && (
-            <ItemTooltip
-              item={hoveredItem}
-              fallbackDescription="Базовый командный предмет из demo-каталога. Подробные live-статы здесь пока не подключены."
+                <ItemTooltip
+                  item={hoveredItem}
+                  fallbackDescription="Официальные сведения о предмете из Riot Data Dragon загружаются."
               positionStyle={shouldOpenTooltipDownward
                 ? {
                     right: '-6px',
@@ -531,7 +531,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
             src={championIcon}
             alt={championLabel}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://ddragon.leagueoflegends.com/cdn/14.10.1/img/champion/Aatrox.png';
+              (e.target as HTMLImageElement).src = getChampionIconUrl('Aatrox');
             }}
             style={{ 
               width: '54px', 
@@ -926,7 +926,7 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
               }}>
                 {(() => {
                   const reviewRole = allies.find((player) => player.recentMatches[0]?.champion === lastCompletedMatch.championName)?.mainRole ?? 'ADC';
-                  const reviewBuild = getRecommendedItemBuild(lastCompletedMatch.championName, reviewRole);
+                  const reviewDemoLoadout = getDemoItemLoadout(lastCompletedMatch.championName, reviewRole);
 
                   return (
                     <>
@@ -943,8 +943,8 @@ export function MatchScreen({ onRequestAiAnalysis, isLoadingAi = false, aiAdvice
                         <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{lastCompletedMatch.cs} CS{lastCompletedMatch.csPerMinute !== null ? ` • ${lastCompletedMatch.csPerMinute.toFixed(1)}/мин` : ''}</div>
                       </div>
                       <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                        <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>СБОРКА</div>
-                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px', lineHeight: 1.35 }}>{reviewBuild?.name ?? 'Стандартный сетап'}</div>
+                        <div style={{ color: '#67e8f9', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>ДЕМО-НАБОР ПРЕДМЕТОВ</div>
+                        <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px', lineHeight: 1.35 }}>{reviewDemoLoadout?.name ?? 'Демо-набор предметов'}</div>
                       </div>
                       <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                         <div style={{ color: '#6b7280', fontSize: '8px', letterSpacing: '0.06em', marginBottom: '4px' }}>СИГНАЛ</div>
