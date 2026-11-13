@@ -48,8 +48,6 @@ const getAiSourceMeta = (source: 'provider' | 'local-server-fallback' | 'local-c
   }
 };
 
-const riotLegalText = "Sensei GG не одобрен Riot Games и не отражает взгляды или мнения Riot Games или лиц, официально связанных с производством или управлением продуктами Riot Games. Riot Games и все связанные свойства являются товарными знаками или зарегистрированными товарными знаками Riot Games, Inc.";
-
 const complianceHighlights = [
   'Без таймеров ультимейтов, заклинаний призывателя и способностей врага.',
   'Без live-команд в активном матче.',
@@ -68,13 +66,21 @@ const DESIGN_HEIGHT = 900;
 
 export function DesktopWindow() {
   const dispatch = useDispatch<AppDispatch>();
-  const subscription = useSelector((state: RootState) => state.subscription);
-  
   const { aiAdvice, aiReview, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
     (state: RootState) => state.game
   );
   const { isInLobby, phase, players } = useSelector((state: RootState) => state.lobby);
-  const { aiReviewsUsedThisWeek, aiReviewWeeklyLimit, hasUnlimitedAiReviews, hasAiHistoryAccess } = useSelector((state: RootState) => state.subscription);
+  const {
+    aiReviewsUsedThisWeek,
+    aiReviewWeeklyLimit,
+    hasUnlimitedAiReviews,
+    hasAiHistoryAccess,
+    purchaseFlowCompletedAt,
+    purchaseFlowError,
+    purchaseFlowInProgress,
+    purchaseFlowStartedAt,
+    purchaseFlowStatus
+  } = useSelector((state: RootState) => state.subscription);
 
   const [activeTab, setActiveTab] = useState<'match' | 'profile' | 'ai' | 'settings'>('match');
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
@@ -89,18 +95,41 @@ export function DesktopWindow() {
     : phaseLabels[phase];
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
+  const selectActiveTab = useCallback((nextTab: typeof activeTab) => {
+    setActiveTab(nextTab);
+
+    if (showDevPanel) {
+      setIsDevPanelExpanded(nextTab === 'match');
+    }
+  }, [showDevPanel]);
+
+  const handleToggleDevPanel = useCallback(() => {
+    const nextShowDevPanel = !showDevPanel;
+    setShowDevPanel(nextShowDevPanel);
+
+    if (nextShowDevPanel) {
+      setIsDevPanelExpanded(activeTab === 'match');
+    }
+  }, [activeTab, showDevPanel]);
+
   const handleBridgeGameStart = useCallback(() => {
-    setActiveTab('match');
-  }, []);
+    selectActiveTab('match');
+  }, [selectActiveTab]);
 
   useOverwolfBridge(handleBridgeGameStart);
 
   const syncSubscriptionState = useCallback(async () => {
     await syncSubscriptionRuntime({
       dispatch,
-      purchaseFlow: getSubscriptionPurchaseFlowSnapshot(subscription)
+      purchaseFlow: getSubscriptionPurchaseFlowSnapshot({
+        purchaseFlowCompletedAt,
+        purchaseFlowError,
+        purchaseFlowInProgress,
+        purchaseFlowStartedAt,
+        purchaseFlowStatus
+      })
     });
-  }, [dispatch, subscription.purchaseFlowCompletedAt, subscription.purchaseFlowError, subscription.purchaseFlowInProgress, subscription.purchaseFlowStartedAt, subscription.purchaseFlowStatus]);
+  }, [dispatch, purchaseFlowCompletedAt, purchaseFlowError, purchaseFlowInProgress, purchaseFlowStartedAt, purchaseFlowStatus]);
 
   const runPremiumUnlockFlow = useCallback(async () => {
     await runSubscriptionPurchaseFlow({
@@ -169,35 +198,21 @@ export function DesktopWindow() {
       if (e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'z' || e.code === 'KeyZ')) {
         e.preventDefault();
         e.stopPropagation();
-        setShowDevPanel(prev => {
-          const nextValue = !prev;
-          if (nextValue && activeTab === 'match') {
-            setIsDevPanelExpanded(true);
-          }
-          return nextValue;
-        });
+        handleToggleDevPanel();
       }
     };
- window.addEventListener('keydown', handleKeyDown, true);
+  window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!showDevPanel) {
-      return;
-    }
-
-    setIsDevPanelExpanded(activeTab === 'match');
-  }, [activeTab, showDevPanel]);
+  }, [handleToggleDevPanel]);
 
   // Слушатель события переключения на вкладку поиска игрока
   useEffect(() => {
     const handleSearchPlayer = () => {
-      setActiveTab('profile');
+      selectActiveTab('profile');
     };
     window.addEventListener(SENSEI_SEARCH_PLAYER_EVENT, handleSearchPlayer);
     return () => window.removeEventListener(SENSEI_SEARCH_PLAYER_EVENT, handleSearchPlayer);
-  }, []);
+  }, [selectActiveTab]);
 
   useEffect(() => {
     const handleWindowSizeUpdated = (event: Event) => {
@@ -396,10 +411,10 @@ export function DesktopWindow() {
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '5px', background: '#161d2a', padding: '4px', borderRadius: '8px' }}>
-            <button onClick={() => setActiveTab('match')} style={{ padding: '8px 12px', background: activeTab === 'match' ? '#00ffcc' : 'transparent', color: activeTab === 'match' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Матч</button>
-            <button onClick={() => setActiveTab('profile')} style={{ padding: '8px 12px', background: activeTab === 'profile' ? '#00ffcc' : 'transparent', color: activeTab === 'profile' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Профиль</button>
-            <button onClick={() => setActiveTab('ai')} style={{ padding: '8px 12px', background: activeTab === 'ai' ? '#00ffcc' : 'transparent', color: activeTab === 'ai' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>AI</button>
-            <button onClick={() => setActiveTab('settings')} style={{ padding: '8px 12px', background: activeTab === 'settings' ? '#00ffcc' : 'transparent', color: activeTab === 'settings' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>⚙️</button>
+            <button onClick={() => selectActiveTab('match')} style={{ padding: '8px 12px', background: activeTab === 'match' ? '#00ffcc' : 'transparent', color: activeTab === 'match' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Матч</button>
+            <button onClick={() => selectActiveTab('profile')} style={{ padding: '8px 12px', background: activeTab === 'profile' ? '#00ffcc' : 'transparent', color: activeTab === 'profile' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Профиль</button>
+            <button onClick={() => selectActiveTab('ai')} style={{ padding: '8px 12px', background: activeTab === 'ai' ? '#00ffcc' : 'transparent', color: activeTab === 'ai' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>AI</button>
+            <button onClick={() => selectActiveTab('settings')} style={{ padding: '8px 12px', background: activeTab === 'settings' ? '#00ffcc' : 'transparent', color: activeTab === 'settings' ? '#0f131a' : '#9ca3af', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>⚙️</button>
           </div>
         </div>
       </div>
@@ -427,18 +442,13 @@ export function DesktopWindow() {
       {/* ВКЛАДКА: МАТЧ (Оверлей 5x5) */}
       {activeTab === 'match' && (
         <MatchScreen
-          onRequestAiAnalysis={handleGeneratePostGameAnalysis}
-          isLoadingAi={isLoadingAi}
-          aiAdvice={aiAdvice}
-          aiReview={aiReview}
-          lastCompletedMatch={lastCompletedMatch}
           reviewMode={showDevPanel}
         />
       )}
 
       {/* ВКЛАДКА: ПРОФИЛЬ */}
       {activeTab === 'profile' && (
-        <ProfileScreen reviewMode={showDevPanel} />
+        <ProfileScreen />
       )}
 
       {/* ВКЛАДКА: НАСТРОЙКИ */}
@@ -559,11 +569,6 @@ export function DesktopWindow() {
       )}
 
       </div>
-
-        <div style={{ marginTop: '10px', paddingTop: '14px', borderTop: '1px solid #1f2937', color: '#6b7280', fontSize: '11px', lineHeight: 1.6, flexShrink: 0 }}>
-          <div style={{ marginBottom: '6px', color: '#9ca3af' }}>Riot / Overwolf compliance notice</div>
-          <div>{riotLegalText}</div>
-        </div>
       </div>
       </div>
     </div>

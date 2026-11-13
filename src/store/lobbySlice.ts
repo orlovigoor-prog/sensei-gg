@@ -26,6 +26,11 @@ export interface PlayerInfo {
     k: number;
     d: number;
     a: number;
+    cs?: number;
+    goldEarned?: number;
+    visionScore?: number;
+    items?: number[];
+    trinketId?: number;
     gameType?: 'RANKED' | 'NORMAL';
     summonerSpells?: number[];
     runes?: {

@@ -16,6 +16,31 @@ const DEFAULT_HOTKEYS: HotkeySettings = {
   toggleOverlay: ['Control', 'KeyX']
 };
 
+const getStoredHotkeys = (): HotkeySettings => {
+  try {
+    const savedHotkeys = localStorage.getItem('sensei_hotkeys');
+
+    if (!savedHotkeys) {
+      return DEFAULT_HOTKEYS;
+    }
+
+    const parsedHotkeys: unknown = JSON.parse(savedHotkeys);
+    if (
+      typeof parsedHotkeys === 'object'
+      && parsedHotkeys !== null
+      && 'toggleOverlay' in parsedHotkeys
+      && Array.isArray(parsedHotkeys.toggleOverlay)
+      && parsedHotkeys.toggleOverlay.every((key) => typeof key === 'string')
+    ) {
+      return { toggleOverlay: parsedHotkeys.toggleOverlay };
+    }
+  } catch (error) {
+    console.error('Failed to load hotkeys:', error);
+  }
+
+  return DEFAULT_HOTKEYS;
+};
+
 const settingsCardStyle = {
   background: 'linear-gradient(180deg, rgba(22, 29, 42, 0.96), rgba(15, 19, 26, 0.98))',
   padding: '20px',
@@ -40,24 +65,10 @@ const settingsSectionHintStyle = {
 } as const;
 
 export function SettingsScreen() {
-  const [hotkeys, setHotkeys] = useState<HotkeySettings>(DEFAULT_HOTKEYS);
+  const [hotkeys, setHotkeys] = useState<HotkeySettings>(getStoredHotkeys);
   const [windowSizePreset, setWindowSizePreset] = useState<WindowSizePreset>(getStoredWindowSizePreset());
   const [recordingKey, setRecordingKey] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-
-  // Загрузка настроек при монтировании
-  useEffect(() => {
-    const savedHotkeys = localStorage.getItem('sensei_hotkeys');
-    if (savedHotkeys) {
-      try {
-        setHotkeys(JSON.parse(savedHotkeys));
-      } catch (e) {
-        console.error('Failed to load hotkeys:', e);
-      }
-    }
-
-    setWindowSizePreset(getStoredWindowSizePreset());
-  }, []);
 
   // Сохранение настроек
   const saveSettings = () => {
@@ -349,10 +360,7 @@ export function SettingsScreen() {
       }}>
         <button
           onClick={() => {
-            const savedHotkeys = localStorage.getItem('sensei_hotkeys');
-            if (savedHotkeys) {
-              setHotkeys(JSON.parse(savedHotkeys));
-            }
+            setHotkeys(getStoredHotkeys());
             setWindowSizePreset(getStoredWindowSizePreset());
           }}
           style={{

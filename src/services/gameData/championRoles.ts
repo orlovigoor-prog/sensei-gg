@@ -37,19 +37,3 @@ export const getChampionsForRole = (role: PlayerInfo['mainRole'], confidence: Ch
       : entry.primaryRoles.includes(role) || Boolean(entry.secondaryRoles?.includes(role)))
     .map((entry) => entry.champion)
 );
-
-export const demoLobbyChampionPoolsByRole: Record<PlayerInfo['mainRole'], string[]> = {
-  TOP: ['Aatrox', 'Renekton', 'Gnar', 'Camille'],
-  JUNGLE: ['LeeSin', 'Vi'],
-  MID: ['Ahri', 'Zed', 'Syndra'],
-  ADC: ['Jinx', 'Lucian', 'Caitlyn'],
-  SUPPORT: ['Thresh', 'Nautilus']
-};
-
-export const validateDemoLobbyChampionPools = () => (
-  Object.entries(demoLobbyChampionPoolsByRole).flatMap(([role, champions]) => (
-    champions
-      .filter((champion) => !canChampionPlayRole(champion, role as PlayerInfo['mainRole']))
-      .map((champion) => `${champion} is not valid for ${role}`)
-  ))
-);

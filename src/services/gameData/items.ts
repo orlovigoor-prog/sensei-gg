@@ -99,16 +99,16 @@ const normalizeItemRecord = (id: number, item: DataDragonItemRecord): ItemCatalo
 };
 
 export const demoItemLoadoutTemplates: DemoItemLoadoutTemplate[] = [
-  { id: 'top-bruiser', name: 'Демо-набор бойца', roles: ['TOP'], champions: ['Renekton', 'Aatrox'], items: [3078, 3047, 3153, 6333, 3075] },
-  { id: 'top-duelist', name: 'Демо-набор дуэлянта', roles: ['TOP'], champions: ['Camille', 'Fiora', 'Jax'], items: [3078, 3153, 6333, 3047, 3065] },
-  { id: 'top-frontline', name: 'Демо-набор фронтлайна', roles: ['TOP'], items: [3047, 3110, 6665, 3065, 3075] },
-  { id: 'jungle-fighter', name: 'Демо-набор лесника', roles: ['JUNGLE'], champions: ['Lee Sin', 'Vi', 'Viego', 'Xin Zhao', 'Jarvan IV', 'Wukong'], items: [3078, 3153, 6333, 3047, 3065] },
-  { id: 'jungle-frontline', name: 'Демо-набор лесного фронтлайна', roles: ['JUNGLE'], items: [3047, 3110, 6665, 3075, 3065] },
-  { id: 'mid-mage', name: 'Демо-набор мага', roles: ['MID'], champions: ['Syndra', 'Vex', 'Ahri', 'Sylas', 'Orianna', 'Twisted Fate'], items: [6655, 4645, 3089, 3047, 3107] },
-  { id: 'mid-default', name: 'Демо-набор мидера', roles: ['MID'], items: [6653, 3089, 3107, 3047, 2065] },
-  { id: 'adc-marksman', name: 'Демо-набор стрелка', roles: ['ADC'], items: [6672, 3508, 3031, 3094, 3047] },
-  { id: 'support-engage', name: 'Демо-набор саппорта', roles: ['SUPPORT'], champions: ['Nautilus', 'Leona', 'Thresh', 'Rakan'], items: [3190, 2065, 3107, 3047, 3110] },
-  { id: 'support-enchanter', name: 'Демо-набор энчантера', roles: ['SUPPORT'], items: [6617, 2065, 3107, 3190, 3047] }
+  { id: 'top-bruiser', name: 'Демо-набор бойца', roles: ['TOP'], champions: ['Renekton', 'Aatrox'], items: [3078, 3047, 3153, 6333, 3075, 3053] },
+  { id: 'top-duelist', name: 'Демо-набор дуэлянта', roles: ['TOP'], champions: ['Camille', 'Fiora', 'Jax'], items: [3078, 3153, 6333, 3047, 3065, 3053] },
+  { id: 'top-frontline', name: 'Демо-набор фронтлайна', roles: ['TOP'], items: [3047, 3110, 6665, 3065, 3075, 3083] },
+  { id: 'jungle-fighter', name: 'Демо-набор лесника', roles: ['JUNGLE'], champions: ['Lee Sin', 'Vi', 'Viego', 'Xin Zhao', 'Jarvan IV', 'Wukong'], items: [3078, 3153, 6333, 3047, 3065, 3071] },
+  { id: 'jungle-frontline', name: 'Демо-набор лесного фронтлайна', roles: ['JUNGLE'], items: [3047, 3110, 6665, 3075, 3065, 3083] },
+  { id: 'mid-mage', name: 'Демо-набор мага', roles: ['MID'], champions: ['Syndra', 'Vex', 'Ahri', 'Sylas', 'Orianna', 'Twisted Fate'], items: [6655, 4645, 3089, 3047, 3107, 3135] },
+  { id: 'mid-default', name: 'Демо-набор мидера', roles: ['MID'], items: [6653, 3089, 3107, 3047, 2065, 3135] },
+  { id: 'adc-marksman', name: 'Демо-набор стрелка', roles: ['ADC'], items: [6672, 3508, 3031, 3094, 3047, 3033] },
+  { id: 'support-engage', name: 'Демо-набор саппорта', roles: ['SUPPORT'], champions: ['Nautilus', 'Leona', 'Thresh', 'Rakan'], items: [3190, 2065, 3107, 3047, 3110, 3050] },
+  { id: 'support-enchanter', name: 'Демо-набор энчантера', roles: ['SUPPORT'], items: [6617, 2065, 3107, 3190, 3047, 3011] }
 ];
 
 const championMatchesTemplate = (championName: string, template: DemoItemLoadoutTemplate) => {

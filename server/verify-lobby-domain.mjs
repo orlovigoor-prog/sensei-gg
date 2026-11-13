@@ -8,22 +8,23 @@ const COUNTERPICK_DATABASE_PATH = path.resolve(ROOT, 'server/data/lol-counterpic
 const LANE_ORDER = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 const MIN_RELIABLE_COUNTER_SAMPLE = 500;
 const MIN_COUNTER_ROWS = 5;
-const DEMO_LOBBY_POOLS = {
-  TOP: ['Aatrox', 'Renekton', 'Gnar', 'Camille'],
-  JUNGLE: ['LeeSin', 'Vi'],
-  MID: ['Ahri', 'Zed', 'Syndra'],
-  ADC: ['Jinx', 'Lucian', 'Caitlyn'],
-  SUPPORT: ['Thresh', 'Nautilus']
-};
+const REQUIRED_COUNTER_RANK = 'all';
+const REQUIRED_COUNTER_PATCH_WINDOW = '30';
+const MAX_TIER_SNAPSHOT_AGE_HOURS = 192;
+const MIN_TIER_SOURCE_ROWS_PER_ROLE = 50;
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'));
 const normalizeKey = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const roleMatrix = readJson(ROLE_MATRIX_PATH);
 const counterpickDatabase = readJson(COUNTERPICK_DATABASE_PATH);
-const roleEntryByChampion = new Map(roleMatrix.map((entry) => [entry.champion, entry]));
 const findRoleEntry = (champion) => roleMatrix.find((entry) => normalizeKey(entry.champion) === normalizeKey(champion));
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+const isSnapshotFresh = (timestamp, maxAgeHours) => {
+  const updatedAt = Date.parse(timestamp || '');
+  const ageMs = Date.now() - updatedAt;
+  return Number.isFinite(updatedAt) && ageMs >= 0 && ageMs <= maxAgeHours * 60 * 60 * 1000;
+};
 const canChampionPlayRole = (champion, role) => {
   const roleEntry = findRoleEntry(champion);
 
@@ -36,9 +37,31 @@ const canChampionPlayRole = (champion, role) => {
 
 const errors = [];
 const warnings = [];
+const tierRows = new Set();
+
+if (lolMetaSnapshot.rankBracket !== REQUIRED_COUNTER_RANK || lolMetaSnapshot.patch !== REQUIRED_COUNTER_PATCH_WINDOW) {
+  errors.push(`Tierlist metadata must use ${REQUIRED_COUNTER_RANK}/patch=${REQUIRED_COUNTER_PATCH_WINDOW}.`);
+}
+
+if (!isSnapshotFresh(lolMetaSnapshot.updatedAt, MAX_TIER_SNAPSHOT_AGE_HOURS)) {
+  errors.push(`Tierlist snapshot is older than ${MAX_TIER_SNAPSHOT_AGE_HOURS} hours or has an invalid timestamp.`);
+}
+
+if (counterpickDatabase.defaultRankBracket !== REQUIRED_COUNTER_RANK) {
+  warnings.push(`Counterpick database defaultRankBracket is ${counterpickDatabase.defaultRankBracket || 'missing'}; expected ${REQUIRED_COUNTER_RANK}.`);
+}
+
+if (counterpickDatabase.defaultPatchWindow !== REQUIRED_COUNTER_PATCH_WINDOW) {
+  warnings.push(`Counterpick database defaultPatchWindow is ${counterpickDatabase.defaultPatchWindow || 'missing'}; expected ${REQUIRED_COUNTER_PATCH_WINDOW}.`);
+}
 
 for (const role of LANE_ORDER) {
-  const tiers = lolMetaSnapshot.roles?.[role]?.tiers || {};
+  const roleSnapshot = lolMetaSnapshot.roles?.[role];
+  const tiers = roleSnapshot?.tiers || {};
+
+  if (!Number.isInteger(roleSnapshot?.sourceRows) || roleSnapshot.sourceRows < MIN_TIER_SOURCE_ROWS_PER_ROLE) {
+    errors.push(`Tierlist ${role} has incomplete source coverage (${roleSnapshot?.sourceRows || 'missing'} rows; expected at least ${MIN_TIER_SOURCE_ROWS_PER_ROLE}).`);
+  }
 
   for (const [tier, champions] of Object.entries(tiers)) {
     if (!Array.isArray(champions)) {
@@ -47,6 +70,15 @@ for (const role of LANE_ORDER) {
     }
 
     for (const champion of champions) {
+      const tierRowKey = `${normalizeKey(champion)}:${role}`;
+
+      if (tierRows.has(tierRowKey)) {
+        errors.push(`Tierlist champion ${champion} is duplicated for ${role}.`);
+        continue;
+      }
+
+      tierRows.add(tierRowKey);
+
       if (!findRoleEntry(champion)) {
         errors.push(`Tierlist champion ${champion} (${role} ${tier}) is missing from champion-role-matrix.json.`);
         continue;
@@ -57,6 +89,10 @@ for (const role of LANE_ORDER) {
       }
     }
   }
+}
+
+if (lolMetaSnapshot.coverage?.completeCoverage !== true) {
+  errors.push('Tierlist snapshot coverage is not complete.');
 }
 
 for (const [champion, championEntry] of Object.entries(counterpickDatabase.champions || {})) {
@@ -84,8 +120,18 @@ for (const [champion, championEntry] of Object.entries(counterpickDatabase.champ
       continue;
     }
 
-    if (counters.length > 0 && counters.length < MIN_COUNTER_ROWS) {
-      errors.push(`${champion} ${role} has ${counters.length} counter rows; expected at least ${MIN_COUNTER_ROWS}.`);
+    if (roleSnapshot?.rankBracket !== REQUIRED_COUNTER_RANK) {
+      warnings.push(`${champion} ${role} has rankBracket ${roleSnapshot?.rankBracket || 'missing'}; expected ${REQUIRED_COUNTER_RANK}.`);
+    }
+
+    if (roleSnapshot?.patchWindow !== REQUIRED_COUNTER_PATCH_WINDOW) {
+      warnings.push(`${champion} ${role} has patchWindow ${roleSnapshot?.patchWindow || 'missing'}; expected ${REQUIRED_COUNTER_PATCH_WINDOW}.`);
+    }
+
+    if (counters.length > MIN_COUNTER_ROWS) {
+      warnings.push(`${champion} ${role} has ${counters.length} counter rows; runtime will display the first ${MIN_COUNTER_ROWS}.`);
+    } else if (counters.length < MIN_COUNTER_ROWS) {
+      errors.push(`${champion} ${role} has ${counters.length} counter rows; expected exactly ${MIN_COUNTER_ROWS}.`);
     }
 
     if (counters.length > 0 && counters.every((counter) => isFiniteNumber(counter.matches) && counter.matches < MIN_RELIABLE_COUNTER_SAMPLE)) {
@@ -98,8 +144,16 @@ for (const [champion, championEntry] of Object.entries(counterpickDatabase.champ
         continue;
       }
 
+      if (!canChampionPlayRole(counter.champion, role)) {
+        warnings.push(`${champion} ${role} counter ${counter.champion} is outside the configured role matrix and will not be shown.`);
+      }
+
       if (!isFiniteNumber(counter.matchupWinRate)) {
         errors.push(`${champion} ${role} counter ${counter.champion} has non-finite matchupWinRate.`);
+      }
+
+      if (isFiniteNumber(counter.targetChampionWinRate) && Math.abs(counter.matchupWinRate - (100 - counter.targetChampionWinRate)) > 0.01) {
+        errors.push(`${champion} ${role} counter ${counter.champion} does not use inverse target win rate.`);
       }
 
       if (counter.matches !== undefined && counter.matches !== null && !isFiniteNumber(counter.matches)) {
@@ -109,46 +163,43 @@ for (const [champion, championEntry] of Object.entries(counterpickDatabase.champ
   }
 }
 
+const simulationCandidatesByRole = Object.fromEntries(LANE_ORDER.map((role) => [
+  role,
+  roleMatrix
+    .filter((entry) => canChampionPlayRole(entry.champion, role))
+    .map((entry) => entry.champion)
+]));
+
 for (const role of LANE_ORDER) {
-  const champions = DEMO_LOBBY_POOLS[role] || [];
-
-  if (champions.length === 0) {
-    errors.push(`Demo pool for ${role} is empty.`);
-    continue;
-  }
-
-  for (const champion of champions) {
-    const roleEntry = roleEntryByChampion.get(champion);
-
-    if (!roleEntry) {
-      errors.push(`${champion} is missing from champion-role-matrix.json.`);
-      continue;
-    }
-
-    const allowedRoles = [...(roleEntry.primaryRoles || []), ...(roleEntry.secondaryRoles || [])];
-    if (!allowedRoles.includes(role)) {
-      errors.push(`${champion} is in ${role} demo pool but allowed roles are ${allowedRoles.join(', ') || 'none'}.`);
-    }
-
-    const [, counterpickChampionEntry] = Object.entries(counterpickDatabase.champions || {}).find(([candidateName, candidateEntry]) => (
-      normalizeKey(candidateName) === normalizeKey(champion) || normalizeKey(candidateEntry?.slug) === normalizeKey(champion)
-    )) ?? [];
-    const counters = counterpickChampionEntry?.roles?.[role]?.counters;
-
-    if (!Array.isArray(counters) || counters.length < MIN_COUNTER_ROWS) {
-      errors.push(`${champion} ${role} has no counterpick rows in lol-counterpicks.json.`);
-    }
+  if (simulationCandidatesByRole[role].length < 2) {
+    errors.push(`Simulation catalog for ${role} needs at least two role-valid champions.`);
   }
 }
 
-for (let run = 0; run < 1000; run += 1) {
-  const allyRoles = [...LANE_ORDER];
-  const enemyRoles = [...LANE_ORDER];
-
-  if (new Set(allyRoles).size !== LANE_ORDER.length || new Set(enemyRoles).size !== LANE_ORDER.length) {
-    errors.push(`Generated lobby run ${run} does not contain exactly one player per role.`);
-    break;
+const simulationSlots = [...LANE_ORDER, ...LANE_ORDER].sort((left, right) => (
+  simulationCandidatesByRole[left].length - simulationCandidatesByRole[right].length
+));
+const canSelectUniqueSimulationLobby = (slotIndex = 0, selectedChampions = new Set()) => {
+  if (slotIndex === simulationSlots.length) {
+    return true;
   }
+
+  const role = simulationSlots[slotIndex];
+  return simulationCandidatesByRole[role].some((champion) => {
+    const championKey = normalizeKey(champion);
+    if (selectedChampions.has(championKey)) {
+      return false;
+    }
+
+    selectedChampions.add(championKey);
+    const canCompleteLobby = canSelectUniqueSimulationLobby(slotIndex + 1, selectedChampions);
+    selectedChampions.delete(championKey);
+    return canCompleteLobby;
+  });
+};
+
+if (!canSelectUniqueSimulationLobby()) {
+  errors.push('Simulation catalog cannot produce ten unique role-valid champions for a 5x5 lobby.');
 }
 
 if (errors.length > 0) {
@@ -165,4 +216,4 @@ if (warnings.length > 0) {
   }
 }
 
-console.log(`Lobby domain verification passed. roles=${LANE_ORDER.length} demoChampions=${Object.values(DEMO_LOBBY_POOLS).flat().length} tierlistRoles=${Object.keys(lolMetaSnapshot.roles || {}).length}`);
+console.log(`Lobby domain verification passed. roles=${LANE_ORDER.length} simulationChampions=${new Set(Object.values(simulationCandidatesByRole).flat().map(normalizeKey)).size} tierlistRoles=${Object.keys(lolMetaSnapshot.roles || {}).length}`);

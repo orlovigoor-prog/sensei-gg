@@ -3,12 +3,13 @@ import { BackgroundWindow } from './screens/background/BackgroundWindow';
 import { DesktopWindow } from './screens/desktop/DesktopWindow';
 
 export default function App() {
-  const [currentWindow, setCurrentWindow] = useState<string>('loading');
+  const [currentWindow, setCurrentWindow] = useState<string>(() => (
+    typeof overwolf === 'undefined' ? 'desktop' : 'loading'
+  ));
 
   useEffect(() => {
     // Если открыли в обычном браузере
     if (typeof overwolf === 'undefined') {
-      setCurrentWindow('desktop');
       return;
     }
 

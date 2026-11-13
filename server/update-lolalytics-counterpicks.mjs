@@ -1,6 +1,5 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
 import { DATA_DRAGON_VERSION } from './game-data-config.mjs';
 
 const DATA_DRAGON_CHAMPIONS_URL = `https://ddragon.leagueoflegends.com/cdn/${DATA_DRAGON_VERSION}/data/en_US/champion.json`;
@@ -26,11 +25,13 @@ const DEFAULT_OPTIONS = {
   timeoutMs: Number.parseInt(process.env.LOLALYTICS_FETCH_TIMEOUT_MS || '15000', 10),
   retries: Number.parseInt(process.env.LOLALYTICS_FETCH_RETRIES || '2', 10),
   retryDelayMs: Number.parseInt(process.env.LOLALYTICS_RETRY_DELAY_MS || '1200', 10),
+  maxSnapshotAgeHours: Number.parseInt(process.env.LOLALYTICS_MAX_SNAPSHOT_AGE_HOURS || '192', 10),
   allRoles: process.argv.includes('--all-roles'),
   initOnly: process.argv.includes('--init-only'),
   force: process.argv.includes('--force'),
   coverageOnly: process.argv.includes('--coverage'),
-  dryRun: process.argv.includes('--dry-run')
+  dryRun: process.argv.includes('--dry-run'),
+  requireComplete: process.argv.includes('--require-complete')
 };
 
 const normalizeKey = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -62,6 +63,14 @@ const getRankSampleLabel = (rank) => {
 };
 
 const getSampleLabel = (options) => `${getRankSampleLabel(options.rank)}, Ranked Solo/Duo, ${options.patch === '30' ? 'last 30 days' : `patch ${options.patch}`}`;
+
+const isSnapshotFresh = (timestamp, maxAgeHours) => {
+  const updatedAt = Date.parse(timestamp || '');
+  const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+  const ageMs = Date.now() - updatedAt;
+
+  return Number.isFinite(updatedAt) && Number.isFinite(maxAgeMs) && maxAgeMs > 0 && ageMs >= 0 && ageMs <= maxAgeMs;
+};
 
 const readJsonFile = async (filePath, fallback) => {
   try {
@@ -186,14 +195,6 @@ const ensureChampionEntities = (database, championCatalog) => {
   });
 };
 
-const getSnapshotRolesForChampion = (championName) => {
-  const normalizedChampion = normalizeKey(championName);
-  return ROLES.filter((role) => {
-    const roleSnapshot = lolMetaSnapshot.roles[role];
-    return Object.values(roleSnapshot?.tiers || {}).some((champions) => champions.some((candidate) => normalizeKey(candidate) === normalizedChampion));
-  });
-};
-
 const stripHtml = (html) => html
   .replace(/<script[\s\S]*?<\/script>/gi, ' ')
   .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -204,7 +205,7 @@ const stripHtml = (html) => html
   .replace(/\s+/g, ' ')
   .trim();
 
-const parseLolalyticsCounters = (html, championName, minGames, maxCounters) => {
+const parseLolalyticsCounters = (html, championName, role, roleMatrix, minGames, maxCounters, options = DEFAULT_OPTIONS) => {
   const text = stripHtml(html);
   const averageMatch = text.match(/Average\s+[^:]+\s+Win\s+Rate:\s*([0-9]+(?:\.[0-9]+)?)%/i);
   const gamesBySlug = new Map();
@@ -222,7 +223,10 @@ const parseLolalyticsCounters = (html, championName, minGames, maxCounters) => {
   const addCounter = ({ counterChampion, targetChampionWinRate, delta1, delta2, allChampsWinRateVsCounter, matches }) => {
     const slug = normalizeKey(counterChampion);
 
-    if (!targetChampionWinRate || (matches !== null && matches < minGames) || counters.some((counter) => counter.slug === slug)) {
+    if (!targetChampionWinRate
+      || !canChampionPlayRole(roleMatrix, counterChampion, role)
+      || (matches !== null && matches < minGames)
+      || counters.some((counter) => counter.slug === slug)) {
       return;
     }
 
@@ -286,7 +290,7 @@ const parseLolalyticsCounters = (html, championName, minGames, maxCounters) => {
   }
 
   return {
-    sampleLabel: getSampleLabel(DEFAULT_OPTIONS),
+    sampleLabel: getSampleLabel(options),
     averageTierWinRate: averageMatch ? toPercent(averageMatch[1]) : null,
     counters,
     parseWarning: counters.length === 0 ? `No counter rows parsed for ${championName}` : null
@@ -326,9 +330,13 @@ const buildChampionBuildUrl = (championSlug, role, options) => {
   return `https://lolalytics.com/lol/${championSlug}/build/?${params.toString()}`;
 };
 
-const buildCoverageReport = (database, roleMatrix) => {
+const buildCoverageReport = (database, roleMatrix, options = DEFAULT_OPTIONS) => {
   const roleRows = [];
   const missingRoleRows = [];
+  const incompleteRoleRows = [];
+  const invalidMetadataRows = [];
+  const invalidOpponentRoleRows = [];
+  const staleSourceRows = [];
   const missingGlobalWinRateRows = [];
 
   roleMatrix.forEach((entry) => {
@@ -338,9 +346,29 @@ const buildCoverageReport = (database, roleMatrix) => {
       ))?.[1];
       const roleEntry = championEntry?.roles?.[role];
       const counters = roleEntry?.counters;
+      const roleCounters = Array.isArray(counters)
+        ? counters.filter((counter) => canChampionPlayRole(roleMatrix, counter?.champion, role))
+        : [];
+      const hasRequiredMetadata = roleEntry?.rankBracket === options.rank
+        && roleEntry?.patchWindow === options.patch;
+      const hasRequiredRows = Array.isArray(counters)
+        && counters.length === options.maxCounters
+        && roleCounters.length === options.maxCounters
+        && Number.isFinite(roleEntry?.globalWinRate);
 
-      if (Array.isArray(counters) && counters.length > 0) {
+      if (hasRequiredRows && hasRequiredMetadata) {
         roleRows.push(`${entry.champion}:${role}`);
+
+      } else if (Array.isArray(counters) && counters.length > 0) {
+        incompleteRoleRows.push(`${entry.champion}:${role}`);
+
+        if (!hasRequiredMetadata) {
+          invalidMetadataRows.push(`${entry.champion}:${role}`);
+        }
+
+        if (roleCounters.length !== counters.length) {
+          invalidOpponentRoleRows.push(`${entry.champion}:${role}`);
+        }
 
         if (!Number.isFinite(roleEntry.globalWinRate)) {
           missingGlobalWinRateRows.push(`${entry.champion}:${role}`);
@@ -348,17 +376,30 @@ const buildCoverageReport = (database, roleMatrix) => {
       } else {
         missingRoleRows.push(`${entry.champion}:${role}`);
       }
+
+      if (hasRequiredRows && hasRequiredMetadata && !isSnapshotFresh(roleEntry.sourceUpdatedAt || database.updatedAt, options.maxSnapshotAgeHours)) {
+        staleSourceRows.push(`${entry.champion}:${role}`);
+      }
     });
   });
 
   return {
     championEntities: Object.keys(database.champions || {}).length,
     roleMatrixChampions: roleMatrix.length,
+    expectedRoleRows: roleMatrix.reduce((total, entry) => total + new Set([...(entry.primaryRoles || []), ...(entry.secondaryRoles || [])]).size, 0),
     filledRoleRows: roleRows.length,
     missingRoleRows: missingRoleRows.length,
+    incompleteRoleRows: incompleteRoleRows.length,
+    invalidMetadataRows: invalidMetadataRows.length,
+    invalidOpponentRoleRows: invalidOpponentRoleRows.length,
+    staleSourceRows: staleSourceRows.length,
+    completeCoverage: missingRoleRows.length === 0 && incompleteRoleRows.length === 0 && invalidMetadataRows.length === 0 && invalidOpponentRoleRows.length === 0 && staleSourceRows.length === 0 && missingGlobalWinRateRows.length === 0,
     missingGlobalWinRateRows: missingGlobalWinRateRows.length,
     missingGlobalWinRateRowsSample: missingGlobalWinRateRows.slice(0, 40),
-    missingRoleRowsSample: missingRoleRows.slice(0, 40)
+    missingRoleRowsSample: missingRoleRows.slice(0, 40),
+    invalidMetadataRowsSample: invalidMetadataRows.slice(0, 40),
+    invalidOpponentRoleRowsSample: invalidOpponentRoleRows.slice(0, 40),
+    staleSourceRowsSample: staleSourceRows.slice(0, 40)
   };
 };
 
@@ -379,6 +420,16 @@ const main = async () => {
   };
   const database = await readJsonFile(DATABASE_PATH, buildEmptyDatabase());
   const roleMatrix = await loadRoleMatrix();
+
+  if (options.coverageOnly) {
+    console.log(JSON.stringify(buildCoverageReport(database, roleMatrix, options), null, 2));
+    return;
+  }
+
+  if (options.rank !== 'all' || options.patch !== '30') {
+    throw new Error('Counterpick updater requires rank=all and patch=30.');
+  }
+
   const championCatalog = await loadDataDragonChampions(options.timeoutMs);
 
   database.champions ||= {};
@@ -386,11 +437,6 @@ const main = async () => {
   database.defaultRankBracket = options.rank;
   database.defaultPatchWindow = options.patch;
   database.updatedAt = new Date().toISOString();
-
-  if (options.coverageOnly) {
-    console.log(JSON.stringify(buildCoverageReport(database, roleMatrix), null, 2));
-    return;
-  }
 
   if (options.initOnly) {
     if (!options.dryRun) {
@@ -413,7 +459,7 @@ const main = async () => {
   let updatedRows = 0;
 
   for (const champion of selectedChampions) {
-    const roles = (options.role ? [options.role] : options.allRoles ? getRoleMatrixRolesForChampion(roleMatrix, champion.name) : getSnapshotRolesForChampion(champion.name))
+    const roles = (options.role ? [options.role] : getRoleMatrixRolesForChampion(roleMatrix, champion.name))
       .filter((role) => ROLES.includes(role) && canChampionPlayRole(roleMatrix, champion.name, role));
 
     for (const role of roles) {
@@ -436,7 +482,7 @@ const main = async () => {
         if (options.force || counterpickRows.length < options.maxCounters) {
           const url = buildCounterUrl(champion.slug, role, options);
           const html = await fetchTextWithRetry(url, options);
-          parsed = parseLolalyticsCounters(html, champion.name, options.minGames, options.maxCounters);
+          parsed = parseLolalyticsCounters(html, champion.name, role, roleMatrix, options.minGames, options.maxCounters, options);
           counterpickRows = filterCounterpickRows(parsed.counters);
         }
 
@@ -474,8 +520,12 @@ const main = async () => {
     options,
     updatedRows,
     failures,
-    coverage: buildCoverageReport(database, roleMatrix)
+    coverage: buildCoverageReport(database, roleMatrix, options)
   };
+
+  if (options.requireComplete && !database.lastUpdaterRun.coverage.completeCoverage) {
+    throw new Error(`Counterpick coverage gate failed: missing=${database.lastUpdaterRun.coverage.missingRoleRows} incomplete=${database.lastUpdaterRun.coverage.incompleteRoleRows} invalidMetadata=${database.lastUpdaterRun.coverage.invalidMetadataRows} invalidOpponentRole=${database.lastUpdaterRun.coverage.invalidOpponentRoleRows} stale=${database.lastUpdaterRun.coverage.staleSourceRows} missingGlobalWinRate=${database.lastUpdaterRun.coverage.missingGlobalWinRateRows}`);
+  }
 
   if (!options.dryRun) {
     await writeJsonFile(DATABASE_PATH, database);

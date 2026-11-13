@@ -17,10 +17,6 @@ import {
 
 type SearchRegion = 'ru' | 'euw' | 'eune' | 'tr' | 'na' | 'br' | 'la1' | 'la2' | 'kr' | 'jp';
 
-interface ProfileScreenProps {
-  reviewMode?: boolean;
-}
-
 interface RiotProfileSearchResponse {
   ok: boolean;
   region: SearchRegion;
@@ -93,6 +89,7 @@ interface ProfileMatchSummary {
 interface HoveredItemState {
   itemId: number;
   anchorIndex: number;
+  anchorElement: HTMLElement;
 }
 
 const unrankedStats: RankedStats = {
@@ -153,7 +150,7 @@ const getKdaAccent = (match: ProfileRecentMatch) => {
   return kills + assists >= deaths ? '#f8fafc' : '#fca5a5';
 };
 
-export function ProfileScreen({ reviewMode: _reviewMode = false }: ProfileScreenProps) {
+export function ProfileScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [region, setRegion] = useState<SearchRegion>('ru');
   const [loading, setLoading] = useState(false);
@@ -551,8 +548,8 @@ export function ProfileScreen({ reviewMode: _reviewMode = false }: ProfileScreen
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '230px' }}>
                           {Array.isArray(match.items) && match.items.length > 0 ? match.items.map((itemId) => (
-                            <img key={`${match.matchId || match.champion}-item-${itemId}`} src={getItemIconUrl(itemId)} alt={`item-${itemId}`} onMouseEnter={() => {
-                              setHoveredItem({ itemId, anchorIndex: index });
+                            <img key={`${match.matchId || match.champion}-item-${itemId}`} src={getItemIconUrl(itemId)} alt={`item-${itemId}`} onMouseEnter={(event) => {
+                              setHoveredItem({ itemId, anchorIndex: index, anchorElement: event.currentTarget });
                               if (!resolvedItemTooltips[itemId]) {
                                 resolveItemTooltipEntry(itemId).then((entry) => {
                                   if (entry) {
@@ -572,10 +569,7 @@ export function ProfileScreen({ reviewMode: _reviewMode = false }: ProfileScreen
                         <ItemTooltip
                           item={hoveredItemDetails}
                           fallbackDescription="Для этого предмета в локальном каталоге пока нет детального описания."
-                          positionStyle={{
-                            right: '12px',
-                            bottom: 'calc(100% + 10px)'
-                          }}
+                          anchorElement={hoveredItem.anchorElement}
                         />
                       )}
                     </div>

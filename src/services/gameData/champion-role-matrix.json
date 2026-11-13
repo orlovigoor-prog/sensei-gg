@@ -97,7 +97,7 @@
   { "champion": "Rakan", "primaryRoles": ["SUPPORT"] },
   { "champion": "Rammus", "primaryRoles": ["JUNGLE"] },
   { "champion": "Rek'Sai", "primaryRoles": ["JUNGLE"], "secondaryRoles": ["TOP"] },
-  { "champion": "Rell", "primaryRoles": ["SUPPORT"], "secondaryRoles": ["JUNGLE"] },
+  { "champion": "Rell", "primaryRoles": ["SUPPORT"] },
   { "champion": "Renata Glasc", "primaryRoles": ["SUPPORT"] },
   { "champion": "Renekton", "primaryRoles": ["TOP"] },
   { "champion": "Riven", "primaryRoles": ["TOP"], "secondaryRoles": ["MID"] },

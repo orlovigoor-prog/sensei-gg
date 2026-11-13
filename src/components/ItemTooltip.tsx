@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import type { ItemCatalogEntry } from '../services/gameData/items';
 
@@ -56,17 +57,57 @@ const getItemStatMarker = (stat: string) => {
 interface ItemTooltipProps {
   item: ItemCatalogEntry;
   fallbackDescription: string;
-  positionStyle: CSSProperties;
+  positionStyle?: CSSProperties;
+  anchorElement?: HTMLElement | null;
   footerLabel?: string;
   showArrow?: boolean;
   arrowStyle?: CSSProperties;
   arrowDirection?: 'up' | 'down';
 }
 
+interface ItemTooltipViewportPosition {
+  positionStyle: CSSProperties;
+  width: number;
+  maxHeight: number;
+  scale: number;
+  transformOrigin: 'top left' | 'bottom left';
+}
+
+const TOOLTIP_WIDTH = 272;
+const VIEWPORT_MARGIN = 12;
+const TOOLTIP_GAP = 10;
+const TOOLTIP_FONT_FAMILY = 'system-ui, -apple-system, sans-serif';
+
+const clamp = (value: number, minimum: number, maximum: number) => Math.min(Math.max(value, minimum), maximum);
+
+const getItemTooltipViewportPosition = (anchorElement: HTMLElement): ItemTooltipViewportPosition => {
+  const anchorRect = anchorElement.getBoundingClientRect();
+  const anchorWidth = anchorElement.offsetWidth || anchorRect.width || 1;
+  const scale = clamp(anchorRect.width / anchorWidth, 0.5, 1.5);
+  const availableWidth = Math.max(1, window.innerWidth - (VIEWPORT_MARGIN * 2));
+  const width = Math.min(TOOLTIP_WIDTH, availableWidth / scale);
+  const visualWidth = width * scale;
+  const left = clamp(anchorRect.right - visualWidth, VIEWPORT_MARGIN, window.innerWidth - VIEWPORT_MARGIN - visualWidth);
+  const availableAbove = Math.max(1, anchorRect.top - VIEWPORT_MARGIN - TOOLTIP_GAP);
+  const availableBelow = Math.max(1, window.innerHeight - anchorRect.bottom - VIEWPORT_MARGIN - TOOLTIP_GAP);
+  const opensDownward = availableBelow >= availableAbove;
+
+  return {
+    positionStyle: opensDownward
+      ? { left: `${left}px`, top: `${anchorRect.bottom + TOOLTIP_GAP}px` }
+      : { left: `${left}px`, bottom: `${window.innerHeight - anchorRect.top + TOOLTIP_GAP}px` },
+    width,
+    maxHeight: Math.max(1, Math.floor((opensDownward ? availableBelow : availableAbove) / scale)),
+    scale,
+    transformOrigin: opensDownward ? 'top left' : 'bottom left'
+  };
+};
+
 export function ItemTooltip({
   item,
   fallbackDescription,
   positionStyle,
+  anchorElement,
   footerLabel = 'СТОИМОСТЬ',
   showArrow = false,
   arrowStyle,
@@ -79,27 +120,35 @@ export function ItemTooltip({
       ? [{ title: item.passiveTitle, text: item.passiveText }]
       : [];
   const showTags = effectBlocks.length === 0 && item.tags.length > 0;
+  const viewportPosition = anchorElement ? getItemTooltipViewportPosition(anchorElement) : null;
+  const usesViewportPosition = Boolean(viewportPosition);
 
-  return (
+  const tooltip = (
     <div
       style={{
-        position: 'absolute',
-        width: '272px',
+        position: usesViewportPosition ? 'fixed' : 'absolute',
+        width: `${viewportPosition?.width ?? TOOLTIP_WIDTH}px`,
+        maxHeight: viewportPosition ? `${viewportPosition.maxHeight}px` : undefined,
         padding: '12px',
         borderRadius: '14px',
         background: 'linear-gradient(180deg, rgba(13, 18, 31, 0.98), rgba(8, 12, 22, 0.99))',
         border: '1px solid rgba(96, 165, 250, 0.22)',
         boxShadow: '0 20px 44px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
         backdropFilter: 'blur(10px)',
-        zIndex: 5,
+        fontFamily: TOOLTIP_FONT_FAMILY,
+        zIndex: usesViewportPosition ? 1100 : 5,
         pointerEvents: 'none',
-        overflow: 'visible',
-        ...positionStyle
+        overflowX: 'hidden',
+        overflowY: viewportPosition ? 'auto' : 'visible',
+        boxSizing: 'border-box',
+        transform: viewportPosition ? `scale(${viewportPosition.scale})` : undefined,
+        transformOrigin: viewportPosition?.transformOrigin,
+        ...(viewportPosition?.positionStyle ?? positionStyle)
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
         <div>
-          <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '13px', lineHeight: 1.25 }}>
+          <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '12px', lineHeight: 1.25 }}>
             {item.name}
           </div>
           <div style={{ color: '#7dd3fc', fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '3px' }}>
@@ -230,4 +279,6 @@ export function ItemTooltip({
       )}
     </div>
   );
+
+  return usesViewportPosition ? createPortal(tooltip, document.body) : tooltip;
 }

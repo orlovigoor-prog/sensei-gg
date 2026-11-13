@@ -1,7 +1,7 @@
 import type { PlayerInfo } from '../store/lobbySlice';
 import type { RankedStats, Summoner } from './riotApi';
 import type { CompletedMatchSummary } from '../store/gameSlice';
-import { demoLobbyChampionPoolsByRole, getChampionsForRole, getChampionScenariosByRole, validateDemoLobbyChampionPools, type ChampionScenario } from './gameData';
+import { getChampionsForRole, getChampionScenariosByRole, getDefaultRuneLoadout, getDefaultSummonerSpells, getDemoItemLoadout, type ChampionScenario } from './gameData';
 
 export const reviewModePlayerName = 'DemoProfilePlayer';
 
@@ -184,11 +184,27 @@ const takeUniqueRandom = <T>(items: T[], count: number) => {
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const roleChampionPools: Record<PlayerInfo['mainRole'], string[]> = {
-  TOP: getChampionsForRole('TOP'),
-  JUNGLE: getChampionsForRole('JUNGLE'),
-  MID: getChampionsForRole('MID'),
-  ADC: getChampionsForRole('ADC'),
-  SUPPORT: getChampionsForRole('SUPPORT')
+  TOP: getChampionsForRole('TOP', 'secondary'),
+  JUNGLE: getChampionsForRole('JUNGLE', 'secondary'),
+  MID: getChampionsForRole('MID', 'secondary'),
+  ADC: getChampionsForRole('ADC', 'secondary'),
+  SUPPORT: getChampionsForRole('SUPPORT', 'secondary')
+};
+
+const normalizeChampionIdentity = (champion: string) => champion.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const selectUniqueLobbyChampion = (role: PlayerInfo['mainRole'], selectedChampions: Set<string>, reservedChampion?: string) => {
+  const normalizedReservedChampion = reservedChampion ? normalizeChampionIdentity(reservedChampion) : null;
+  const selectedChampion = normalizedReservedChampion
+    ? roleChampionPools[role].find((champion) => normalizeChampionIdentity(champion) === normalizedReservedChampion)
+    : randomFrom(roleChampionPools[role].filter((champion) => !selectedChampions.has(normalizeChampionIdentity(champion))));
+
+  if (!selectedChampion) {
+    throw new Error(`Unable to select a unique role-valid champion for ${role}.`);
+  }
+
+  selectedChampions.add(normalizeChampionIdentity(selectedChampion));
+  return selectedChampion;
 };
 
 const applyScenarioModifier = (scenario: ChampionScenario, stat: 'kills' | 'deaths' | 'assists', value: number, result: 'W' | 'L') => {
@@ -228,6 +244,17 @@ const buildRecentMatch = (champion: string, role: PlayerInfo['mainRole'], result
   const kills = clamp(scenario ? applyScenarioModifier(scenario, 'kills', baseKills, result) : baseKills, 0, 20);
   const deaths = clamp(scenario ? applyScenarioModifier(scenario, 'deaths', baseDeaths, result) : baseDeaths, 1, 12);
   const assists = clamp(scenario ? applyScenarioModifier(scenario, 'assists', baseAssists, result) : baseAssists, 0, 24);
+  const csRange = result === 'W' ? ranges.recentCsWin : ranges.recentCsLoss;
+  const cs = randomInt(csRange[0], csRange[1]);
+  const goldEarned = Math.round(5200 + cs * 21 + kills * 280 + assists * 85 + randomInt(600, 1500));
+  const visionScore = role === 'SUPPORT'
+    ? randomInt(52, 82)
+    : role === 'JUNGLE'
+      ? randomInt(28, 48)
+      : randomInt(15, 34);
+  const items = getDemoItemLoadout(champion, role)?.items.slice(0, 6);
+  const summonerSpells = getDefaultSummonerSpells(role, champion);
+  const runes = getDefaultRuneLoadout(role, champion);
 
   return {
     result,
@@ -236,6 +263,13 @@ const buildRecentMatch = (champion: string, role: PlayerInfo['mainRole'], result
     k: kills,
     d: deaths,
     a: assists,
+    cs,
+    goldEarned,
+    visionScore,
+    items,
+    trinketId: 3364,
+    summonerSpells,
+    runes,
     gameType: 'RANKED' as const
   };
 };
@@ -289,9 +323,9 @@ const buildDemoRecentMatchCards = (role: PlayerInfo['mainRole'], demoRecentMatch
     champion: match.champion,
     result: match.result === 'W' ? 'Победа' : 'Поражение',
     kda: match.kda,
-    cs: match.result === 'W'
+    cs: match.cs ?? (match.result === 'W'
       ? randomInt(statRanges.recentCsWin[0], statRanges.recentCsWin[1])
-      : randomInt(statRanges.recentCsLoss[0], statRanges.recentCsLoss[1]),
+      : randomInt(statRanges.recentCsLoss[0], statRanges.recentCsLoss[1])),
     duration: formatDurationLabel(randomInt(statRanges.gameDuration[0], statRanges.gameDuration[1]))
   }));
 };
@@ -300,7 +334,7 @@ const buildCompletedMatchSummary = (player: PlayerInfo): CompletedMatchSummary =
   const latestMatch = player.recentMatches[0];
   const statRanges = roleMatchStatRanges[player.mainRole];
   const gameDurationSeconds = randomInt(statRanges.gameDuration[0], statRanges.gameDuration[1]);
-  const cs = randomInt(statRanges.completedCs[0], statRanges.completedCs[1]);
+  const cs = latestMatch?.cs ?? randomInt(statRanges.completedCs[0], statRanges.completedCs[1]);
   const kills = latestMatch?.k ?? 0;
   const deaths = latestMatch?.d ?? 0;
   const assists = latestMatch?.a ?? 0;
@@ -494,14 +528,12 @@ const createBaseMockPlayers = (): PlayerInfo[] => ([
   }
 ]);
 
-const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mainRole'], playerIndex: number): PlayerInfo => {
+const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mainRole'], playerIndex: number, primaryChampion: string): PlayerInfo => {
   const scenario = randomFrom(getChampionScenariosByRole(role));
-  const primaryChampion = randomFrom(demoLobbyChampionPoolsByRole[role]);
   const secondaryPool = [
     ...scenario.champions,
-    ...demoLobbyChampionPoolsByRole[role],
-    ...takeUniqueRandom(roleChampionPools[role].filter((champion) => champion !== primaryChampion), 3)
-  ].filter((champion) => champion !== primaryChampion);
+    ...takeUniqueRandom(roleChampionPools[role].filter((champion) => normalizeChampionIdentity(champion) !== normalizeChampionIdentity(primaryChampion)), 3)
+  ].filter((champion) => normalizeChampionIdentity(champion) !== normalizeChampionIdentity(primaryChampion));
   const secondaryChampion = randomFrom(takeUniqueRandom(secondaryPool, 4));
   const wins = randomInt(42, 134);
   const losses = randomInt(36, 126);
@@ -526,21 +558,22 @@ const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mai
   };
 };
 
-export const createMockPlayers = (): PlayerInfo[] => {
-  const invalidDemoPoolEntries = validateDemoLobbyChampionPools();
-
-  if (invalidDemoPoolEntries.length > 0) {
-    throw new Error(`Invalid demo lobby champion pool: ${invalidDemoPoolEntries.join('; ')}`);
-  }
-
+export const createMockPlayers = (reservedPick?: { role: PlayerInfo['mainRole']; champion: string }): PlayerInfo[] => {
   const basePlayers = createBaseMockPlayers();
   const randomizedAllies = takeUniqueRandom(basePlayers.slice(0, 5), 5);
   const randomizedEnemies = takeUniqueRandom(basePlayers.slice(5, 10), 5);
+  const selectedChampions = new Set(reservedPick ? [normalizeChampionIdentity(reservedPick.champion)] : []);
 
-  return [
-    ...randomizedAllies.map((player, index) => buildRandomizedDemoPlayer(player, roleOrder[index], index)),
-    ...randomizedEnemies.map((player, index) => buildRandomizedDemoPlayer(player, roleOrder[index], index + 5))
-  ];
+  return [...randomizedAllies, ...randomizedEnemies].map((player, index) => {
+    const role = roleOrder[index % roleOrder.length];
+    const primaryChampion = selectUniqueLobbyChampion(
+      role,
+      selectedChampions,
+      reservedPick?.role === role && index === roleOrder.indexOf(role) ? reservedPick.champion : undefined
+    );
+
+    return buildRandomizedDemoPlayer(player, role, index, primaryChampion);
+  });
 };
 
 export interface ReviewModeScenario {
@@ -558,7 +591,10 @@ export const createReviewModeScenario = (): ReviewModeScenario => {
   const demoRoleStats = buildDemoRoleStats(demoRole);
   const demoRecentMatchCards = buildDemoRecentMatchCards(demoRole, demoRecentMatches);
 
-  const players = createMockPlayers();
+  const players = createMockPlayers({
+    role: demoRole,
+    champion: demoRecentMatches[0]?.champion ?? demoScenario.champions[0]
+  });
   const targetIndex = roleOrder.indexOf(demoRole);
   const partyPartnerName = players.find((_, index) => index < 5 && index !== targetIndex)?.summonerName ?? 'Player1';
   players[targetIndex] = {

@@ -17,8 +17,19 @@ export const getDataDragonAssetUrl = (path: string) => `${dataDragonCdnBaseUrl}/
 export const patchTierVisuals = {
   'S+': '#f59e0b',
   S: '#10b981',
+  'S-': '#34d399',
+  'A+': '#38bdf8',
   A: '#60a5fa',
-  B: '#c084fc'
+  'A-': '#818cf8',
+  'B+': '#a78bfa',
+  B: '#c084fc',
+  'B-': '#d8b4fe',
+  'C+': '#fb923c',
+  C: '#f97316',
+  'C-': '#ea580c',
+  'D+': '#f87171',
+  D: '#ef4444',
+  'D-': '#dc2626'
 } as const;
 
 export type PatchTier = keyof typeof patchTierVisuals;

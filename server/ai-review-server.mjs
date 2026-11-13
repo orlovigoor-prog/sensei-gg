@@ -643,21 +643,7 @@ const findSnapshotTier = (championName, role) => {
 };
 
 const getSnapshotMatchup = (championName, role, rankBracket) => {
-  const counterpickMatchup = getCounterpickDatabaseMatchup(championName, role, rankBracket);
-  if (counterpickMatchup) {
-    return counterpickMatchup;
-  }
-
-  const rankMatchups = lolMetaSnapshot.matchups[rankBracket] ?? lolMetaSnapshot.matchups['platinum-plus'];
-  const roleMatchups = rankMatchups?.[role];
-  const normalizedChampion = normalizeMetaKey(championName);
-
-  if (!roleMatchups || !normalizedChampion) {
-    return null;
-  }
-
-  const [, matchup] = Object.entries(roleMatchups).find(([candidate]) => normalizeMetaKey(candidate) === normalizedChampion) ?? [];
-  return matchup ?? null;
+  return getCounterpickDatabaseMatchup(championName, role, rankBracket);
 };
 
 const loadCounterpickDatabase = () => {
@@ -707,6 +693,9 @@ const normalizeRankBracketForCounterpicks = (rankBracket) => {
 
 const MIN_RELIABLE_LOBBY_COUNTER_SAMPLE = 500;
 const MIN_STRONG_LOBBY_COUNTERS = 2;
+const COUNTERPICK_MAX_ROWS = 5;
+const COUNTERPICK_RANK_BRACKET = 'all';
+const COUNTERPICK_PATCH_WINDOW = '30';
 
 const getReliableLobbyCounters = (counters) => (Array.isArray(counters) ? counters : [])
   .filter((counter) => Number.isFinite(counter?.matches) && counter.matches >= MIN_RELIABLE_LOBBY_COUNTER_SAMPLE);
@@ -748,26 +737,38 @@ const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
   }
 
   const entryRank = normalizeRankBracketForCounterpicks(roleEntry.rankBracket || database.defaultRankBracket);
+  const entryPatch = String(roleEntry.patchWindow || database.defaultPatchWindow || '').trim();
+
+  if (entryRank !== COUNTERPICK_RANK_BRACKET || entryPatch !== COUNTERPICK_PATCH_WINDOW) {
+    return null;
+  }
+
+  const counters = roleEntry.counters.map((counter) => ({
+    champion: counter.champion,
+    matchupWinRate: counter.matchupWinRate,
+    matches: counter.matches,
+    delta1: counter.delta1,
+    delta2: counter.delta2,
+    targetChampionWinRate: counter.targetChampionWinRate,
+    allChampsWinRateVsCounter: counter.allChampsWinRateVsCounter
+  })).filter((counter) => (
+    isNonEmptyString(counter.champion)
+    && Number.isFinite(counter.matchupWinRate)
+    && canChampionPlayMetaRole(counter.champion, role)
+  )).slice(0, COUNTERPICK_MAX_ROWS);
+
+  if (counters.length !== COUNTERPICK_MAX_ROWS) {
+    return null;
+  }
 
   return {
     globalWinRate: Number.isFinite(roleEntry.globalWinRate) ? roleEntry.globalWinRate : null,
     overallMatches: Number.isFinite(roleEntry.overallMatches) ? roleEntry.overallMatches : null,
-    sourcePatch: roleEntry.patchWindow || database.defaultPatchWindow || null,
+    sourcePatch: entryPatch,
     sampleLabel: roleEntry.sampleLabel || `${entryRank}, Ranked Solo/Duo`,
     rankBracket: entryRank || normalizedRank,
     sourceUpdatedAt: roleEntry.sourceUpdatedAt || database.updatedAt || null,
-    counters: roleEntry.counters.map((counter) => ({
-      champion: counter.champion,
-      matchupWinRate: counter.matchupWinRate,
-      matches: counter.matches,
-      delta1: counter.delta1,
-      delta2: counter.delta2,
-      targetChampionWinRate: counter.targetChampionWinRate,
-      allChampsWinRateVsCounter: counter.allChampsWinRateVsCounter
-    })).filter((counter) => (
-      isNonEmptyString(counter.champion)
-      && Number.isFinite(counter.matchupWinRate)
-    ))
+    counters
   };
 };
 
@@ -782,12 +783,13 @@ const buildChampionMetaInsight = (championName, role, rankBracket) => {
 
   const counters = Array.isArray(matchup?.counters) ? matchup.counters : [];
   const globalWinRate = Number.isFinite(matchup?.globalWinRate) ? matchup.globalWinRate : null;
+  const dataRankBracket = matchup?.rankBracket || lolMetaSnapshot.rankBracket;
 
   return {
     champion: displayChampion,
     role,
-    rankBracket,
-    rankLabel: rankBracket === 'platinum-plus' ? 'Platinum+' : lolMetaSnapshot.rankLabel,
+    rankBracket: dataRankBracket,
+    rankLabel: dataRankBracket === 'all' ? 'All ranks' : rankBracket === 'platinum-plus' ? 'Platinum+' : lolMetaSnapshot.rankLabel,
     patchTier,
     patch: lolMetaSnapshot.patch,
     matchupPatch: matchup?.sourcePatch ?? null,

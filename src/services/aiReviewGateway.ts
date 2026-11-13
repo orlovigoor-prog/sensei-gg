@@ -38,7 +38,6 @@ const normalizeStructuredReview = (data: AiReviewResponse): StructuredAiReview |
 };
 
 const getAiReviewEndpoint = () => {
-  // @ts-ignore Vite env
   const endpoint = import.meta.env.VITE_AI_REVIEW_ENDPOINT;
   return typeof endpoint === 'string' && endpoint.trim().length > 0 ? endpoint.trim() : null;
 };

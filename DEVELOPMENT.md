@@ -33,6 +33,7 @@ npm run ai:server
 Сервер поддерживает:
 - `POST /api/review` для post-game AI review
 - `GET /api/riot/profile-search?region=ru&summonerName=nickname` для безопасного profile lookup через локальный backend
+- `GET /api/lol/meta/champion-insight?champion=Aatrox&role=TOP` для серверного снимка тира и контрпиков; без доступного снимка клиент не подменяет данные демо-каталогом
 - `GET /api/subscription/config` для scaffolding Overwolf/Tebex integration
 - `GET /api/subscription/entitlements` для локального dev entitlement state
 - `GET /api/subscription/dev-state` для просмотра активного локального сценария подписки
@@ -134,6 +135,21 @@ curl -X POST http://127.0.0.1:8787/api/account-session/dev-state -H "Content-Typ
 ```bash
 npm run build
 ```
+
+### Обновление мета-снимка
+
+Статические ресурсы Riot Data Dragon и серверный Lolalytics-снимок обновляются раздельно: `dataDragonVersion` в `game-data.config.json` задаёт иконки и локализованные описания, а параметр `patch=30` у Lolalytics означает скользящее окно последних 30 дней. Это разные версии данных.
+
+Перед обновлением сначала проверь последнюю версию через официальный endpoint Data Dragon и после изменения конфига запусти `npm run verify:game-data`. Для полного серверного снимка используй:
+
+```bash
+npm run meta:update-tiers
+npm run meta:coverage-tiers
+npm run meta:update-counterpicks
+npm run meta:coverage-counterpicks
+```
+
+`meta:update-tiers` получает пять role-specific tier-list страниц с контрактом `tier=all`, `patch=30` и перезаписывает серверный снимок только при полном server-rendered покрытии каждой страницы (не менее 50 строк источника на роль), без невалидных/повторяющихся matrix-строк, с актуальностью не старше 8 дней. Если Lolalytics не ранжирует разрешённый matrix-пик в текущем окне, tier для него честно остаётся пустым (`—`), а не наследуется от старого снимка. `meta:coverage-tiers` только читает snapshot и печатает coverage-отчёт. `meta:update-counterpicks` принудительно проходит все разрешённые роли с тем же контрактом и пятью контрпиками на строку; команда завершится ошибкой, если покрытие неполно, метаданные не совпадают или хотя бы одна строка старше 8 дней. `meta:coverage-counterpicks` только читает локальный JSON и печатает coverage-отчёт. Запускай обновление по расписанию на серверной стороне (не в клиенте) и проверяй `npm run verify:lobby-domain` перед публикацией. Клиентский runtime scraping намеренно не используется.
 
 Foundation verification helpers:
 ```bash

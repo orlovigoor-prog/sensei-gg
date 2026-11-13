@@ -377,7 +377,6 @@ export interface AccountSessionPresetCatalogResponse {
 const DEFAULT_SUBSCRIPTION_SERVER_BASE_URL = 'http://127.0.0.1:8787';
 
 export const getSubscriptionServiceBaseUrl = () => {
-  // @ts-ignore Vite env
   const reviewEndpoint = import.meta.env.VITE_AI_REVIEW_ENDPOINT;
 
   if (typeof reviewEndpoint === 'string' && reviewEndpoint.trim().length > 0) {

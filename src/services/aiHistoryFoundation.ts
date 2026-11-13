@@ -17,7 +17,7 @@ export interface NormalizedAiHistoryFoundation {
   notes: string[];
 }
 
-export interface AiHistoryFoundationHydrationPayload extends Omit<AiHistoryState, 'entries' | 'hydratedAt'> {}
+export type AiHistoryFoundationHydrationPayload = Omit<AiHistoryState, 'entries' | 'hydratedAt'>;
 
 export const fetchAiHistoryFoundationConfig = async (): Promise<AiReviewHistoryFoundationConfigResponse | null> => {
   return fetchSubscriptionServiceJson<AiReviewHistoryFoundationConfigResponse>('/api/review-history/config');
@@ -41,4 +41,3 @@ export const buildAiHistoryFoundationSnapshot = (
   syncReady: foundation.syncReady,
   premiumRequired: foundation.premiumRequired
 });
-
