@@ -11,6 +11,8 @@ import {
   restoreDesktopWindow,
   sendBridgeMessage
 } from './overwolfBridge';
+import { extractLiveClientScoreboardSnapshot, normalizeLiveClientScoreboard } from './overwolfScoreboard';
+import type { CompletedMatchScoreboard } from '../store/lobbySlice';
 import type { LobbyPhase } from '../store/lobbySlice';
 
 interface OverwolfMatchInfo {
@@ -66,6 +68,21 @@ export const registerOverwolfLifecycleController = () => {
   let currentChampionName = '';
   let currentPhase: LobbyPhase = 'champ-select';
   let sawRunningGame = false;
+  let latestActivePlayer: unknown = null;
+  let latestAllPlayers: unknown = null;
+  let latestCompletedScoreboard: CompletedMatchScoreboard | null = null;
+
+  const resetCompletedScoreboardCapture = () => {
+    latestActivePlayer = null;
+    latestAllPlayers = null;
+    latestCompletedScoreboard = null;
+  };
+
+  const sendLatestCompletedScoreboard = () => {
+    if (latestCompletedScoreboard) {
+      sendBridgeMessage({ type: 'completed-scoreboard', payload: latestCompletedScoreboard });
+    }
+  };
 
   const emitLifecycle = (phase: LobbyPhase, options?: { gameMode?: string; isInLobby?: boolean }) => {
     currentPhase = phase;
@@ -98,8 +115,36 @@ export const registerOverwolfLifecycleController = () => {
       info.phase ?? info.match_info?.phase ?? readNestedString(info.live_client_data, ['game_data', 'gamePhase'])
     );
 
+    if (
+      (derivedPhase === 'loading' || derivedPhase === 'in-game')
+      && currentPhase !== 'loading'
+      && currentPhase !== 'in-game'
+    ) {
+      resetCompletedScoreboardCapture();
+    }
+
+    const liveClientSnapshot = extractLiveClientScoreboardSnapshot(info.live_client_data);
+    if (liveClientSnapshot.activePlayer !== undefined) {
+      latestActivePlayer = liveClientSnapshot.activePlayer;
+    }
+    if (liveClientSnapshot.allPlayers !== undefined) {
+      latestAllPlayers = liveClientSnapshot.allPlayers;
+    }
+    if (latestActivePlayer && latestAllPlayers) {
+      latestCompletedScoreboard = normalizeLiveClientScoreboard({
+        activePlayer: latestActivePlayer,
+        allPlayers: latestAllPlayers
+      }) ?? latestCompletedScoreboard;
+    }
     if (derivedPhase && derivedPhase !== currentPhase) {
+      if (derivedPhase === 'post-game') {
+        sendLatestCompletedScoreboard();
+      }
       emitLifecycle(derivedPhase, { gameMode });
+    }
+
+    if (derivedPhase === 'post-game' || currentPhase === 'post-game') {
+      return;
     }
 
     if (typeof info.me?.champion === 'string' && info.me.champion && info.me.champion !== currentChampionName) {
@@ -201,6 +246,7 @@ export const registerOverwolfLifecycleController = () => {
     if (res.gameInfo.id === LOL_GAME_ID && res.gameInfo.isRunning) {
       sawRunningGame = true;
       setGameFeatures();
+      resetCompletedScoreboardCapture();
       if (currentPhase !== 'in-game') {
         emitLifecycle('loading');
       }
@@ -208,6 +254,7 @@ export const registerOverwolfLifecycleController = () => {
     }
 
     if (res.gameInfo.id === LOL_GAME_ID && !res.gameInfo.isRunning && sawRunningGame) {
+      sendLatestCompletedScoreboard();
       emitLifecycle('post-game', { isInLobby: false });
       sendBridgeMessage({ type: 'game-end' });
       currentChampionName = '';
@@ -216,6 +263,7 @@ export const registerOverwolfLifecycleController = () => {
       currentAssists = 0;
       currentCs = 0;
       currentGameTimeSeconds = 0;
+      resetCompletedScoreboardCapture();
       sawRunningGame = false;
     }
   };

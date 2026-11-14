@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DRAGON_VERSION } from './game-data-config.mjs';
+import { fetchCurrentGamePatch, hasCurrentPatchMetadata, normalizeGamePatch } from './lol-meta-patch.mjs';
 
 const DATA_DRAGON_CHAMPIONS_URL = `https://ddragon.leagueoflegends.com/cdn/${DATA_DRAGON_VERSION}/data/en_US/champion.json`;
 const DATABASE_PATH = path.resolve(process.cwd(), 'server/data/lol-counterpicks.json');
@@ -19,13 +20,13 @@ const LOLALYTICS_SLUG_OVERRIDES = {
 
 const DEFAULT_OPTIONS = {
   rank: process.env.LOLALYTICS_RANK || 'all',
-  patch: process.env.LOLALYTICS_PATCH || '30',
+  patch: null,
+  riotRealm: process.env.LOL_META_RIOT_REALM || 'na',
   minGames: Number.parseInt(process.env.LOLALYTICS_MIN_GAMES || '100', 10),
   maxCounters: Number.parseInt(process.env.LOLALYTICS_MAX_COUNTERS || '5', 10),
   timeoutMs: Number.parseInt(process.env.LOLALYTICS_FETCH_TIMEOUT_MS || '15000', 10),
   retries: Number.parseInt(process.env.LOLALYTICS_FETCH_RETRIES || '2', 10),
   retryDelayMs: Number.parseInt(process.env.LOLALYTICS_RETRY_DELAY_MS || '1200', 10),
-  maxSnapshotAgeHours: Number.parseInt(process.env.LOLALYTICS_MAX_SNAPSHOT_AGE_HOURS || '192', 10),
   allRoles: process.argv.includes('--all-roles'),
   initOnly: process.argv.includes('--init-only'),
   force: process.argv.includes('--force'),
@@ -62,15 +63,7 @@ const getRankSampleLabel = (rank) => {
   return normalizedRank.replace(/_/g, ' ');
 };
 
-const getSampleLabel = (options) => `${getRankSampleLabel(options.rank)}, Ranked Solo/Duo, ${options.patch === '30' ? 'last 30 days' : `patch ${options.patch}`}`;
-
-const isSnapshotFresh = (timestamp, maxAgeHours) => {
-  const updatedAt = Date.parse(timestamp || '');
-  const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
-  const ageMs = Date.now() - updatedAt;
-
-  return Number.isFinite(updatedAt) && Number.isFinite(maxAgeMs) && maxAgeMs > 0 && ageMs >= 0 && ageMs <= maxAgeMs;
-};
+const getSampleLabel = (options) => `${getRankSampleLabel(options.rank)}, Ranked Solo/Duo, patch ${options.patch}`;
 
 const readJsonFile = async (filePath, fallback) => {
   try {
@@ -161,24 +154,26 @@ const getRoleMatrixRolesForChampion = (roleMatrix, championName) => {
   return entry ? [...new Set([...(entry.primaryRoles || []), ...(entry.secondaryRoles || [])])] : [];
 };
 
-const buildEmptyDatabase = () => ({
-  version: 1,
+const buildEmptyDatabase = (options) => ({
+  version: 2,
   game: 'league-of-legends',
   queue: 'ranked-solo-duo',
-  defaultRankBracket: DEFAULT_OPTIONS.rank,
-  defaultPatchWindow: DEFAULT_OPTIONS.patch,
+  defaultRankBracket: options.rank,
+  patch: options.patch,
+  patchBuild: options.patchBuild,
+  patchSource: options.patchSource,
   updatedAt: new Date().toISOString(),
   source: {
     provider: 'lolalytics',
     baseUrl: 'https://lolalytics.com/lol',
     mode: 'backend-snapshot',
-    refreshCadence: 'weekly',
+    refreshStrategy: 'per-game-patch',
     note: 'Internal backend counterpick database. Do not render this label in the client UI. Runtime client scraping is intentionally disabled.'
   },
   coverage: {
     championCatalog: 'data-dragon',
     championEntities: 'all-known-champions-on-last-refresh',
-    matchupRows: 'sparse-until-weekly-updater-populates-each-role'
+    matchupRows: 'incomplete-until-the-current-patch-updater-populates-each-role'
   },
   champions: {}
 });
@@ -204,6 +199,19 @@ const stripHtml = (html) => html
   .replace(/&quot;/g, '"')
   .replace(/\s+/g, ' ')
   .trim();
+
+const getLolalyticsPatchFromHtml = (html) => {
+  const patchMatch = stripHtml(html).match(/(?:League of Legends )?Patch\s+(\d+\.\d+)/i);
+  return normalizeGamePatch(patchMatch?.[1]);
+};
+
+const assertLolalyticsPatch = (html, expectedPatch, sourceLabel) => {
+  const receivedPatch = getLolalyticsPatchFromHtml(html);
+
+  if (receivedPatch !== expectedPatch) {
+    throw new Error(`${sourceLabel} returned patch ${receivedPatch || 'missing'}; expected ${expectedPatch}.`);
+  }
+};
 
 const parseLolalyticsCounters = (html, championName, role, roleMatrix, minGames, maxCounters, options = DEFAULT_OPTIONS) => {
   const text = stripHtml(html);
@@ -336,7 +344,6 @@ const buildCoverageReport = (database, roleMatrix, options = DEFAULT_OPTIONS) =>
   const incompleteRoleRows = [];
   const invalidMetadataRows = [];
   const invalidOpponentRoleRows = [];
-  const staleSourceRows = [];
   const missingGlobalWinRateRows = [];
 
   roleMatrix.forEach((entry) => {
@@ -350,7 +357,7 @@ const buildCoverageReport = (database, roleMatrix, options = DEFAULT_OPTIONS) =>
         ? counters.filter((counter) => canChampionPlayRole(roleMatrix, counter?.champion, role))
         : [];
       const hasRequiredMetadata = roleEntry?.rankBracket === options.rank
-        && roleEntry?.patchWindow === options.patch;
+        && roleEntry?.patch === options.patch;
       const hasRequiredRows = Array.isArray(counters)
         && counters.length === options.maxCounters
         && roleCounters.length === options.maxCounters
@@ -377,11 +384,10 @@ const buildCoverageReport = (database, roleMatrix, options = DEFAULT_OPTIONS) =>
         missingRoleRows.push(`${entry.champion}:${role}`);
       }
 
-      if (hasRequiredRows && hasRequiredMetadata && !isSnapshotFresh(roleEntry.sourceUpdatedAt || database.updatedAt, options.maxSnapshotAgeHours)) {
-        staleSourceRows.push(`${entry.champion}:${role}`);
-      }
     });
   });
+
+  const metadataValid = hasCurrentPatchMetadata(database, options.currentGamePatch);
 
   return {
     championEntities: Object.keys(database.champions || {}).length,
@@ -392,14 +398,13 @@ const buildCoverageReport = (database, roleMatrix, options = DEFAULT_OPTIONS) =>
     incompleteRoleRows: incompleteRoleRows.length,
     invalidMetadataRows: invalidMetadataRows.length,
     invalidOpponentRoleRows: invalidOpponentRoleRows.length,
-    staleSourceRows: staleSourceRows.length,
-    completeCoverage: missingRoleRows.length === 0 && incompleteRoleRows.length === 0 && invalidMetadataRows.length === 0 && invalidOpponentRoleRows.length === 0 && staleSourceRows.length === 0 && missingGlobalWinRateRows.length === 0,
+    metadataValid,
+    completeCoverage: metadataValid && missingRoleRows.length === 0 && incompleteRoleRows.length === 0 && invalidMetadataRows.length === 0 && invalidOpponentRoleRows.length === 0 && missingGlobalWinRateRows.length === 0,
     missingGlobalWinRateRows: missingGlobalWinRateRows.length,
     missingGlobalWinRateRowsSample: missingGlobalWinRateRows.slice(0, 40),
     missingRoleRowsSample: missingRoleRows.slice(0, 40),
     invalidMetadataRowsSample: invalidMetadataRows.slice(0, 40),
-    invalidOpponentRoleRowsSample: invalidOpponentRoleRows.slice(0, 40),
-    staleSourceRowsSample: staleSourceRows.slice(0, 40)
+    invalidOpponentRoleRowsSample: invalidOpponentRoleRows.slice(0, 40)
   };
 };
 
@@ -409,16 +414,29 @@ const parseArgValue = (name) => {
 };
 
 const main = async () => {
+  const requestedPatch = parseArgValue('--patch');
+  const currentGamePatch = await fetchCurrentGamePatch({
+    realm: parseArgValue('--riot-realm') || DEFAULT_OPTIONS.riotRealm,
+    timeoutMs: DEFAULT_OPTIONS.timeoutMs
+  });
+
+  if (requestedPatch && normalizeGamePatch(requestedPatch) !== currentGamePatch.gamePatch) {
+    throw new Error(`Requested patch ${requestedPatch} does not match the current Riot game patch ${currentGamePatch.gamePatch}.`);
+  }
+
   const options = {
     ...DEFAULT_OPTIONS,
     rank: parseArgValue('--rank') || DEFAULT_OPTIONS.rank,
-    patch: parseArgValue('--patch') || DEFAULT_OPTIONS.patch,
+    patch: currentGamePatch.gamePatch,
+    patchBuild: currentGamePatch.dataDragonVersion,
+    patchSource: currentGamePatch.patchSource,
+    currentGamePatch,
     champion: parseArgValue('--champion'),
     role: parseArgValue('--role')?.toUpperCase() || null,
     championsFile: parseArgValue('--champions-file'),
     limit: Number.parseInt(parseArgValue('--limit') || '0', 10)
   };
-  const database = await readJsonFile(DATABASE_PATH, buildEmptyDatabase());
+  const database = await readJsonFile(DATABASE_PATH, buildEmptyDatabase(options));
   const roleMatrix = await loadRoleMatrix();
 
   if (options.coverageOnly) {
@@ -426,17 +444,29 @@ const main = async () => {
     return;
   }
 
-  if (options.rank !== 'all' || options.patch !== '30') {
-    throw new Error('Counterpick updater requires rank=all and patch=30.');
+  if (options.rank !== 'all') {
+    throw new Error('Counterpick updater requires rank=all.');
   }
 
   const championCatalog = await loadDataDragonChampions(options.timeoutMs);
 
   database.champions ||= {};
   ensureChampionEntities(database, championCatalog);
+  database.version = 2;
+  database.legacySnapshot = false;
   database.defaultRankBracket = options.rank;
-  database.defaultPatchWindow = options.patch;
+  database.patch = options.patch;
+  database.patchBuild = options.patchBuild;
+  database.patchSource = options.patchSource;
   database.updatedAt = new Date().toISOString();
+  database.source = {
+    ...database.source,
+    provider: 'lolalytics',
+    baseUrl: 'https://lolalytics.com/lol',
+    mode: 'backend-snapshot',
+    refreshStrategy: 'per-game-patch',
+    note: 'Internal backend counterpick database. Do not render this label in the client UI. Runtime client scraping is intentionally disabled.'
+  };
 
   if (options.initOnly) {
     if (!options.dryRun) {
@@ -465,23 +495,27 @@ const main = async () => {
     for (const role of roles) {
       try {
         const existingRoleEntry = database.champions[champion.name]?.roles?.[role];
-        if (!options.force && existingRoleEntry?.globalWinRate && Array.isArray(existingRoleEntry.counters) && existingRoleEntry.counters.length > 0) {
+        if (!options.force && existingRoleEntry?.patch === options.patch && existingRoleEntry?.globalWinRate && Array.isArray(existingRoleEntry.counters) && existingRoleEntry.counters.length > 0) {
           console.log(`Skipped ${champion.name} ${role}: already has global winrate and counters. Use --force to refresh.`);
           continue;
         }
 
         const buildHtml = await fetchTextWithRetry(buildChampionBuildUrl(champion.slug, role, options), options);
+        assertLolalyticsPatch(buildHtml, options.patch, `Lolalytics build ${champion.name} ${role}`);
         const buildMetrics = parseLolalyticsBuildMetrics(buildHtml, champion.name, role);
         let parsed = {
-          sampleLabel: existingRoleEntry?.sampleLabel || getSampleLabel(options),
-          averageTierWinRate: existingRoleEntry?.averageTierWinRate ?? null,
+          sampleLabel: getSampleLabel(options),
+          averageTierWinRate: null,
           parseWarning: null
         };
-        let counterpickRows = filterCounterpickRows(existingRoleEntry?.counters || []);
+        let counterpickRows = existingRoleEntry?.patch === options.patch
+          ? filterCounterpickRows(existingRoleEntry.counters || [])
+          : [];
 
         if (options.force || counterpickRows.length < options.maxCounters) {
           const url = buildCounterUrl(champion.slug, role, options);
           const html = await fetchTextWithRetry(url, options);
+          assertLolalyticsPatch(html, options.patch, `Lolalytics counters ${champion.name} ${role}`);
           parsed = parseLolalyticsCounters(html, champion.name, role, roleMatrix, options.minGames, options.maxCounters, options);
           counterpickRows = filterCounterpickRows(parsed.counters);
         }
@@ -499,7 +533,7 @@ const main = async () => {
         database.champions[champion.name].roles ||= {};
         database.champions[champion.name].roles[role] = {
           rankBracket: options.rank,
-          patchWindow: options.patch,
+          patch: options.patch,
           sampleLabel: parsed.sampleLabel,
           globalWinRate: buildMetrics.globalWinRate,
           overallMatches: buildMetrics.overallMatches,
@@ -522,9 +556,10 @@ const main = async () => {
     failures,
     coverage: buildCoverageReport(database, roleMatrix, options)
   };
+  database.coverage = database.lastUpdaterRun.coverage;
 
   if (options.requireComplete && !database.lastUpdaterRun.coverage.completeCoverage) {
-    throw new Error(`Counterpick coverage gate failed: missing=${database.lastUpdaterRun.coverage.missingRoleRows} incomplete=${database.lastUpdaterRun.coverage.incompleteRoleRows} invalidMetadata=${database.lastUpdaterRun.coverage.invalidMetadataRows} invalidOpponentRole=${database.lastUpdaterRun.coverage.invalidOpponentRoleRows} stale=${database.lastUpdaterRun.coverage.staleSourceRows} missingGlobalWinRate=${database.lastUpdaterRun.coverage.missingGlobalWinRateRows}`);
+    throw new Error(`Counterpick coverage gate failed: missing=${database.lastUpdaterRun.coverage.missingRoleRows} incomplete=${database.lastUpdaterRun.coverage.incompleteRoleRows} invalidMetadata=${database.lastUpdaterRun.coverage.invalidMetadataRows} invalidOpponentRole=${database.lastUpdaterRun.coverage.invalidOpponentRoleRows} metadataValid=${database.lastUpdaterRun.coverage.metadataValid} missingGlobalWinRate=${database.lastUpdaterRun.coverage.missingGlobalWinRateRows}`);
   }
 
   if (!options.dryRun) {

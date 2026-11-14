@@ -28,9 +28,10 @@ export interface LobbyChampionInsight {
   signalQuality: LobbySignalQuality;
 }
 
-export const getReliableLobbyCounters = (counters: LobbyCounterpickInsight[]) => counters
-  .filter((counter) => Number.isFinite(counter.matchupWinRate))
-  .slice(0, 5);
+export const getReliableLobbyCounters = (counters: LobbyCounterpickInsight[]) => {
+  const validCounters = counters.filter((counter) => Number.isFinite(counter.matchupWinRate)).slice(0, 5);
+  return validCounters.length === 5 ? validCounters : [];
+};
 
 export const resolveLobbySignalQuality = (input: {
   counters?: LobbyCounterpickInsight[];
@@ -82,7 +83,7 @@ export const fetchLobbyChampionInsight = async (
     return null;
   }
 
-  const counters = Array.isArray(insight.counters) ? insight.counters.filter((counter) => Number.isFinite(counter.matchupWinRate)).slice(0, 5) : [];
+  const counters = getReliableLobbyCounters(Array.isArray(insight.counters) ? insight.counters : []);
   const normalizedGlobalWinRate = Number.isFinite(insight.globalWinRate) ? insight.globalWinRate : null;
   const patchTier = insight.patchTier || null;
 
@@ -94,8 +95,8 @@ export const fetchLobbyChampionInsight = async (
     overallMatches: Number.isFinite(insight.overallMatches) ? insight.overallMatches ?? undefined : undefined,
     patchTier,
     tierColor: patchTier ? patchTierVisuals[patchTier] : '#94a3b8',
-    patch: insight.patch || '30',
-    sampleLabel: insight.sampleLabel || 'All ranks, Ranked Solo/Duo, last 30 days',
+    patch: insight.patch || 'unknown',
+    sampleLabel: insight.sampleLabel || 'All ranks, Ranked Solo/Duo, current patch',
     signalQuality: insight.signalQuality || resolveLobbySignalQuality({ counters, globalWinRate: normalizedGlobalWinRate, patchTier })
   };
 };

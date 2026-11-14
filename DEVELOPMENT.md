@@ -138,18 +138,37 @@ npm run build
 
 ### Обновление мета-снимка
 
-Статические ресурсы Riot Data Dragon и серверный Lolalytics-снимок обновляются раздельно: `dataDragonVersion` в `game-data.config.json` задаёт иконки и локализованные описания, а параметр `patch=30` у Lolalytics означает скользящее окно последних 30 дней. Это разные версии данных.
+Статические ресурсы Riot Data Dragon и мета-статистика обновляются раздельно. `dataDragonVersion` в `game-data.config.json` задаёт иконки и локализованные описания. Актуальность tier- и counterpick-снимков определяется официальным Riot Data Dragon realm: его build (например, `16.22.1`) нормализуется до игрового patch (`16.22`) и передаётся в Lolalytics как `patch=16.22`. Realm по умолчанию — `na`; для серверного окружения его можно явно задать через `LOL_META_RIOT_REALM`.
 
-Перед обновлением сначала проверь последнюю версию через официальный endpoint Data Dragon и после изменения конфига запусти `npm run verify:game-data`. Для полного серверного снимка используй:
+Перед обновлением сначала проверь последнюю версию через официальный endpoint Data Dragon и после изменения конфига запусти `npm run verify:game-data`. Для полного серверного снимка текущего игрового patch используй:
 
 ```bash
 npm run meta:update-tiers
 npm run meta:coverage-tiers
 npm run meta:update-counterpicks
 npm run meta:coverage-counterpicks
+npm run verify:meta-patch
 ```
 
-`meta:update-tiers` получает пять role-specific tier-list страниц с контрактом `tier=all`, `patch=30` и перезаписывает серверный снимок только при полном server-rendered покрытии каждой страницы (не менее 50 строк источника на роль), без невалидных/повторяющихся matrix-строк, с актуальностью не старше 8 дней. Если Lolalytics не ранжирует разрешённый matrix-пик в текущем окне, tier для него честно остаётся пустым (`—`), а не наследуется от старого снимка. `meta:coverage-tiers` только читает snapshot и печатает coverage-отчёт. `meta:update-counterpicks` принудительно проходит все разрешённые роли с тем же контрактом и пятью контрпиками на строку; команда завершится ошибкой, если покрытие неполно, метаданные не совпадают или хотя бы одна строка старше 8 дней. `meta:coverage-counterpicks` только читает локальный JSON и печатает coverage-отчёт. Запускай обновление по расписанию на серверной стороне (не в клиенте) и проверяй `npm run verify:lobby-domain` перед публикацией. Клиентский runtime scraping намеренно не используется.
+`meta:update-tiers` запрашивает официальный Riot realm, принимает только текущий game patch и получает пять role-specific tier-list страниц с контрактом `tier=all`, `patch=<current-game-patch>`. Перед публикацией каждая страница должна явно подтвердить тот же patch в HTML, а снимок должен иметь полное server-rendered покрытие каждой роли (не менее 50 строк источника), без невалидных или повторяющихся matrix-строк. `meta:update-counterpicks` применяет тот же patch-contract к build и counter pages и требует ровно пять role-valid контрпиков на строку. После выхода нового patch старый snapshot не выдаётся: пока полный снимок нового patch не собран, tier остаётся `—`, а контрпики скрываются. Возраст снимка не заменяет проверку patch identity. `meta:coverage-tiers` и `meta:coverage-counterpicks` только печатают статус текущего patch-contract. Клиентский runtime scraping намеренно не используется.
+
+#### Ежедневное автоматическое обновление
+
+`.github/workflows/refresh-lol-meta.yml` ежедневно запускает `npm run meta:daily-update` в изолированном GitHub Actions runner. [Официальный график Riot](https://support-leagueoflegends.riotgames.com/hc/en-us/articles/360018987893-Patch-Schedule-League-of-Legends) указывает, что патчи обычно выходят по средам в Pacific Time, но допускает переносы и не задаёт единого точного часа. Поэтому календарь используется только для дополнительной попытки: job выполняется ежедневно в `19:17 UTC` и повторно по средам в `23:17 UTC`. Единственный источник решения об обновлении — текущий build из официального Riot Data Dragon realm, а не расписание.
+
+Оркестратор сначала сравнивает realm build со статическим конфигом и обоими полными снимками. Если все три уже относятся к тому же build, он ничего не записывает и не обращается к Lolalytics. При смене build или неполном снимке он проверяет доступность Data Dragon champion/item ресурсов, обновляет `game-data.config.json`, получает новый tier list и все counterpick role rows, затем повторно выполняет coverage, game-data, patch-contract, lobby-domain, lint и production build проверки. Создавать PR разрешено только после успешного завершения этого набора и повторной проверки опубликованных файлов. При недоступном или неполном Lolalytics наборе job завершается с ошибкой, PR не создаётся, а `main` и опубликованные данные остаются нетронутыми.
+
+Для локальной диагностической проверки доступны:
+
+```bash
+npm run verify:daily-lol-meta-update
+npm run meta:daily-update -- --dry-run
+npm run meta:daily-update
+```
+
+Последняя команда изменяет рабочие файлы при обнаружении обновления, поэтому в production используется только внутри изолированного CI job. Ручной запуск с `--force` выполняет полный refresh даже без смены build.
+
+Workflow требует разрешений `contents: write` и `pull-requests: write` для `GITHUB_TOKEN`; он создаёт или обновляет ветку `automation/lol-meta-refresh`, а не пушит в `main`. После merge существующий `deploy-pages.yml` пересобирает GitHub Pages. Он **не** развёртывает `ai-review-server.mjs`: production-платформа API должна отдельно выполнить deploy/restart от того же merge, чтобы сервер перечитал `lol-meta-snapshot.mjs`. Если Data Dragon добавляет нового чемпиона, а локальные `champions.ts` или `champion-role-matrix.json` требуют ручного обновления, `verify:game-data` не пропустит PR — это намеренный stop-the-line, а не публикация неполного каталога.
 
 Foundation verification helpers:
 ```bash

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../store';
 import { endGame, mutateStats, setAiAdvice, startGame } from '../store/gameSlice';
-import { syncLobbyLifecycle } from '../store/lobbySlice';
+import { setCompletedScoreboard, syncLobbyLifecycle } from '../store/lobbySlice';
 import { subscribeToBridgeMessages } from '../services/overwolfBridge';
 
 export const useOverwolfBridge = (onGameStart?: () => void) => {
@@ -24,6 +24,9 @@ export const useOverwolfBridge = (onGameStart?: () => void) => {
         case 'game-end':
           dispatch(endGame());
           dispatch(syncLobbyLifecycle({ phase: 'post-game', isInLobby: false }));
+          break;
+        case 'completed-scoreboard':
+          dispatch(setCompletedScoreboard(message.payload));
           break;
         case 'status':
           dispatch(setAiAdvice(message.payload.text));

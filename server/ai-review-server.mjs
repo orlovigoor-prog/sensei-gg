@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { buildFoundationTestCaseCatalog, buildMatrixAssertions } from './foundation-test-case-catalog.mjs';
 import { DATA_DRAGON_VERSION } from './game-data-config.mjs';
+import { fetchCurrentGamePatch, isCompleteCurrentPatchSnapshot } from './lol-meta-patch.mjs';
 import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
 import {
   accountSessionScenarioFixtures,
@@ -580,6 +581,9 @@ const formatGold = (value) => {
 
 let championIdNameMapCache = null;
 let championIdNameMapCacheExpiresAt = 0;
+const META_PATCH_CACHE_MS = 5 * 60 * 1000;
+let currentMetaPatchCache = null;
+let currentMetaPatchCacheExpiresAt = 0;
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 
@@ -607,9 +611,9 @@ const normalizeMetaRole = (value) => {
   return roleAliases[value.trim().toUpperCase()] ?? null;
 };
 
-const findSnapshotChampionName = (championName, role) => {
+const findSnapshotChampionName = (snapshot, championName, role) => {
   const normalizedChampion = normalizeMetaKey(championName);
-  const roleSnapshot = lolMetaSnapshot.roles[role];
+  const roleSnapshot = snapshot?.roles?.[role];
 
   if (!normalizedChampion || !roleSnapshot) {
     return null;
@@ -625,9 +629,9 @@ const findSnapshotChampionName = (championName, role) => {
   return null;
 };
 
-const findSnapshotTier = (championName, role) => {
+const findSnapshotTier = (snapshot, championName, role) => {
   const normalizedChampion = normalizeMetaKey(championName);
-  const roleSnapshot = lolMetaSnapshot.roles[role];
+  const roleSnapshot = snapshot?.roles?.[role];
 
   if (!normalizedChampion || !roleSnapshot) {
     return null;
@@ -640,10 +644,6 @@ const findSnapshotTier = (championName, role) => {
   }
 
   return null;
-};
-
-const getSnapshotMatchup = (championName, role, rankBracket) => {
-  return getCounterpickDatabaseMatchup(championName, role, rankBracket);
 };
 
 const loadCounterpickDatabase = () => {
@@ -695,7 +695,6 @@ const MIN_RELIABLE_LOBBY_COUNTER_SAMPLE = 500;
 const MIN_STRONG_LOBBY_COUNTERS = 2;
 const COUNTERPICK_MAX_ROWS = 5;
 const COUNTERPICK_RANK_BRACKET = 'all';
-const COUNTERPICK_PATCH_WINDOW = '30';
 
 const getReliableLobbyCounters = (counters) => (Array.isArray(counters) ? counters : [])
   .filter((counter) => Number.isFinite(counter?.matches) && counter.matches >= MIN_RELIABLE_LOBBY_COUNTER_SAMPLE);
@@ -718,8 +717,7 @@ const resolveLobbySignalQuality = ({ counters, globalWinRate, patchTier }) => {
   return 'none';
 };
 
-const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
-  const database = loadCounterpickDatabase();
+const getCounterpickDatabaseMatchup = (database, currentGamePatch, championName, role, rankBracket) => {
   const normalizedChampion = normalizeMetaKey(championName);
   const normalizedRank = normalizeRankBracketForCounterpicks(rankBracket);
 
@@ -737,9 +735,9 @@ const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
   }
 
   const entryRank = normalizeRankBracketForCounterpicks(roleEntry.rankBracket || database.defaultRankBracket);
-  const entryPatch = String(roleEntry.patchWindow || database.defaultPatchWindow || '').trim();
+  const entryPatch = String(roleEntry.patch || '').trim();
 
-  if (entryRank !== COUNTERPICK_RANK_BRACKET || entryPatch !== COUNTERPICK_PATCH_WINDOW) {
+  if (entryRank !== COUNTERPICK_RANK_BRACKET || entryPatch !== currentGamePatch.gamePatch) {
     return null;
   }
 
@@ -772,10 +770,41 @@ const getCounterpickDatabaseMatchup = (championName, role, rankBracket) => {
   };
 };
 
-const buildChampionMetaInsight = (championName, role, rankBracket) => {
-  const patchTier = findSnapshotTier(championName, role);
-  const displayChampion = findSnapshotChampionName(championName, role) ?? championName;
-  const matchup = getSnapshotMatchup(displayChampion, role, rankBracket);
+const getCurrentMetaStatus = async () => {
+  if (!currentMetaPatchCache || Date.now() >= currentMetaPatchCacheExpiresAt) {
+    try {
+      currentMetaPatchCache = await fetchCurrentGamePatch({
+        realm: process.env.LOL_META_RIOT_REALM || 'na',
+        timeoutMs: 4000
+      });
+      currentMetaPatchCacheExpiresAt = Date.now() + META_PATCH_CACHE_MS;
+    } catch {
+      currentMetaPatchCache = null;
+      currentMetaPatchCacheExpiresAt = 0;
+    }
+  }
+
+  if (!currentMetaPatchCache) {
+    return null;
+  }
+
+  const counterpickDatabase = loadCounterpickDatabase();
+
+  return {
+    currentGamePatch: currentMetaPatchCache,
+    tierSnapshotAvailable: isCompleteCurrentPatchSnapshot(lolMetaSnapshot, currentMetaPatchCache),
+    counterpickSnapshotAvailable: isCompleteCurrentPatchSnapshot(counterpickDatabase, currentMetaPatchCache),
+    counterpickDatabase
+  };
+};
+
+const buildChampionMetaInsight = (status, championName, role, rankBracket) => {
+  const tierSnapshot = status?.tierSnapshotAvailable ? lolMetaSnapshot : null;
+  const patchTier = findSnapshotTier(tierSnapshot, championName, role);
+  const displayChampion = findSnapshotChampionName(tierSnapshot, championName, role) ?? championName;
+  const matchup = status?.counterpickSnapshotAvailable
+    ? getCounterpickDatabaseMatchup(status.counterpickDatabase, status.currentGamePatch, displayChampion, role, rankBracket)
+    : null;
 
   if (!patchTier && !matchup) {
     return null;
@@ -783,17 +812,17 @@ const buildChampionMetaInsight = (championName, role, rankBracket) => {
 
   const counters = Array.isArray(matchup?.counters) ? matchup.counters : [];
   const globalWinRate = Number.isFinite(matchup?.globalWinRate) ? matchup.globalWinRate : null;
-  const dataRankBracket = matchup?.rankBracket || lolMetaSnapshot.rankBracket;
+  const dataRankBracket = matchup?.rankBracket || tierSnapshot?.rankBracket || COUNTERPICK_RANK_BRACKET;
 
   return {
     champion: displayChampion,
     role,
     rankBracket: dataRankBracket,
-    rankLabel: dataRankBracket === 'all' ? 'All ranks' : rankBracket === 'platinum-plus' ? 'Platinum+' : lolMetaSnapshot.rankLabel,
+    rankLabel: dataRankBracket === 'all' ? 'All ranks' : rankBracket === 'platinum-plus' ? 'Platinum+' : tierSnapshot?.rankLabel || 'All ranks',
     patchTier,
-    patch: lolMetaSnapshot.patch,
+    patch: status.currentGamePatch.gamePatch,
     matchupPatch: matchup?.sourcePatch ?? null,
-    sampleLabel: matchup?.sampleLabel ?? lolMetaSnapshot.rankLabel,
+    sampleLabel: matchup?.sampleLabel ?? `All ranks, Ranked Solo/Duo, patch ${status.currentGamePatch.gamePatch}`,
     globalWinRate,
     overallMatches: Number.isFinite(matchup?.overallMatches) ? matchup.overallMatches : null,
     counters,
@@ -801,7 +830,17 @@ const buildChampionMetaInsight = (championName, role, rankBracket) => {
   };
 };
 
-const handleLolMetaChampionInsight = (res, requestUrl) => {
+const createMetaSnapshotResponse = (status) => ({
+  patch: status?.currentGamePatch?.gamePatch ?? null,
+  patchBuild: status?.currentGamePatch?.dataDragonVersion ?? null,
+  rankBracket: lolMetaSnapshot.rankBracket,
+  rankLabel: lolMetaSnapshot.rankLabel,
+  updatedAt: status?.tierSnapshotAvailable ? lolMetaSnapshot.updatedAt : null,
+  tierSnapshotAvailable: Boolean(status?.tierSnapshotAvailable),
+  counterpickSnapshotAvailable: Boolean(status?.counterpickSnapshotAvailable)
+});
+
+const handleLolMetaChampionInsight = async (res, requestUrl) => {
   const champion = requestUrl.searchParams.get('champion');
   const role = normalizeMetaRole(requestUrl.searchParams.get('role'));
   const rankBracket = isNonEmptyString(requestUrl.searchParams.get('rank')) ? requestUrl.searchParams.get('rank').trim() : lolMetaSnapshot.rankBracket;
@@ -811,21 +850,21 @@ const handleLolMetaChampionInsight = (res, requestUrl) => {
     return;
   }
 
+  const status = await getCurrentMetaStatus();
+
   sendJson(res, 200, {
     ok: true,
-    snapshot: {
-      patch: lolMetaSnapshot.patch,
-      rankBracket: lolMetaSnapshot.rankBracket,
-      rankLabel: lolMetaSnapshot.rankLabel,
-      updatedAt: lolMetaSnapshot.updatedAt
-    },
-    insight: buildChampionMetaInsight(champion, role, rankBracket)
+    snapshot: createMetaSnapshotResponse(status),
+    insight: status ? buildChampionMetaInsight(status, champion, role, rankBracket) : null
   });
 };
 
-const handleLolMetaTierList = (res, requestUrl) => {
+const handleLolMetaTierList = async (res, requestUrl) => {
   const role = normalizeMetaRole(requestUrl.searchParams.get('role'));
-  const roles = role ? { [role]: lolMetaSnapshot.roles[role] } : lolMetaSnapshot.roles;
+  const status = await getCurrentMetaStatus();
+  const roles = status?.tierSnapshotAvailable
+    ? (role ? { [role]: lolMetaSnapshot.roles[role] } : lolMetaSnapshot.roles)
+    : {};
 
   if (role && !lolMetaSnapshot.roles[role]) {
     sendJson(res, 404, { ok: false, error: 'Unknown role' });
@@ -834,10 +873,7 @@ const handleLolMetaTierList = (res, requestUrl) => {
 
   sendJson(res, 200, {
     ok: true,
-    patch: lolMetaSnapshot.patch,
-    rankBracket: lolMetaSnapshot.rankBracket,
-    rankLabel: lolMetaSnapshot.rankLabel,
-    updatedAt: lolMetaSnapshot.updatedAt,
+    ...createMetaSnapshotResponse(status),
     roles
   });
 };
@@ -1612,12 +1648,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && requestUrl.pathname === '/api/lol/meta/champion-insight') {
-    handleLolMetaChampionInsight(res, requestUrl);
+    await handleLolMetaChampionInsight(res, requestUrl);
     return;
   }
 
   if (req.method === 'GET' && requestUrl.pathname === '/api/lol/meta/tier-list') {
-    handleLolMetaTierList(res, requestUrl);
+    await handleLolMetaTierList(res, requestUrl);
     return;
   }
 

@@ -1,0 +1,83 @@
+name: Refresh League meta data
+
+on:
+  schedule:
+    # Daily check at 19:17 UTC (11:17 PST / 12:17 PDT).
+    - cron: '17 19 * * *'
+    # Extra retry on Riot's usual Wednesday patch day at 23:17 UTC.
+    - cron: '17 23 * * 3'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Refresh even when the Riot realm build is unchanged.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-lol-meta
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh and validate current Riot patch data
+        id: refresh
+        run: |
+          if [ "${{ inputs.force }}" = "true" ]; then
+            npm run meta:daily-update -- --force
+          else
+            npm run meta:daily-update
+          fi
+
+      - name: Check generated changes
+        id: changes
+        run: |
+          git diff --check
+          if git diff --quiet -- game-data.config.json server/lol-meta-snapshot.mjs server/data/lol-counterpicks.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update refresh pull request
+        if: steps.refresh.outputs.changed == 'true' && steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: automation/lol-meta-refresh
+          delete-branch: true
+          commit-message: 'chore(meta): refresh League data for ${{ steps.refresh.outputs.patch }}'
+          title: 'chore(meta): refresh League data for ${{ steps.refresh.outputs.patch }}'
+          body: |
+            Автоматическое обновление после проверки официального Riot Data Dragon realm.
+
+            Build: `${{ steps.refresh.outputs.build }}`
+            Patch: `${{ steps.refresh.outputs.patch }}`
+
+            PR создан только после полного tier/counterpick обновления и всех server-side проверок.
+          add-paths: |
+            game-data.config.json
+            server/lol-meta-snapshot.mjs
+            server/data/lol-counterpicks.json

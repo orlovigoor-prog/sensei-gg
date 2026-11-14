@@ -1,16 +1,23 @@
 export const lolMetaSnapshot = {
-  "version": 2,
+  "version": 3,
   "game": "league-of-legends",
   "queue": "ranked-solo-duo",
   "rankBracket": "all",
   "rankLabel": "All ranks",
-  "patch": "30",
-  "updatedAt": "2026-11-12T21:46:27.063Z",
+  "patch": "16.22",
+  "patchBuild": "16.22.1",
+  "patchSource": {
+    "provider": "riot-data-dragon-realm",
+    "realm": "na",
+    "url": "https://ddragon.leagueoflegends.com/realms/na.json",
+    "observedAt": "2026-11-14T05:07:08.418Z"
+  },
+  "updatedAt": "2026-11-14T05:07:09.594Z",
   "source": {
     "provider": "lolalytics-tier-list",
-    "url": "https://lolalytics.com/lol/tierlist/?tier=all&patch=30&view=grid",
+    "url": "https://lolalytics.com/lol/tierlist/?tier=all&patch=16.22&view=grid",
     "mode": "backend-snapshot",
-    "refreshCadence": "weekly",
+    "refreshStrategy": "per-game-patch",
     "note": "Internal backend tier-list snapshot. Do not render this label in the client UI. Runtime client scraping is intentionally disabled."
   },
   "roles": {
@@ -18,59 +25,60 @@ export const lolMetaSnapshot = {
       "sourceRows": 60,
       "tiers": {
         "S+": [
-          "Zed",
-          "Zoe"
+          "Irelia",
+          "Zac",
+          "Zed"
         ],
         "S": [
-          "Aurelion Sol",
           "Fiora",
-          "Irelia",
-          "Zac"
+          "Zoe"
         ],
         "S-": [
-          "Garen",
-          "Lissandra"
+          "Aurelion Sol",
+          "Gangplank",
+          "Mordekaiser",
+          "Singed"
         ],
         "A+": [
           "Kayle",
-          "Mordekaiser",
-          "Ornn",
-          "Singed"
-        ],
-        "A": [
-          "Anivia",
-          "Cho'Gath",
-          "Gangplank",
+          "Lissandra",
           "Malphite",
-          "Olaf",
-          "Poppy",
           "Sion",
-          "Tryndamere",
+          "Teemo",
           "Zaahen"
         ],
-        "A-": [
+        "A": [
           "Aurora",
-          "Kled",
-          "Shen",
-          "Teemo",
-          "Urgot",
-          "Yone"
+          "Cho'Gath",
+          "Garen",
+          "Ornn",
+          "Poppy",
+          "Viktor"
         ],
-        "B+": [
+        "A-": [
           "Akshan",
+          "Anivia",
           "Camille",
           "Dr. Mundo",
-          "Rek'Sai",
-          "Tahm Kench",
-          "Viktor",
-          "Volibear"
+          "Olaf",
+          "Shen"
         ],
-        "B": [
+        "B+": [
           "Akali",
           "Darius",
-          "Gwen",
+          "Kled",
           "Naafiri",
-          "Renekton"
+          "Tryndamere",
+          "Urgot",
+          "Volibear",
+          "Yone"
+        ],
+        "B": [
+          "Gwen",
+          "Jax",
+          "Rek'Sai",
+          "Renekton",
+          "Tahm Kench"
         ]
       }
     },
@@ -82,64 +90,64 @@ export const lolMetaSnapshot = {
           "Wukong"
         ],
         "S": [
-          "Bel'Veth",
           "Lillia",
+          "Master Yi",
           "Zac"
         ],
         "S-": [
-          "Ekko",
+          "Shyvana",
           "Viego"
         ],
         "A+": [
+          "Bel'Veth",
           "Darius",
-          "Master Yi",
-          "Shyvana",
+          "Ekko",
           "Zaahen"
         ],
         "A": [
           "Briar",
           "Elise",
+          "Jax",
           "Kayn",
           "Sion",
-          "Taliyah",
           "Tryndamere"
         ],
         "A-": [
-          "Fiddlesticks",
-          "Jax",
+          "Karthus",
+          "Olaf",
           "Rek'Sai",
-          "Sejuani",
+          "Taliyah",
           "Talon",
           "Warwick"
         ],
         "B+": [
           "Aatrox",
-          "Amumu",
-          "Fizz",
-          "Karthus",
-          "Maokai",
-          "Udyr"
-        ],
-        "B": [
-          "Gragas",
+          "Fiddlesticks",
           "Graves",
-          "Hecarim",
-          "Poppy",
-          "Rammus",
-          "Shen",
-          "Volibear",
+          "JarvanIV",
+          "Sejuani",
           "XinZhao"
         ],
-        "B-": [
-          "JarvanIV",
-          "LeeSin",
+        "B": [
+          "Amumu",
+          "Gragas",
+          "Hecarim",
+          "Naafiri",
           "Nunu & Willump",
-          "Olaf"
+          "Rammus",
+          "Shen",
+          "Udyr",
+          "Volibear"
+        ],
+        "B-": [
+          "Fizz",
+          "LeeSin",
+          "Maokai",
+          "Poppy"
         ],
         "C+": [
           "Ivern",
-          "Kindred",
-          "Naafiri",
+          "Kha'Zix",
           "Nidalee"
         ]
       }
@@ -153,132 +161,134 @@ export const lolMetaSnapshot = {
         ],
         "S": [
           "Ahri",
-          "Hwei"
+          "Aurelion Sol",
+          "Hwei",
+          "Katarina"
         ],
         "S-": [
-          "Aurelion Sol",
-          "Lux",
-          "Swain",
-          "Veigar"
+          "Veigar",
+          "Vladimir"
         ],
         "A+": [
-          "Katarina",
-          "Lissandra",
+          "Lux",
+          "Swain",
           "Tryndamere",
           "TwistedFate",
-          "Vladimir",
-          "Yasuo"
+          "Xerath",
+          "Zilean"
         ],
         "A": [
           "Fizz",
           "LeBlanc",
-          "Syndra",
+          "Lissandra",
+          "Sion",
           "Vel'Koz",
-          "Xerath",
-          "Zilean"
+          "Vex",
+          "Viktor"
         ],
         "A-": [
-          "Garen",
-          "Malzahar",
-          "Sion",
-          "Vex"
+          "Gragas",
+          "Singed",
+          "Syndra"
         ],
         "B+": [
-          "Aurora",
           "Diana",
-          "Gragas",
+          "Garen",
           "Kassadin",
           "Kayle",
+          "Malphite",
+          "Malzahar",
           "Pantheon",
-          "Riven",
-          "Singed",
           "Talon"
         ],
         "B": [
+          "Akali",
+          "Akshan",
+          "Aurora",
+          "Cho'Gath",
           "Heimerdinger",
           "Irelia",
-          "Malphite",
-          "Qiyana",
+          "Naafiri",
+          "Riven",
           "Sylas",
-          "Taliyah",
-          "Viktor"
+          "Taliyah"
         ],
         "B-": [
-          "Akali",
-          "Brand",
-          "Cho'Gath",
+          "Annie",
+          "Qiyana",
+          "Zed",
           "Zoe"
         ]
       }
     },
     "ADC": {
-      "sourceRows": 53,
+      "sourceRows": 52,
       "tiers": {
         "S+": [
           "Katarina"
         ],
         "S": [
-          "Hwei",
-          "Jinx"
-        ],
-        "S-": [
           "Karthus",
-          "Kog'Maw"
-        ],
-        "A+": [
-          "Aurelion Sol",
-          "Swain",
           "Zeri"
         ],
-        "A": [
+        "S-": [
+          "Aurelion Sol",
+          "Hwei"
+        ],
+        "A+": [
           "Jhin",
+          "Swain"
+        ],
+        "A": [
+          "Jinx",
+          "Kog'Maw",
           "Veigar",
-          "Xayah",
           "Yasuo"
         ],
         "A-": [
-          "Lux",
-          "Nilah",
           "Vel'Koz",
-          "Vladimir"
+          "Vladimir",
+          "Xayah"
         ],
         "B+": [
+          "Lux",
           "Miss Fortune",
-          "Tristana",
-          "Twitch",
-          "Xerath"
+          "Sivir",
+          "Smolder",
+          "Twitch"
         ],
         "B": [
-          "Brand",
+          "Aphelios",
           "Kai'Sa",
-          "Smolder"
+          "Kalista",
+          "Nilah",
+          "Senna",
+          "Tristana",
+          "Xerath"
         ],
         "B-": [
-          "Draven",
-          "Kalista",
-          "Senna",
-          "Sivir",
-          "Ziggs"
-        ],
-        "C+": [
-          "Aphelios",
-          "Seraphine"
-        ],
-        "C": [
-          "Caitlyn",
-          "Cassiopeia",
           "Samira"
         ],
-        "C-": [
-          "Ashe",
-          "Corki"
+        "C+": [
+          "Brand",
+          "Corki",
+          "Draven",
+          "Ziggs"
         ],
-        "D+": [
+        "C": [
+          "Ashe",
+          "Cassiopeia",
+          "Seraphine"
+        ],
+        "C-": [
+          "Caitlyn",
           "Vayne"
         ],
-        "D": [
-          "Ezreal",
+        "D+": [
           "Lucian"
+        ],
+        "D": [
+          "Ezreal"
         ],
         "D-": [
           "Varus"
@@ -296,49 +306,50 @@ export const lolMetaSnapshot = {
           "Alistar",
           "Janna",
           "Rell",
-          "Sona"
+          "Senna"
         ],
         "S-": [
-          "Blitzcrank",
           "Rakan",
-          "Senna",
+          "Sona",
+          "Zilean",
           "Zyra"
         ],
         "A+": [
+          "Blitzcrank",
           "Leona",
-          "Vel'Koz",
-          "Zilean"
+          "Soraka",
+          "Vel'Koz"
         ],
         "A": [
           "Braum",
-          "Lux",
           "Poppy",
           "Seraphine",
-          "Soraka",
           "Taric"
         ],
         "A-": [
-          "Brand",
           "Elise",
-          "Lulu",
-          "Maokai",
+          "Lux",
           "Milio",
+          "Morgana",
           "Xerath"
         ],
         "B+": [
-          "Amumu",
-          "Morgana",
-          "Pyke",
-          "Swain"
+          "Lulu",
+          "Maokai",
+          "Pyke"
         ],
         "B": [
-          "Nidalee"
+          "Brand",
+          "Nidalee",
+          "Renata Glasc",
+          "Swain"
         ],
         "B-": [
+          "Amumu",
           "Bard",
+          "Karma",
           "Nautilus",
           "Pantheon",
-          "Renata Glasc",
           "Tahm Kench"
         ]
       }
@@ -347,13 +358,12 @@ export const lolMetaSnapshot = {
   "coverage": {
     "expectedRoles": 5,
     "filledRoles": 5,
-    "publishedRoleRows": 202,
+    "publishedRoleRows": 206,
     "incompleteSourceRoles": 0,
     "emptyPublishedRoles": 0,
     "duplicateTierRows": 0,
     "invalidTierRows": 0,
     "metadataValid": true,
-    "fresh": true,
     "completeCoverage": true,
     "incompleteSourceRolesSample": [],
     "emptyPublishedRolesSample": [],

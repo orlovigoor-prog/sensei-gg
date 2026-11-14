@@ -1,6 +1,6 @@
 /// <reference types="@overwolf/types" />
 
-import type { GameMode, LobbyPhase } from '../store/lobbySlice';
+import type { CompletedMatchScoreboard, GameMode, LobbyPhase } from '../store/lobbySlice';
 
 export const LOL_GAME_ID = 5426;
 export const OVERWOLF_BRIDGE_MESSAGE_ID = 'sensei-overwolf-bridge';
@@ -35,6 +35,10 @@ export type OverwolfBridgeMessage =
     }
   | {
       type: 'game-end';
+    }
+  | {
+      type: 'completed-scoreboard';
+      payload: CompletedMatchScoreboard;
     }
   | {
       type: 'status';

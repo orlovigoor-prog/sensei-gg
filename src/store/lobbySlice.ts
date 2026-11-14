@@ -1,6 +1,34 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
+export interface CompletedScoreboardPlayer {
+  summonerName: string;
+  championName: string;
+  role?: PlayerInfo['mainRole'];
+  result?: 'W' | 'L';
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  cs?: number;
+  goldEarned?: number;
+  visionScore?: number;
+  items?: number[];
+  trinketId?: number;
+  summonerSpells?: number[];
+  runes?: {
+    keystoneId?: number | null;
+    primaryStyleId?: number | null;
+    secondaryStyleId?: number | null;
+  };
+}
+
+export interface CompletedMatchScoreboard {
+  allies: CompletedScoreboardPlayer[];
+  enemies: CompletedScoreboardPlayer[];
+  localSummonerName: string;
+  source: 'overwolf-live-client-data';
+}
+
 export interface PlayerInfo {
   summonerName: string;
   rank: string;
@@ -56,6 +84,7 @@ interface LobbyState {
   loading: boolean;
   phase: LobbyPhase;
   partyMembers: string[];
+  completedScoreboard: CompletedMatchScoreboard | null;
 }
 
 const initialState: LobbyState = {
@@ -69,7 +98,8 @@ const initialState: LobbyState = {
   pickOrder: [],
   loading: false,
   phase: 'champ-select',
-  partyMembers: []
+  partyMembers: [],
+  completedScoreboard: null
 };
 
 const lobbySlice = createSlice({
@@ -89,6 +119,7 @@ const lobbySlice = createSlice({
       state.players.enemies = action.payload.enemies;
       state.phase = action.payload.phase || 'champ-select';
       state.partyMembers = action.payload.partyMembers || [];
+      state.completedScoreboard = null;
     },
     setSelectedChampion: (state, action: PayloadAction<string>) => {
       state.selectedChampion = action.payload;
@@ -98,6 +129,9 @@ const lobbySlice = createSlice({
     },
     setLobbyPhase: (state, action: PayloadAction<LobbyPhase>) => {
       state.phase = action.payload;
+      if (action.payload === 'loading' || action.payload === 'in-game') {
+        state.completedScoreboard = null;
+      }
     },
     setPartyMembers: (state, action: PayloadAction<string[]>) => {
       state.partyMembers = action.payload;
@@ -118,6 +152,12 @@ const lobbySlice = createSlice({
       if (action.payload.partyMembers) {
         state.partyMembers = action.payload.partyMembers;
       }
+      if (action.payload.phase === 'loading' || action.payload.phase === 'in-game') {
+        state.completedScoreboard = null;
+      }
+    },
+    setCompletedScoreboard: (state, action: PayloadAction<CompletedMatchScoreboard>) => {
+      state.completedScoreboard = action.payload;
     },
     updatePlayerStats: (state, action: PayloadAction<{ 
       team: 'allies' | 'enemies';
@@ -142,6 +182,7 @@ const lobbySlice = createSlice({
       state.pickOrder = [];
       state.phase = 'champ-select';
       state.partyMembers = [];
+      state.completedScoreboard = null;
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
@@ -156,6 +197,7 @@ export const {
   setLobbyPhase,
   setPartyMembers,
   syncLobbyLifecycle,
+  setCompletedScoreboard,
   updatePlayerStats, 
   clearLobby,
   setLoading 

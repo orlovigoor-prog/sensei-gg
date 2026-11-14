@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { fetchCurrentGamePatch, hasCurrentPatchMetadata, normalizeGamePatch } from './lol-meta-patch.mjs';
 
 const SNAPSHOT_PATH = path.resolve(process.cwd(), 'server/lol-meta-snapshot.mjs');
 const ROLE_MATRIX_PATH = path.resolve(process.cwd(), 'src/services/gameData/champion-role-matrix.json');
@@ -18,11 +19,11 @@ const MIN_SOURCE_ROWS_PER_ROLE = 50;
 
 const DEFAULT_OPTIONS = {
   rank: process.env.LOLALYTICS_RANK || 'all',
-  patch: process.env.LOLALYTICS_PATCH || '30',
+  patch: null,
+  riotRealm: process.env.LOL_META_RIOT_REALM || 'na',
   timeoutMs: Number.parseInt(process.env.LOLALYTICS_FETCH_TIMEOUT_MS || '15000', 10),
   retries: Number.parseInt(process.env.LOLALYTICS_FETCH_RETRIES || '2', 10),
   retryDelayMs: Number.parseInt(process.env.LOLALYTICS_RETRY_DELAY_MS || '1200', 10),
-  maxSnapshotAgeHours: Number.parseInt(process.env.LOLALYTICS_MAX_SNAPSHOT_AGE_HOURS || '192', 10),
   coverageOnly: process.argv.includes('--coverage'),
   dryRun: process.argv.includes('--dry-run'),
   requireComplete: process.argv.includes('--require-complete')
@@ -105,6 +106,19 @@ const buildTierListUrl = (role, options) => {
   return `https://lolalytics.com/lol/tierlist/?${params.toString()}`;
 };
 
+const getLolalyticsPatchFromHtml = (html) => {
+  const patchMatch = stripHtml(html).match(/(?:League of Legends )?Patch\s+(\d+\.\d+)/i);
+  return normalizeGamePatch(patchMatch?.[1]);
+};
+
+const assertLolalyticsPatch = (html, expectedPatch, sourceLabel) => {
+  const receivedPatch = getLolalyticsPatchFromHtml(html);
+
+  if (receivedPatch !== expectedPatch) {
+    throw new Error(`${sourceLabel} returned patch ${receivedPatch || 'missing'}; expected ${expectedPatch}.`);
+  }
+};
+
 const parseTierListRows = (html, requestedRole, roleMatrix) => {
   const rows = [];
   let sourceRows = 0;
@@ -149,14 +163,6 @@ const parseTierListRows = (html, requestedRole, roleMatrix) => {
   }
 
   return { rows, sourceRows };
-};
-
-const isSnapshotFresh = (timestamp, maxAgeHours) => {
-  const updatedAt = Date.parse(timestamp || '');
-  const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
-  const ageMs = Date.now() - updatedAt;
-
-  return Number.isFinite(updatedAt) && Number.isFinite(maxAgeMs) && maxAgeMs > 0 && ageMs >= 0 && ageMs <= maxAgeMs;
 };
 
 const buildCoverageReport = (snapshot, roleMatrix, options) => {
@@ -206,8 +212,7 @@ const buildCoverageReport = (snapshot, roleMatrix, options) => {
     }
   });
 
-  const metadataValid = snapshot?.rankBracket === options.rank && snapshot?.patch === options.patch;
-  const fresh = isSnapshotFresh(snapshot?.updatedAt, options.maxSnapshotAgeHours);
+  const metadataValid = snapshot?.rankBracket === options.rank && hasCurrentPatchMetadata(snapshot, options.currentGamePatch);
 
   return {
     expectedRoles: ROLES.length,
@@ -218,8 +223,7 @@ const buildCoverageReport = (snapshot, roleMatrix, options) => {
     duplicateTierRows: duplicateTierRows.length,
     invalidTierRows: invalidTierRows.length,
     metadataValid,
-    fresh,
-    completeCoverage: metadataValid && fresh && incompleteSourceRoles.length === 0 && emptyPublishedRoles.length === 0 && duplicateTierRows.length === 0 && invalidTierRows.length === 0,
+    completeCoverage: metadataValid && incompleteSourceRoles.length === 0 && emptyPublishedRoles.length === 0 && duplicateTierRows.length === 0 && invalidTierRows.length === 0,
     incompleteSourceRolesSample: incompleteSourceRoles.slice(0, 40),
     emptyPublishedRolesSample: emptyPublishedRoles.slice(0, 40),
     duplicateTierRowsSample: duplicateTierRows.slice(0, 40),
@@ -244,10 +248,23 @@ const parseArgValue = (name) => {
 };
 
 const main = async () => {
+  const requestedPatch = parseArgValue('--patch');
+  const currentGamePatch = await fetchCurrentGamePatch({
+    realm: parseArgValue('--riot-realm') || DEFAULT_OPTIONS.riotRealm,
+    timeoutMs: DEFAULT_OPTIONS.timeoutMs
+  });
+
+  if (requestedPatch && normalizeGamePatch(requestedPatch) !== currentGamePatch.gamePatch) {
+    throw new Error(`Requested patch ${requestedPatch} does not match the current Riot game patch ${currentGamePatch.gamePatch}.`);
+  }
+
   const options = {
     ...DEFAULT_OPTIONS,
     rank: parseArgValue('--rank') || DEFAULT_OPTIONS.rank,
-    patch: parseArgValue('--patch') || DEFAULT_OPTIONS.patch
+    patch: currentGamePatch.gamePatch,
+    patchBuild: currentGamePatch.dataDragonVersion,
+    patchSource: currentGamePatch.patchSource,
+    currentGamePatch
   };
   const roleMatrix = await readJsonFile(ROLE_MATRIX_PATH);
 
@@ -257,14 +274,15 @@ const main = async () => {
     return;
   }
 
-  if (options.rank !== 'all' || options.patch !== '30') {
-    throw new Error('Tier-list updater requires rank=all and patch=30.');
+  if (options.rank !== 'all') {
+    throw new Error('Tier-list updater requires rank=all.');
   }
 
   const roleRows = new Map(ROLES.map((role) => [role, { sourceRows: 0, tiers: new Map() }]));
 
   for (const role of ROLES) {
     const html = await fetchTextWithRetry(buildTierListUrl(role, options), options);
+    assertLolalyticsPatch(html, options.patch, `Lolalytics tier list ${role}`);
     const parsed = parseTierListRows(html, role, roleMatrix);
 
     parsed.rows.forEach(({ champion, tier }) => {
@@ -285,18 +303,20 @@ const main = async () => {
     return [role, { sourceRows: roleRows.get(role).sourceRows, tiers }];
   }));
   const snapshot = {
-    version: 2,
+    version: 3,
     game: 'league-of-legends',
     queue: 'ranked-solo-duo',
     rankBracket: options.rank,
     rankLabel: 'All ranks',
     patch: options.patch,
+    patchBuild: options.patchBuild,
+    patchSource: options.patchSource,
     updatedAt: new Date().toISOString(),
     source: {
       provider: 'lolalytics-tier-list',
-      url: 'https://lolalytics.com/lol/tierlist/?tier=all&patch=30&view=grid',
+      url: `https://lolalytics.com/lol/tierlist/?tier=all&patch=${options.patch}&view=grid`,
       mode: 'backend-snapshot',
-      refreshCadence: 'weekly',
+      refreshStrategy: 'per-game-patch',
       note: 'Internal backend tier-list snapshot. Do not render this label in the client UI. Runtime client scraping is intentionally disabled.'
     },
     roles
@@ -304,7 +324,7 @@ const main = async () => {
   snapshot.coverage = buildCoverageReport(snapshot, roleMatrix, options);
 
   if (options.requireComplete && !snapshot.coverage.completeCoverage) {
-    throw new Error(`Tier-list coverage gate failed: incompleteSourceRoles=${snapshot.coverage.incompleteSourceRoles} emptyPublishedRoles=${snapshot.coverage.emptyPublishedRoles} duplicate=${snapshot.coverage.duplicateTierRows} invalid=${snapshot.coverage.invalidTierRows} metadataValid=${snapshot.coverage.metadataValid} fresh=${snapshot.coverage.fresh}`);
+    throw new Error(`Tier-list coverage gate failed: incompleteSourceRoles=${snapshot.coverage.incompleteSourceRoles} emptyPublishedRoles=${snapshot.coverage.emptyPublishedRoles} duplicate=${snapshot.coverage.duplicateTierRows} invalid=${snapshot.coverage.invalidTierRows} metadataValid=${snapshot.coverage.metadataValid}`);
   }
 
   if (!options.dryRun) {

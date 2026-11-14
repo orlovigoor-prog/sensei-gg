@@ -3,7 +3,7 @@ import type { RootState } from '../../store';
 import { useEffect, useMemo, useState } from 'react';
 import { ItemTooltip } from '../../components/ItemTooltip';
 import { PlayerLoadoutIcons } from '../../components/PlayerLoadoutIcons';
-import type { PlayerInfo } from '../../store/lobbySlice';
+import type { CompletedScoreboardPlayer, PlayerInfo } from '../../store/lobbySlice';
 import { getRankColor, getRankIconUrl } from '../../services/rankAssets';
 import { formatPlayerRankLabel } from '../../services/rankLabel';
 import { dispatchSearchPlayerCommand } from '../../services/appCommands';
@@ -78,11 +78,11 @@ interface MatchScreenProps {
 }
 
 interface PostGamePlayerRowProps {
-  player: PlayerInfo;
+  player: CompletedScoreboardPlayer;
   displayName: string;
-  isWinner: boolean;
+  isWinner?: boolean;
   laneLabel: string;
-  teamKills: number;
+  teamKills?: number;
 }
 
 const formatLobbyPercent = (value: number) => `${value.toFixed(2).replace('.', ',')}%`;
@@ -101,14 +101,104 @@ const getPlayerLoadout = (player: PlayerInfo, championName?: string) => {
   };
 };
 
-function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, teamKills }: PostGamePlayerRowProps) {
+const toPostGameScoreboardPlayer = (player: PlayerInfo): CompletedScoreboardPlayer => {
   const latestMatch = player.recentMatches?.[0];
-  const championName = latestMatch?.champion || 'Aatrox';
-  const championIcon = getChampionIconUrl(championName);
-  const hasKda = latestMatch !== undefined;
-  const kdaText = hasKda ? `${latestMatch.k} / ${latestMatch.d} / ${latestMatch.a}` : '— / — / —';
-  const killParticipation = hasKda && teamKills > 0
-    ? `${Math.round(((latestMatch.k + latestMatch.a) / teamKills) * 100)}%`
+
+  return {
+    summonerName: player.summonerName,
+    championName: latestMatch?.champion ?? '',
+    role: player.mainRole,
+    result: latestMatch?.result,
+    kills: latestMatch?.k,
+    deaths: latestMatch?.d,
+    assists: latestMatch?.a,
+    cs: latestMatch?.cs,
+    goldEarned: latestMatch?.goldEarned,
+    visionScore: latestMatch?.visionScore,
+    items: latestMatch?.items,
+    trinketId: latestMatch?.trinketId,
+    summonerSpells: latestMatch?.summonerSpells,
+    runes: latestMatch?.runes
+  };
+};
+
+const createUnavailablePostGameTeam = () => Array.from({ length: 5 }, () => ({
+  summonerName: '—',
+  championName: ''
+}));
+
+const hasScoreValue = (value: number | undefined): value is number => (
+  typeof value === 'number' && Number.isFinite(value)
+);
+
+const formatPostGameScoreValue = (value: number | undefined) => hasScoreValue(value) ? String(value) : '—';
+
+const getPostGameTeamTotal = (
+  players: CompletedScoreboardPlayer[],
+  stat: 'kills' | 'deaths' | 'assists'
+) => {
+  const values = players.map((player) => player[stat]);
+
+  return values.every(hasScoreValue)
+    ? values.reduce((sum, value) => sum + value, 0)
+    : undefined;
+};
+
+const formatPostGameTeamScore = (players: CompletedScoreboardPlayer[]) => (
+  [
+    getPostGameTeamTotal(players, 'kills'),
+    getPostGameTeamTotal(players, 'deaths'),
+    getPostGameTeamTotal(players, 'assists')
+  ].map(formatPostGameScoreValue).join(' / ')
+);
+
+const getPostGameTeamResult = (players: CompletedScoreboardPlayer[]) => {
+  const results = players.map((player) => player.result);
+
+  return results.length === 5 && results.every((result) => result === 'W')
+    ? 'W'
+    : results.length === 5 && results.every((result) => result === 'L')
+      ? 'L'
+      : undefined;
+};
+
+const isCompletedScoreboardTeam = (value: unknown): value is CompletedScoreboardPlayer[] => (
+  Array.isArray(value)
+  && value.length === 5
+  && value.every((player) => (
+    typeof player === 'object'
+    && player !== null
+    && typeof (player as CompletedScoreboardPlayer).summonerName === 'string'
+    && (player as CompletedScoreboardPlayer).summonerName.trim().length > 0
+    && typeof (player as CompletedScoreboardPlayer).championName === 'string'
+    && (player as CompletedScoreboardPlayer).championName.trim().length > 0
+  ))
+);
+
+const orderPostGamePlayersByLane = (players: CompletedScoreboardPlayer[]) => {
+  const usedIndexes = new Set<number>();
+
+  return laneOrder.map((lane, laneIndex) => {
+    const matchedIndex = players.findIndex((player, playerIndex) => !usedIndexes.has(playerIndex) && player.role === lane);
+    const fallbackIndex = players.findIndex((_, playerIndex) => !usedIndexes.has(playerIndex));
+    const selectedIndex = matchedIndex >= 0 ? matchedIndex : fallbackIndex >= 0 ? fallbackIndex : laneIndex;
+
+    usedIndexes.add(selectedIndex);
+
+    return {
+      lane,
+      player: players[selectedIndex],
+      index: selectedIndex
+    };
+  });
+};
+
+function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, teamKills }: PostGamePlayerRowProps) {
+  const championName = player.championName;
+  const hasChampion = championName.length > 0;
+  const kdaText = `${formatPostGameScoreValue(player.kills)} / ${formatPostGameScoreValue(player.deaths)} / ${formatPostGameScoreValue(player.assists)}`;
+  const killParticipation = hasScoreValue(player.kills) && hasScoreValue(player.assists) && hasScoreValue(teamKills) && teamKills > 0
+    ? `${Math.round(((player.kills + player.assists) / teamKills) * 100)}%`
     : '—';
   const formatGold = (goldEarned: number | undefined) => goldEarned === undefined
     ? '—'
@@ -116,18 +206,18 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, teamKills
       ? `${(goldEarned / 1000).toFixed(1)}k`
       : String(goldEarned);
   const itemIds = useMemo(
-    () => latestMatch?.items?.filter((itemId) => Number.isInteger(itemId) && itemId > 0).slice(0, 6) ?? [],
-    [latestMatch?.items]
+    () => player.items?.filter((itemId) => Number.isInteger(itemId) && itemId > 0).slice(0, 6) ?? [],
+    [player.items]
   );
-  const trinketId = Number.isInteger(latestMatch?.trinketId) && (latestMatch?.trinketId ?? 0) > 0
-    ? latestMatch?.trinketId
+  const trinketId = Number.isInteger(player.trinketId) && (player.trinketId ?? 0) > 0
+    ? player.trinketId
     : null;
   const displayedItemIds = useMemo(
     () => trinketId ? [...itemIds, trinketId] : itemIds,
     [itemIds, trinketId]
   );
-  const matchLoadout = latestMatch?.summonerSpells?.length === 2 && latestMatch.runes
-    ? { spells: latestMatch.summonerSpells, runes: latestMatch.runes }
+  const matchLoadout = player.summonerSpells?.length === 2 && player.runes
+    ? { spells: player.summonerSpells, runes: player.runes }
     : null;
   const isDemoProfile = player.summonerName === 'DemoProfilePlayer';
   const [hoveredItem, setHoveredItem] = useState<{ itemId: number; anchorElement: HTMLElement } | null>(null);
@@ -193,23 +283,29 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, teamKills
       borderRadius: '10px',
       background: isDemoProfile
         ? 'linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(15, 19, 26, 0.8))'
-        : isWinner
+        : isWinner === true
           ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 19, 26, 0.72))'
-          : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(15, 19, 26, 0.72))',
-      border: `1px solid ${isDemoProfile ? 'rgba(34, 211, 238, 0.36)' : isWinner ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.24)'}`,
+          : isWinner === false
+            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(15, 19, 26, 0.72))'
+            : 'rgba(15, 19, 26, 0.72)',
+      border: `1px solid ${isDemoProfile ? 'rgba(34, 211, 238, 0.36)' : isWinner === true ? 'rgba(16, 185, 129, 0.3)' : isWinner === false ? 'rgba(239, 68, 68, 0.24)' : 'rgba(148, 163, 184, 0.2)'}`,
       boxShadow: isDemoProfile ? 'inset 0 0 0 1px rgba(125, 211, 252, 0.14)' : 'none',
       position: 'relative',
       zIndex: hoveredItem ? 8 : 1
     }}>
-      <div>
-        <img
-          src={championIcon}
-          alt={championName}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = getChampionIconUrl('Aatrox');
-          }}
-          style={{ width: '44px', height: '44px', borderRadius: '9px', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'block' }}
-        />
+      <div style={{ width: '44px', height: '44px', flexShrink: 0 }}>
+        {hasChampion ? (
+          <img
+            src={getChampionIconUrl(championName)}
+            alt={championName}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+            }}
+            style={{ width: '44px', height: '44px', borderRadius: '9px', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'block' }}
+          />
+        ) : (
+          <div style={{ width: '44px', height: '44px', display: 'grid', placeItems: 'center', borderRadius: '9px', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#6b7280', fontSize: '18px', fontWeight: 'bold' }}>—</div>
+        )}
       </div>
       <div style={{
         display: 'flex',
@@ -232,7 +328,7 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, teamKills
             <span style={{ color: '#67e8f9', fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.05em', flexShrink: 0 }}>YOU</span>
           )}
         </div>
-        <div style={{ color: '#9ca3af', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{laneLabel} · {championName}</div>
+        <div style={{ color: '#9ca3af', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{laneLabel} · {championName || '—'}</div>
       </div>
       <div style={{
         alignSelf: 'center',
@@ -253,9 +349,9 @@ function PostGamePlayerRow({ player, displayName, isWinner, laneLabel, teamKills
       }}>
         {[
           ['KP', killParticipation],
-          ['CS', latestMatch?.cs ?? '—'],
-          ['GOLD', formatGold(latestMatch?.goldEarned)],
-          ['VISION', latestMatch?.visionScore ?? '—']
+          ['CS', formatPostGameScoreValue(player.cs)],
+          ['GOLD', formatGold(player.goldEarned)],
+          ['VISION', formatPostGameScoreValue(player.visionScore)]
         ].map(([label, value]) => (
           <div key={label} style={{ minWidth: 0 }}>
             <div style={{ color: '#6b7280', fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.04em', marginBottom: '3px', whiteSpace: 'nowrap' }}>{label}</div>
@@ -383,6 +479,7 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
   const lobbyInsightKey = variant === 'lobby' && selectedChampion ? `${championLabel}:${player.mainRole}:${lobbyRankBracket}` : null;
   const [lobbyInsightResult, setLobbyInsightResult] = useState<{ key: string; insight: Awaited<ReturnType<typeof fetchLobbyChampionInsight>> } | null>(null);
   const lobbyInsight = lobbyInsightResult?.key === lobbyInsightKey ? lobbyInsightResult.insight : null;
+  const lobbyGlobalWinRate = lobbyInsight?.globalWinRate;
   const reliableLobbyCounters = lobbyInsight ? getReliableLobbyCounters(lobbyInsight.counters) : [];
 
   useEffect(() => {
@@ -511,31 +608,29 @@ function PlayerCard({ player, isAlly, onPlayerClick, displayName, searchDisabled
                   {championLabel}
                 </div>
               </div>
-              {lobbyInsight ? (
-                <div style={{
-                  background: `linear-gradient(135deg, rgba(15, 23, 42, 0.74), ${lobbyInsight.tierColor}22)`,
-                  padding: '7px 8px',
-                  borderRadius: '7px',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  minWidth: 0,
-                  border: `1px solid ${lobbyInsight.tierColor}33`
-                }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '3px' }}>Винрейт</div>
-                    <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {Number.isFinite(lobbyInsight.globalWinRate) ? `${lobbyInsight.globalWinRate}%` : '—'}
-                    </div>
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '3px' }}>Тир чемпиона</div>
-                    <div style={{ color: lobbyInsight.tierColor, fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {lobbyInsight.patchTier || '—'}
-                    </div>
+              <div style={{
+                background: `linear-gradient(135deg, rgba(15, 23, 42, 0.74), ${lobbyInsight?.tierColor ?? '#94a3b8'}22)`,
+                padding: '7px 8px',
+                borderRadius: '7px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                minWidth: 0,
+                border: `1px solid ${lobbyInsight?.tierColor ?? '#94a3b8'}33`
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '3px' }}>Винрейт</div>
+                  <div style={{ color: '#f3f4f6', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {Number.isFinite(lobbyGlobalWinRate) ? `${lobbyGlobalWinRate}%` : '—'}
                   </div>
                 </div>
-              ) : null}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: '#94a3b8', fontSize: '8px', marginBottom: '3px' }}>Тир чемпиона</div>
+                  <div style={{ color: lobbyInsight?.tierColor ?? '#94a3b8', fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {lobbyInsight?.patchTier || '—'}
+                  </div>
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -643,8 +738,14 @@ export function MatchScreen({ reviewMode = false }: MatchScreenProps) {
   const lobbyState = useSelector((state: RootState) => state.lobby);
   const allies = lobbyState.players.allies;
   const enemies = lobbyState.players.enemies;
+  const completedScoreboard = !reviewMode && lobbyState.completedScoreboard?.source === 'overwolf-live-client-data'
+    && isCompletedScoreboardTeam(lobbyState.completedScoreboard.allies)
+    && isCompletedScoreboardTeam(lobbyState.completedScoreboard.enemies)
+    ? lobbyState.completedScoreboard
+    : null;
   const lobbyRankBracket = resolveLobbyRankBracket([...allies, ...enemies]);
-  const isRankedSoloDuoChampSelect = lobbyState.gameMode === 'RANKED_SOLO_5x5' && lobbyState.phase === 'champ-select';
+  const isRankedSoloDuo = !reviewMode && lobbyState.gameMode === 'RANKED_SOLO_5x5';
+  const isRankedSoloDuoChampSelect = isRankedSoloDuo && lobbyState.phase === 'champ-select';
 
   const getDisplayName = (player: PlayerInfo, index: number, isAlly: boolean) => {
     if (!isRankedSoloDuoChampSelect) {
@@ -660,27 +761,20 @@ export function MatchScreen({ reviewMode = false }: MatchScreenProps) {
 
   const isNameHidden = (player: PlayerInfo, index: number, isAlly: boolean) => getDisplayName(player, index, isAlly) !== player.summonerName;
 
-  // Если нет данных о лобби, показываем заглушку
-  if (!allies || allies.length === 0) {
-    return (
-      <div style={{ 
-        padding: '20px', 
-        height: '100%', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        color: '#9ca3af'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '15px' }}>⏳</div>
-          <h3 style={{ color: '#fff', margin: '0 0 10px 0' }}>Ожидание лобби...</h3>
-          <p style={{ fontSize: '13px' }}>
-            Информация о матче появится после входа в лобби
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const getPostGameDisplayName = (player: CompletedScoreboardPlayer, index: number, isAlly: boolean) => {
+    if (!isRankedSoloDuo) {
+      return player.summonerName;
+    }
+
+    if (
+      isAlly
+      && (player.summonerName === completedScoreboard?.localSummonerName || lobbyState.partyMembers.includes(player.summonerName))
+    ) {
+      return player.summonerName;
+    }
+
+    return `${isAlly ? 'Ally' : 'Enemy'} ${index + 1}`;
+  };
 
   const handlePlayerClick = (player: PlayerInfo) => {
     dispatchSearchPlayerCommand({ summonerName: player.summonerName, targetRegion: 'euw' });
@@ -737,20 +831,35 @@ export function MatchScreen({ reviewMode = false }: MatchScreenProps) {
   const enemyByLane = orderPlayersByLane(enemies);
   const showKeySignals = lobbyState.phase === 'loading' || lobbyState.phase === 'in-game';
   const playerCardVariant = lobbyState.phase === 'champ-select' ? 'lobby' : 'in-game';
-  const allyTeamWon = allies.some((player) => player.recentMatches?.[0]?.result === 'W')
-    ? true
-    : enemies.some((player) => player.recentMatches?.[0]?.result === 'W')
-      ? false
-      : null;
   const reviewNotice = reviewMode
     ? 'Состав, сигналы и постматч-сводка ниже запущены через Review Mode и показывают демонстрационный сценарий интерфейса.'
     : null;
 
   if (lobbyState.phase === 'post-game') {
-    const allyTeamKills = allies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.k ?? 0), 0);
-    const enemyTeamKills = enemies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.k ?? 0), 0);
-    const allyScoreLine = `${allyTeamKills} / ${allies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.d ?? 0), 0)} / ${allies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.a ?? 0), 0)}`;
-    const enemyScoreLine = `${enemyTeamKills} / ${enemies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.d ?? 0), 0)} / ${enemies.reduce((sum, player) => sum + (player.recentMatches?.[0]?.a ?? 0), 0)}`;
+    const postGameAllies = reviewMode
+      ? allies.length === 5 ? allies.map(toPostGameScoreboardPlayer) : createUnavailablePostGameTeam()
+      : completedScoreboard?.allies ?? createUnavailablePostGameTeam();
+    const postGameEnemies = reviewMode
+      ? enemies.length === 5 ? enemies.map(toPostGameScoreboardPlayer) : createUnavailablePostGameTeam()
+      : completedScoreboard?.enemies ?? createUnavailablePostGameTeam();
+    const alliedByLane = orderPostGamePlayersByLane(postGameAllies);
+    const enemyByLane = orderPostGamePlayersByLane(postGameEnemies);
+    const allyTeamKills = getPostGameTeamTotal(postGameAllies, 'kills');
+    const enemyTeamKills = getPostGameTeamTotal(postGameEnemies, 'kills');
+    const allyScoreLine = formatPostGameTeamScore(postGameAllies);
+    const enemyScoreLine = formatPostGameTeamScore(postGameEnemies);
+    const allyTeamResult = getPostGameTeamResult(postGameAllies);
+    const enemyTeamResult = getPostGameTeamResult(postGameEnemies);
+    const resultLabel = (result: 'W' | 'L' | undefined) => result === 'W'
+      ? 'ПОБЕДА'
+      : result === 'L'
+        ? 'ПОРАЖЕНИЕ'
+        : 'РЕЗУЛЬТАТ НЕ ПОДТВЕРЖДЁН';
+    const resultColor = (result: 'W' | 'L' | undefined) => result === 'W'
+      ? '#10b981'
+      : result === 'L'
+        ? '#ef4444'
+        : '#94a3b8';
 
     return (
       <div style={{
@@ -774,28 +883,28 @@ export function MatchScreen({ reviewMode = false }: MatchScreenProps) {
           gap: '10px',
           minHeight: 0
         }}>
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '10px' }}>
-              <div>
-                <div style={{ color: allyTeamWon === false ? '#ef4444' : '#10b981', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '3px' }}>
-                  {allyTeamWon === true ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '10px' }}>
+                <div>
+                  <div style={{ color: resultColor(allyTeamResult), fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '3px' }}>
+                    {resultLabel(allyTeamResult)}
+                  </div>
+                  <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>
+                    {allyScoreLine}
+                  </div>
                 </div>
-                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>
-                  {allyScoreLine}
-                </div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: '#d1d5db', fontSize: '12px', fontWeight: 'bold', marginBottom: '3px' }}>Ранговая одиночная / парная</div>
-                <div style={{ color: '#9ca3af', fontSize: '11px' }}>Матч завершен</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: '#d1d5db', fontSize: '12px', fontWeight: 'bold', marginBottom: '3px' }}>ИТОГИ МАТЧА</div>
+                  <div style={{ color: '#9ca3af', fontSize: '11px' }}>Матч завершен</div>
                 {reviewMode && (
                   <div style={{ display: 'inline-flex', marginTop: '5px', padding: '3px 6px', borderRadius: '999px', background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.32)', color: '#fdba74', fontSize: '8px', fontWeight: 'bold', letterSpacing: '0.06em' }}>
                     ДЕМО-ДАННЫЕ / REVIEW MODE
                   </div>
                 )}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ color: allyTeamWon === true ? '#ef4444' : '#10b981', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '3px' }}>
-                  {allyTeamWon === true ? 'ПОРАЖЕНИЕ' : 'ПОБЕДА'}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: resultColor(enemyTeamResult), fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '3px' }}>
+                    {resultLabel(enemyTeamResult)}
                 </div>
                 <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '18px' }}>
                   {enemyScoreLine}
@@ -824,8 +933,8 @@ export function MatchScreen({ reviewMode = false }: MatchScreenProps) {
                 <PostGamePlayerRow
                   key={`post-ally-${lane}`}
                   player={player}
-                  displayName={getDisplayName(player, index, true)}
-                  isWinner={allyTeamWon !== false}
+                  displayName={getPostGameDisplayName(player, index, true)}
+                  isWinner={allyTeamResult === 'W' ? true : allyTeamResult === 'L' ? false : undefined}
                   laneLabel={laneLabels[lane]}
                   teamKills={allyTeamKills}
                 />
@@ -836,14 +945,36 @@ export function MatchScreen({ reviewMode = false }: MatchScreenProps) {
                 <PostGamePlayerRow
                   key={`post-enemy-${lane}`}
                   player={player}
-                  displayName={getDisplayName(player, index, false)}
-                  isWinner={allyTeamWon === false}
+                  displayName={getPostGameDisplayName(player, index, false)}
+                  isWinner={enemyTeamResult === 'W' ? true : enemyTeamResult === 'L' ? false : undefined}
                   laneLabel={laneLabels[lane]}
                   teamKills={enemyTeamKills}
                 />
               ))}
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Если нет данных о лобби, показываем заглушку.
+  if (!allies || allies.length === 0) {
+    return (
+      <div style={{
+        padding: '20px',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#9ca3af'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '15px' }}>⏳</div>
+          <h3 style={{ color: '#fff', margin: '0 0 10px 0' }}>Ожидание лобби...</h3>
+          <p style={{ fontSize: '13px' }}>
+            Информация о матче появится после входа в лобби
+          </p>
         </div>
       </div>
     );

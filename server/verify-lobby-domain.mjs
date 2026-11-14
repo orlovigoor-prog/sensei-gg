@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fetchCurrentGamePatch, isCompleteCurrentPatchSnapshot } from './lol-meta-patch.mjs';
 import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
 
 const ROOT = process.cwd();
@@ -9,8 +10,6 @@ const LANE_ORDER = ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT'];
 const MIN_RELIABLE_COUNTER_SAMPLE = 500;
 const MIN_COUNTER_ROWS = 5;
 const REQUIRED_COUNTER_RANK = 'all';
-const REQUIRED_COUNTER_PATCH_WINDOW = '30';
-const MAX_TIER_SNAPSHOT_AGE_HOURS = 192;
 const MIN_TIER_SOURCE_ROWS_PER_ROLE = 50;
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -20,11 +19,6 @@ const roleMatrix = readJson(ROLE_MATRIX_PATH);
 const counterpickDatabase = readJson(COUNTERPICK_DATABASE_PATH);
 const findRoleEntry = (champion) => roleMatrix.find((entry) => normalizeKey(entry.champion) === normalizeKey(champion));
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
-const isSnapshotFresh = (timestamp, maxAgeHours) => {
-  const updatedAt = Date.parse(timestamp || '');
-  const ageMs = Date.now() - updatedAt;
-  return Number.isFinite(updatedAt) && ageMs >= 0 && ageMs <= maxAgeHours * 60 * 60 * 1000;
-};
 const canChampionPlayRole = (champion, role) => {
   const roleEntry = findRoleEntry(champion);
 
@@ -38,64 +32,69 @@ const canChampionPlayRole = (champion, role) => {
 const errors = [];
 const warnings = [];
 const tierRows = new Set();
+const currentGamePatch = await fetchCurrentGamePatch({ realm: process.env.LOL_META_RIOT_REALM || 'na' });
+const tierSnapshotAvailable = isCompleteCurrentPatchSnapshot(lolMetaSnapshot, currentGamePatch);
+const counterpickSnapshotAvailable = isCompleteCurrentPatchSnapshot(counterpickDatabase, currentGamePatch);
 
-if (lolMetaSnapshot.rankBracket !== REQUIRED_COUNTER_RANK || lolMetaSnapshot.patch !== REQUIRED_COUNTER_PATCH_WINDOW) {
-  errors.push(`Tierlist metadata must use ${REQUIRED_COUNTER_RANK}/patch=${REQUIRED_COUNTER_PATCH_WINDOW}.`);
+if (!tierSnapshotAvailable) {
+  warnings.push(`Tierlist snapshot is unavailable for current patch ${currentGamePatch.gamePatch}; runtime must render tiers as —.`);
 }
 
-if (!isSnapshotFresh(lolMetaSnapshot.updatedAt, MAX_TIER_SNAPSHOT_AGE_HOURS)) {
-  errors.push(`Tierlist snapshot is older than ${MAX_TIER_SNAPSHOT_AGE_HOURS} hours or has an invalid timestamp.`);
+if (!counterpickSnapshotAvailable) {
+  warnings.push(`Counterpick snapshot is unavailable for current patch ${currentGamePatch.gamePatch}; runtime must hide counterpicks.`);
 }
 
-if (counterpickDatabase.defaultRankBracket !== REQUIRED_COUNTER_RANK) {
-  warnings.push(`Counterpick database defaultRankBracket is ${counterpickDatabase.defaultRankBracket || 'missing'}; expected ${REQUIRED_COUNTER_RANK}.`);
-}
-
-if (counterpickDatabase.defaultPatchWindow !== REQUIRED_COUNTER_PATCH_WINDOW) {
-  warnings.push(`Counterpick database defaultPatchWindow is ${counterpickDatabase.defaultPatchWindow || 'missing'}; expected ${REQUIRED_COUNTER_PATCH_WINDOW}.`);
-}
-
-for (const role of LANE_ORDER) {
-  const roleSnapshot = lolMetaSnapshot.roles?.[role];
-  const tiers = roleSnapshot?.tiers || {};
-
-  if (!Number.isInteger(roleSnapshot?.sourceRows) || roleSnapshot.sourceRows < MIN_TIER_SOURCE_ROWS_PER_ROLE) {
-    errors.push(`Tierlist ${role} has incomplete source coverage (${roleSnapshot?.sourceRows || 'missing'} rows; expected at least ${MIN_TIER_SOURCE_ROWS_PER_ROLE}).`);
+if (tierSnapshotAvailable) {
+  if (lolMetaSnapshot.rankBracket !== REQUIRED_COUNTER_RANK) {
+    errors.push(`Tierlist metadata must use rank=${REQUIRED_COUNTER_RANK}.`);
   }
 
-  for (const [tier, champions] of Object.entries(tiers)) {
-    if (!Array.isArray(champions)) {
-      errors.push(`Tierlist ${role} ${tier} is not an array.`);
-      continue;
+  for (const role of LANE_ORDER) {
+    const roleSnapshot = lolMetaSnapshot.roles?.[role];
+    const tiers = roleSnapshot?.tiers || {};
+
+    if (!Number.isInteger(roleSnapshot?.sourceRows) || roleSnapshot.sourceRows < MIN_TIER_SOURCE_ROWS_PER_ROLE) {
+      errors.push(`Tierlist ${role} has incomplete source coverage (${roleSnapshot?.sourceRows || 'missing'} rows; expected at least ${MIN_TIER_SOURCE_ROWS_PER_ROLE}).`);
     }
 
-    for (const champion of champions) {
-      const tierRowKey = `${normalizeKey(champion)}:${role}`;
-
-      if (tierRows.has(tierRowKey)) {
-        errors.push(`Tierlist champion ${champion} is duplicated for ${role}.`);
+    for (const [tier, champions] of Object.entries(tiers)) {
+      if (!Array.isArray(champions)) {
+        errors.push(`Tierlist ${role} ${tier} is not an array.`);
         continue;
       }
 
-      tierRows.add(tierRowKey);
+      for (const champion of champions) {
+        const tierRowKey = `${normalizeKey(champion)}:${role}`;
 
-      if (!findRoleEntry(champion)) {
-        errors.push(`Tierlist champion ${champion} (${role} ${tier}) is missing from champion-role-matrix.json.`);
-        continue;
-      }
+        if (tierRows.has(tierRowKey)) {
+          errors.push(`Tierlist champion ${champion} is duplicated for ${role}.`);
+          continue;
+        }
 
-      if (!canChampionPlayRole(champion, role)) {
-        errors.push(`Tierlist champion ${champion} is listed as ${role} ${tier}, but role matrix does not allow that role.`);
+        tierRows.add(tierRowKey);
+
+        if (!findRoleEntry(champion)) {
+          errors.push(`Tierlist champion ${champion} (${role} ${tier}) is missing from champion-role-matrix.json.`);
+          continue;
+        }
+
+        if (!canChampionPlayRole(champion, role)) {
+          errors.push(`Tierlist champion ${champion} is listed as ${role} ${tier}, but role matrix does not allow that role.`);
+        }
       }
     }
   }
+
+  if (lolMetaSnapshot.coverage?.completeCoverage !== true) {
+    errors.push('Tierlist snapshot coverage is not complete.');
+  }
 }
 
-if (lolMetaSnapshot.coverage?.completeCoverage !== true) {
-  errors.push('Tierlist snapshot coverage is not complete.');
+if (counterpickSnapshotAvailable && counterpickDatabase.defaultRankBracket !== REQUIRED_COUNTER_RANK) {
+  errors.push(`Counterpick database defaultRankBracket is ${counterpickDatabase.defaultRankBracket || 'missing'}; expected ${REQUIRED_COUNTER_RANK}.`);
 }
 
-for (const [champion, championEntry] of Object.entries(counterpickDatabase.champions || {})) {
+for (const [champion, championEntry] of counterpickSnapshotAvailable ? Object.entries(counterpickDatabase.champions || {}) : []) {
   for (const [role, roleSnapshot] of Object.entries(championEntry?.roles || {})) {
     if (!LANE_ORDER.includes(role)) {
       errors.push(`${champion} has unknown counterpick role ${role}.`);
@@ -121,11 +120,11 @@ for (const [champion, championEntry] of Object.entries(counterpickDatabase.champ
     }
 
     if (roleSnapshot?.rankBracket !== REQUIRED_COUNTER_RANK) {
-      warnings.push(`${champion} ${role} has rankBracket ${roleSnapshot?.rankBracket || 'missing'}; expected ${REQUIRED_COUNTER_RANK}.`);
+      errors.push(`${champion} ${role} has rankBracket ${roleSnapshot?.rankBracket || 'missing'}; expected ${REQUIRED_COUNTER_RANK}.`);
     }
 
-    if (roleSnapshot?.patchWindow !== REQUIRED_COUNTER_PATCH_WINDOW) {
-      warnings.push(`${champion} ${role} has patchWindow ${roleSnapshot?.patchWindow || 'missing'}; expected ${REQUIRED_COUNTER_PATCH_WINDOW}.`);
+    if (roleSnapshot?.patch !== currentGamePatch.gamePatch) {
+      errors.push(`${champion} ${role} has patch ${roleSnapshot?.patch || 'missing'}; expected ${currentGamePatch.gamePatch}.`);
     }
 
     if (counters.length > MIN_COUNTER_ROWS) {
@@ -216,4 +215,4 @@ if (warnings.length > 0) {
   }
 }
 
-console.log(`Lobby domain verification passed. roles=${LANE_ORDER.length} simulationChampions=${new Set(Object.values(simulationCandidatesByRole).flat().map(normalizeKey)).size} tierlistRoles=${Object.keys(lolMetaSnapshot.roles || {}).length}`);
+console.log(`Lobby domain verification passed. patch=${currentGamePatch.gamePatch} tierSnapshotAvailable=${tierSnapshotAvailable} counterpickSnapshotAvailable=${counterpickSnapshotAvailable} roles=${LANE_ORDER.length} simulationChampions=${new Set(Object.values(simulationCandidatesByRole).flat().map(normalizeKey)).size} tierlistRoles=${tierSnapshotAvailable ? Object.keys(lolMetaSnapshot.roles || {}).length : 0}`);
