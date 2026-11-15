@@ -5,6 +5,12 @@
 **Stable review document URL (after this file is published to `main`):**
 https://github.com/orlovigoor-prog/sensei-gg/blob/main/REVIEW.md
 
+**Public prototype and legal pages:**
+
+- https://orlovigoor-prog.github.io/sensei-gg/
+- https://orlovigoor-prog.github.io/sensei-gg/privacy-policy.html
+- https://orlovigoor-prog.github.io/sensei-gg/terms-of-service.html
+
 **Detailed policy walkthrough:** [RIOT_REVIEW_GUIDE.md](RIOT_REVIEW_GUIDE.md)
 
 The repository is public and can be inspected without collaborator access. This document is the shortest reliable starting point for Riot or external reviewers.
@@ -13,7 +19,7 @@ The repository is public and can be inspected without collaborator access. This 
 
 Sensei GG is a League of Legends companion focused on low-noise pre-game visibility and post-game improvement. The reviewable flows are:
 
-- a safe lobby summary during champion select;
+- a fail-closed 5×5 live roster only when Overwolf live-client data confirms loading or in-game state (no pre-game roster claim);
 - player-profile lookup where permitted;
 - post-game AI review after a match has ended;
 - a clearly labelled synthetic Review Mode for repeatable UI review.
@@ -44,12 +50,12 @@ The application intentionally does **not** provide:
 - lookup or disclosure of non-party ally names in Ranked Solo/Duo champion select;
 - synthetic data presented as live game data.
 
-The in-app phase mapping is `champ-select` to `Лобби`, `loading` and `in-game` to `В игре`, and `post-game` to `Итоги`. AI review is restricted to the post-game path.
+The in-app phase mapping is `champ-select` to `Лобби`, `loading` and `in-game` to `В игре`, and `post-game` to `Итоги`. AI review is restricted to the post-game path. In Ranked Solo/Duo, non-party identities are masked and cannot trigger a profile lookup; the policy is deliberately applied beyond champion select.
 
 ## Known review limitations
 
-- GitHub Pages is static hosting only and is not a substitute for the local review flow; it cannot exercise local backend-dependent features.
-- The current Overwolf manifest/runtime integration still needs background game-event wiring and platform readiness work. This repository is a source and review package, not a claim of a Store-ready binary.
+- GitHub Pages is static hosting only and is not a substitute for the local review flow; without an explicitly configured endpoint, browser fallback is neutral and makes no local-server requests.
+- The canonical root manifest declares the background page, League of Legends targeting, required permissions and the `sensei_toggle_overlay` custom hotkey. Actual GEP events, live-client availability and hotkey assignment must still be checked manually in a real Overwolf runtime; this repository does not claim a Store-ready binary from browser checks alone.
 - A submitter contact must be supplied in the Riot or Overwolf submission form; placeholder contact details are deliberately not published in this repository.
 
 For the complete feature-by-feature policy walkthrough and review scenarios, see [RIOT_REVIEW_GUIDE.md](RIOT_REVIEW_GUIDE.md).

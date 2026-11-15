@@ -35,11 +35,11 @@ const canReadDetailedActivePlans = () => {
 };
 
 const canOpenInAppPurchase = () => {
-  return Boolean(overwolf.profile?.subscriptions?.inapp?.show);
+  return Boolean(isOverwolfAvailable() && overwolf.profile?.subscriptions?.inapp?.show);
 };
 
 const canListenSubscriptionChanges = () => {
-  return Boolean(overwolf.profile?.subscriptions?.onSubscriptionChanged);
+  return Boolean(isOverwolfAvailable() && overwolf.profile?.subscriptions?.onSubscriptionChanged);
 };
 
 export const subscriptionProviderAdapter = {

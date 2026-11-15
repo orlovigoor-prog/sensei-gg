@@ -15,6 +15,10 @@ interface PlayerCardWithChampionProps {
 export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSelectChampion }: PlayerCardWithChampionProps) {
   const [showChampionDetail, setShowChampionDetail] = useState(false);
   const rankLabel = formatPlayerRankLabel(player);
+  const wins = typeof player.wins === 'number' ? player.wins : null;
+  const losses = typeof player.losses === 'number' ? player.losses : null;
+  const winRate = typeof player.winRate === 'number' ? player.winRate : null;
+  const championPoints = typeof player.championPoints === 'number' ? player.championPoints : null;
 
   const roleIcons: Record<string, string> = {
     TOP: '🗡️',
@@ -56,7 +60,7 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
               {player.summonerName}
             </div>
           </div>
-          {player.isPro && (
+          {player.isPro === true && (
             <span style={{
               background: 'linear-gradient(135deg, #f59e0b, #d97706)',
               padding: '2px 8px',
@@ -92,10 +96,10 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
               <span style={{ color: '#9ca3af', fontSize: '11px' }}>
-                {player.wins}W / {player.losses}L
+                {wins === null || losses === null ? '—' : `${wins}W / ${losses}L`}
               </span>
               <span style={{ color: '#6b7280', fontSize: '11px' }}>
-                Lvl.{Math.floor(player.championPoints / 10000) + 1}
+                {championPoints === null ? 'Lvl. —' : `Lvl.${Math.floor(championPoints / 10000) + 1}`}
               </span>
             </div>
           </div>
@@ -104,20 +108,20 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
         {/* Ранг */}
         <div style={{ textAlign: 'right' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-            <img
+            {player.tier && <img
               src={getRankIconUrl(player.tier)}
               alt={player.tier}
               style={{ width: '28px', height: '28px', objectFit: 'contain', display: 'block' }}
-            />
+            />}
             <div style={{
-              color: getRankColor(player.tier),
+              color: getRankColor(player.tier ?? 'UNRANKED'),
               fontSize: '12px',
               fontWeight: 'bold'
             }}>
               {rankLabel}
             </div>
           </div>
-          {!rankLabel.includes(' LP') && player.lp > 0 ? (
+          {!rankLabel.includes(' LP') && typeof player.lp === 'number' && player.lp > 0 ? (
             <div style={{ color: '#00ffcc', fontSize: '13px', fontWeight: 'bold', marginTop: '2px' }}>
               {player.lp} LP
             </div>
@@ -137,9 +141,9 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
           <div style={{
             fontSize: '18px',
             fontWeight: 'bold',
-            color: player.winRate > 50 ? '#10b981' : player.winRate < 45 ? '#ef4444' : '#fbbf24'
+            color: winRate === null ? '#94a3b8' : winRate > 50 ? '#10b981' : winRate < 45 ? '#ef4444' : '#fbbf24'
           }}>
-            {player.winRate}%
+            {winRate === null ? '—' : `${winRate}%`}
           </div>
         </div>
         <div style={{
@@ -150,7 +154,7 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
         }}>
           <div style={{ color: '#9ca3af', fontSize: '11px', marginBottom: '4px' }}>Mastery</div>
           <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffd43b' }}>
-            {(player.championPoints / 1000).toFixed(1)}K
+            {championPoints === null ? '—' : `${(championPoints / 1000).toFixed(1)}K`}
           </div>
         </div>
       </div>
@@ -200,7 +204,7 @@ export function PlayerCardWithChampion({ player, isAlly, selectedChampion, onSel
 
       {/* История матчей */}
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        {player.recentMatches.slice(0, 5).map((match, idx: number) => (
+        {(player.recentMatches ?? []).slice(0, 5).map((match, idx: number) => (
           <div
             key={idx}
             style={{

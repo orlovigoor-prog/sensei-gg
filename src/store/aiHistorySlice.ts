@@ -33,6 +33,10 @@ const aiHistorySlice = createSlice({
       state.entries = [action.payload, ...state.entries.filter((entry) => entry.id !== action.payload.id)].slice(0, 30);
       state.hydratedAt = new Date().toISOString();
     },
+    clearAiHistoryEntries: (state) => {
+      state.entries = [];
+      state.hydratedAt = new Date().toISOString();
+    },
     hydrateAiHistoryFoundation: (state, action: PayloadAction<AiHistoryFoundationHydrationPayload>) => {
       state.configured = action.payload.configured;
       state.persistence = action.payload.persistence;
@@ -48,6 +52,7 @@ const aiHistorySlice = createSlice({
 export const {
   hydrateAiHistoryEntries,
   appendAiHistoryEntry,
+  clearAiHistoryEntries,
   hydrateAiHistoryFoundation,
   clearAiHistoryState
 } = aiHistorySlice.actions;

@@ -33,7 +33,7 @@ npm run ai:server
 Сервер поддерживает:
 - `POST /api/review` для post-game AI review
 - `GET /api/riot/profile-search?region=ru&summonerName=nickname` для безопасного profile lookup через локальный backend
-- `GET /api/lol/meta/champion-insight?champion=Aatrox&role=TOP` для серверного снимка тира и контрпиков; без доступного снимка клиент не подменяет данные демо-каталогом
+- `GET /api/lol/meta/champion-insight?champion=Aatrox&role=TOP` для серверного снимка тира и контрпиков; endpoint принудительно использует `rank=all`, Ranked Solo/Duo и current-patch contract, а без доступного снимка клиент не подменяет данные демо-каталогом
 - `GET /api/subscription/config` для scaffolding Overwolf/Tebex integration
 - `GET /api/subscription/entitlements` для локального dev entitlement state
 - `GET /api/subscription/dev-state` для просмотра активного локального сценария подписки
@@ -168,7 +168,7 @@ npm run meta:daily-update
 
 Последняя команда изменяет рабочие файлы при обнаружении обновления, поэтому в production используется только внутри изолированного CI job. Ручной запуск с `--force` выполняет полный refresh даже без смены build.
 
-Workflow требует разрешений `contents: write` и `pull-requests: write` для `GITHUB_TOKEN`; он создаёт или обновляет ветку `automation/lol-meta-refresh`, а не пушит в `main`. После merge существующий `deploy-pages.yml` пересобирает GitHub Pages. Он **не** развёртывает `ai-review-server.mjs`: production-платформа API должна отдельно выполнить deploy/restart от того же merge, чтобы сервер перечитал `lol-meta-snapshot.mjs`. Если Data Dragon добавляет нового чемпиона, а локальные `champions.ts` или `champion-role-matrix.json` требуют ручного обновления, `verify:game-data` не пропустит PR — это намеренный stop-the-line, а не публикация неполного каталога.
+Workflow требует разрешений `contents: write` и `pull-requests: write` для `GITHUB_TOKEN`; он создаёт или обновляет ветку `automation/lol-meta-refresh`, а не пушит в `main`. После merge существующий `deploy-pages.yml` пересобирает только статический GitHub Pages. Workflow не развёртывает и не конфигурирует API runtime. Если Data Dragon добавляет нового чемпиона, а локальные `champions.ts` или `champion-role-matrix.json` требуют ручного обновления, `verify:game-data` не пропустит PR — это намеренный stop-the-line, а не публикация неполного каталога.
 
 Foundation verification helpers:
 ```bash
@@ -182,6 +182,22 @@ npm run verify:foundation-all
 - `verify:foundation-smoke` проверяет live foundation endpoints через локальный server на `http://127.0.0.1:8787`.
 - `verify:foundation-matrix` выбирает representative cases по явному `verificationRole`, а catalog builder гарантирует, что каждый required role матчит ровно один case. Текущие роли: `matrix-premium-fixture`, `matrix-session-gate`, `matrix-orchestration-readiness-gate`.
 - `verify:foundation-all` последовательно прогоняет catalog verify, build, smoke checks и matrix verification.
+
+### Проверки без production build
+
+Для изменений frontend/политик не используйте `verify:foundation-all`: он вызывает `npm run build`. Вместо него выполните:
+
+```bash
+npx tsc -b
+npm run lint
+npm run verify:overwolf-scoreboard
+npm run verify:player-privacy
+npm run verify:game-data
+npm run verify:meta-patch
+npm run verify:daily-lol-meta-update
+```
+
+`verify:overwolf-scoreboard` проверяет wrapped live-client payload, строгий 5×5 roster, локального игрока, уникальность ролей и отсутствие вымышленных rank/WR/mastery/history. `verify:player-privacy` проверяет masking и запрет lookup для non-party игроков в Ranked Solo/Duo.
 
 ---
 
@@ -254,15 +270,15 @@ src/
 
 ### Dev режим:
 1. Запусти `npm run dev`
-2. Открой в Overwolf Developer Hub
+2. Открой URL Vite в обычном браузере для нейтрального fallback; без `VITE_AI_REVIEW_ENDPOINT` не должно быть localhost/API-запросов и обращения к `overwolf`.
 3. Нажми `Ctrl+Shift+Z` для Review Mode / dev-панели
 4. Используй симуляцию лобби для тестов. Review Mode остается временным демонстрационным слоем и должен быть удален после green light от Riot/Overwolf для реальных тестов.
 5. Перед изменениями в demo lobby запускай `npm run verify:lobby-domain`, чтобы проверить role-aware пулы и наличие counterpick rows.
 
 ### Production:
 1. Собирай через `npm run build`
-2. Тестируй в Overwolf лаунчере
-3. Проверяй логи в Developer Hub
+2. Проверяй пакет в реальном штатном Overwolf runtime без Developer Mode, unpacked mode и whitelist bypass.
+3. Вручную проверь canonical manifest, background lifecycle, GEP features, assigned custom hotkey, desktop toggle, 5×5 roster и post-game scoreboard.
 
 ---
 

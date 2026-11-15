@@ -69,7 +69,7 @@ export function DesktopWindow() {
   const { aiAdvice, aiReview, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
     (state: RootState) => state.game
   );
-  const { isInLobby, phase, players } = useSelector((state: RootState) => state.lobby);
+  const { isInLobby, phase, players, gameMode, localSummonerName, partyMembers } = useSelector((state: RootState) => state.lobby);
   const {
     aiReviewsUsedThisWeek,
     aiReviewWeeklyLimit,
@@ -93,7 +93,6 @@ export function DesktopWindow() {
   const lobbyStatusLabel = !isInLobby
     ? 'Лобби не загружено'
     : phaseLabels[phase];
-  const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
   const selectActiveTab = useCallback((nextTab: typeof activeTab) => {
     setActiveTab(nextTab);
@@ -189,12 +188,6 @@ export function DesktopWindow() {
     const handleKeyDown = (e: KeyboardEvent) => {
       console.log('Key pressed:', e.key, 'Ctrl:', e.ctrlKey, 'Shift:', e.shiftKey);
       
-      if (e.ctrlKey && e.key.toLowerCase() === 'x') {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('Toggle minimized');
-        setIsMinimized(prev => !prev);
-      }
       if (e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'z' || e.code === 'KeyZ')) {
         e.preventDefault();
         e.stopPropagation();
@@ -275,6 +268,9 @@ export function DesktopWindow() {
           lastCompletedMatch,
           allies: players.allies,
           enemies: players.enemies,
+          gameMode,
+          localSummonerName,
+          partyMembers,
           reviewMode: showDevPanel
         });
 
@@ -350,28 +346,6 @@ export function DesktopWindow() {
         zIndex: 1
       }}>
         
-        {/* Мини-версия при сворачивании */}
-        {isMinimized && (
-          <div style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            zIndex: 1000,
-            background: '#00ffcc',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 255, 204, 0.3)',
-            transition: 'all 0.2s ease'
-          }}
-          onClick={() => setIsMinimized(false)}
-          >
-            <span style={{ color: '#0f131a', fontWeight: 'bold', fontSize: '14px' }}>
-              🎮 Sensei
-            </span>
-          </div>
-        )}
-
       {showDevPanel && (
         <div
           style={{
@@ -448,7 +422,7 @@ export function DesktopWindow() {
 
       {/* ВКЛАДКА: ПРОФИЛЬ */}
       {activeTab === 'profile' && (
-        <ProfileScreen />
+        <ProfileScreen reviewMode={showDevPanel} />
       )}
 
       {/* ВКЛАДКА: НАСТРОЙКИ */}

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../store';
 import { endGame, mutateStats, setAiAdvice, startGame } from '../store/gameSlice';
-import { setCompletedScoreboard, syncLobbyLifecycle } from '../store/lobbySlice';
+import { clearLiveRoster, setCompletedScoreboard, syncLiveRoster, syncLobbyLifecycle } from '../store/lobbySlice';
 import { subscribeToBridgeMessages } from '../services/overwolfBridge';
 
 export const useOverwolfBridge = (onGameStart?: () => void) => {
@@ -27,6 +27,12 @@ export const useOverwolfBridge = (onGameStart?: () => void) => {
           break;
         case 'completed-scoreboard':
           dispatch(setCompletedScoreboard(message.payload));
+          break;
+        case 'live-roster':
+          dispatch(syncLiveRoster(message.payload));
+          break;
+        case 'clear-live-roster':
+          dispatch(clearLiveRoster());
           break;
         case 'status':
           dispatch(setAiAdvice(message.payload.text));

@@ -20,6 +20,7 @@
     "verify:daily-lol-meta-update": "node server/verify-daily-lol-meta-update.mjs",
     "verify:meta-patch": "node server/verify-meta-patch-contract.mjs",
     "verify:overwolf-scoreboard": "node server/verify-overwolf-scoreboard.mjs",
+    "verify:player-privacy": "node server/verify-player-privacy.mjs",
     "verify:lobby-domain": "node server/verify-lobby-domain.mjs",
     "verify:foundation-catalog": "node server/verify-foundation-test-case-catalog.mjs",
     "verify:foundation-smoke": "node server/verify-foundation-smoke.mjs",

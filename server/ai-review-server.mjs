@@ -843,7 +843,7 @@ const createMetaSnapshotResponse = (status) => ({
 const handleLolMetaChampionInsight = async (res, requestUrl) => {
   const champion = requestUrl.searchParams.get('champion');
   const role = normalizeMetaRole(requestUrl.searchParams.get('role'));
-  const rankBracket = isNonEmptyString(requestUrl.searchParams.get('rank')) ? requestUrl.searchParams.get('rank').trim() : lolMetaSnapshot.rankBracket;
+  const rankBracket = COUNTERPICK_RANK_BRACKET;
 
   if (!isNonEmptyString(champion) || !role) {
     sendJson(res, 400, { ok: false, error: 'champion and role query parameters are required' });

@@ -9,10 +9,11 @@ import {
   readNestedString,
   readNumericStat,
   restoreDesktopWindow,
-  sendBridgeMessage
+  sendBridgeMessage,
+  toggleDesktopWindow
 } from './overwolfBridge';
-import { extractLiveClientScoreboardSnapshot, normalizeLiveClientScoreboard } from './overwolfScoreboard';
-import type { CompletedMatchScoreboard } from '../store/lobbySlice';
+import { extractLiveClientScoreboardSnapshot, normalizeLiveClientRoster, normalizeLiveClientScoreboard } from './overwolfScoreboard';
+import type { CompletedMatchScoreboard, LiveRoster } from '../store/lobbySlice';
 import type { LobbyPhase } from '../store/lobbySlice';
 
 interface OverwolfMatchInfo {
@@ -71,16 +72,37 @@ export const registerOverwolfLifecycleController = () => {
   let latestActivePlayer: unknown = null;
   let latestAllPlayers: unknown = null;
   let latestCompletedScoreboard: CompletedMatchScoreboard | null = null;
+  let latestLiveRosterKey: string | null = null;
+  let latestFeatureStatusKey: string | null = null;
 
   const resetCompletedScoreboardCapture = () => {
-    latestActivePlayer = null;
-    latestAllPlayers = null;
-    latestCompletedScoreboard = null;
+      latestActivePlayer = null;
+      latestAllPlayers = null;
+      latestCompletedScoreboard = null;
+      latestLiveRosterKey = null;
+      sendBridgeMessage({ type: 'clear-live-roster' });
   };
 
   const sendLatestCompletedScoreboard = () => {
     if (latestCompletedScoreboard) {
       sendBridgeMessage({ type: 'completed-scoreboard', payload: latestCompletedScoreboard });
+    }
+  };
+
+  const sendLiveRosterIfChanged = (roster: LiveRoster | null) => {
+    if (!roster) {
+      return;
+    }
+
+    const rosterKey = JSON.stringify({
+      localSummonerName: roster.localSummonerName,
+      allies: roster.allies.map((player) => [player.summonerName, player.championName, player.mainRole]),
+      enemies: roster.enemies.map((player) => [player.summonerName, player.championName, player.mainRole])
+    });
+
+    if (rosterKey !== latestLiveRosterKey) {
+      latestLiveRosterKey = rosterKey;
+      sendBridgeMessage({ type: 'live-roster', payload: roster });
     }
   };
 
@@ -98,8 +120,39 @@ export const registerOverwolfLifecycleController = () => {
 
   const setGameFeatures = () => {
     overwolf.games.events.setRequiredFeatures([...REQUIRED_FEATURES], (info) => {
-      console.log('Статус фич:', JSON.stringify(info));
+      const supportedFeatures = info.supportedFeatures ?? [];
+      const missingFeatures = REQUIRED_FEATURES.filter((feature) => !supportedFeatures.includes(feature));
+      const statusKey = info.success && missingFeatures.length === 0
+        ? 'ready'
+        : `${info.error ?? 'unsupported'}:${missingFeatures.join(',')}`;
+
+      if (statusKey === latestFeatureStatusKey) {
+        return;
+      }
+
+      latestFeatureStatusKey = statusKey;
+
+      if (!info.success) {
+        sendBridgeMessage({
+          type: 'status',
+          payload: { text: 'Часть данных Overwolf недоступна. Sensei GG не будет показывать неполные данные состава.' }
+        });
+        return;
+      }
+
+      if (missingFeatures.length > 0) {
+        sendBridgeMessage({
+          type: 'status',
+          payload: { text: 'Overwolf подтвердил не все источники данных. Неподтверждённые данные состава не будут показаны.' }
+        });
+      }
     });
+  };
+
+  const onHotkeyPressed = (event: { name?: string }) => {
+    if (event.name === 'sensei_toggle_overlay') {
+      toggleDesktopWindow();
+    }
   };
 
   const onInfoUpdates = (data: OverwolfInfoUpdatesEvent) => {
@@ -141,6 +194,13 @@ export const registerOverwolfLifecycleController = () => {
         sendLatestCompletedScoreboard();
       }
       emitLifecycle(derivedPhase, { gameMode });
+    }
+
+    if (derivedPhase === 'loading' || derivedPhase === 'in-game' || currentPhase === 'in-game') {
+      sendLiveRosterIfChanged(normalizeLiveClientRoster({
+        activePlayer: latestActivePlayer,
+        allPlayers: latestAllPlayers
+      }));
     }
 
     if (derivedPhase === 'post-game' || currentPhase === 'post-game') {
@@ -271,10 +331,12 @@ export const registerOverwolfLifecycleController = () => {
   overwolf.games.onGameInfoUpdated.addListener(onGameInfoUpdated);
   overwolf.games.events.onNewEvents.addListener(onGameEvents);
   overwolf.games.events.onInfoUpdates2.addListener(onInfoUpdates);
+  overwolf.settings.hotkeys.onPressed.addListener(onHotkeyPressed);
 
   return () => {
     overwolf.games.onGameInfoUpdated.removeListener(onGameInfoUpdated);
     overwolf.games.events.onNewEvents.removeListener(onGameEvents);
     overwolf.games.events.onInfoUpdates2.removeListener(onInfoUpdates);
+    overwolf.settings.hotkeys.onPressed.removeListener(onHotkeyPressed);
   };
 };

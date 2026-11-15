@@ -3,6 +3,9 @@
 ## Публичная точка входа
 
 - Репозиторий: https://github.com/orlovigoor-prog/sensei-gg
+- Публичный прототип: https://orlovigoor-prog.github.io/sensei-gg/
+- Privacy Policy: https://orlovigoor-prog.github.io/sensei-gg/privacy-policy.html
+- Terms of Service: https://orlovigoor-prog.github.io/sensei-gg/terms-of-service.html
 - Краткий англоязычный пакет для внешнего ревью: [REVIEW.md](REVIEW.md)
 - Прямая ссылка после публикации в `main`: https://github.com/orlovigoor-prog/sensei-gg/blob/main/REVIEW.md
 
@@ -22,12 +25,15 @@ Sensei GG не пытается давать запрещенные live-под�
 ## Что именно делает приложение
 
 ### 1. Lobby summary
-- Показывает состав лобби в safe-формате.
-- Использует ранги, винрейт и нейтральные сведения по чемпионам там, где это допустимо.
+- Принимает реальный состав только при строгой валидации live-client snapshot: 5×5, локальный игрок и по одной роли каждого типа на команду.
+- Не заявляет pre-game/champ-select roster. Если snapshot неполный, состав не синхронизируется частично.
+- Не фабрикует rank, win rate, mastery или историю: неизвестные данные скрыты или показаны как `—`.
+- Tier и контрпики возможны только из полного текущего server-side snapshot (`rank=all`, Ranked Solo/Duo); при неполном или старом patch snapshot tier остаётся `—`, контрпики скрыты.
 - Не показывает live tactical coaching.
 
 ### 2. Profile screen
-- Позволяет искать профиль игрока.
+- В обычном режиме до поиска показывает нейтральное пустое состояние.
+- Позволяет искать только разрешённый профиль игрока.
 - Показывает ранг и связанные данные профиля.
 - В review/demo-сценариях демо-данные явно помечены как демо.
 
@@ -47,7 +53,7 @@ Sensei GG не пытается давать запрещенные live-под�
 - Не дает команды игроку во время активного матча.
 - Не показывает enemy cooldown timers, ult timers или summoner spell timers.
 - Не показывает запрещенные live callouts по позиционированию, объектам или макро-решениям во время игры.
-- В Ranked Solo/Duo champ select не раскрывает имена непартийных союзников и не делает их lookup.
+- В Ranked Solo/Duo не раскрывает и не ищет non-party ally или enemy; разрешены только локальный игрок и подтверждённый party ally.
 - Не маскирует demo/review data под настоящие live данные.
 
 ## Статусы внутри приложения
@@ -75,7 +81,7 @@ Sensei GG не пытается давать запрещенные live-под�
 1. Довести матч до post-game состояния или включить Review Mode.
 2. Открыть вкладку AI review.
 3. Убедиться, что review доступен только после завершения матча.
-4. Убедиться, что текст review опирается на метрики матча, а не на выдуманные live-факты.
+4. Убедиться, что текст review опирается только на реальные scoreboard-метрики матча; неизвестные значения остаются `—` и не восстанавливаются косвенно.
 
 ### Сценарий D. Review Mode
 1. Нажать `Ctrl+Shift+Z`, чтобы включить Review Mode.
@@ -116,6 +122,8 @@ Sensei GG is a League of Legends overlay focused on safe lobby visibility, playe
 - [ ] нет live tactical coaching в active game
 - [ ] нет enemy timers
 - [ ] нет lookup непартийных союзников в Ranked Solo/Duo champ select
+- [ ] Real roster не показывается без строгого 5×5 live-client snapshot; pre-game roster не заявляется
+- [ ] Custom hotkey, GEP events и lifecycle проверены вручную в реальном Overwolf runtime
 - [ ] AI review доступен только post-game
 - [ ] API keys не видны в UI
 - [ ] `.env` не попал в git

@@ -17,7 +17,11 @@ const module = { exports: {} };
 
 new Function('exports', 'module', compiled.outputText)(module.exports, module);
 
-const { extractLiveClientScoreboardSnapshot, normalizeLiveClientScoreboard } = module.exports;
+const {
+  extractLiveClientScoreboardSnapshot,
+  normalizeLiveClientRoster,
+  normalizeLiveClientScoreboard
+} = module.exports;
 
 const roles = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
 const createPlayer = (team, index) => ({
@@ -73,10 +77,56 @@ assert.deepEqual(scoreboard.allies[1].summonerSpells, [4, 11]);
 assert.equal(scoreboard.allies[0].goldEarned, undefined);
 assert.equal(scoreboard.allies[0].result, undefined);
 
+const roster = normalizeLiveClientRoster({
+  activePlayer: snapshot.activePlayer,
+  allPlayers: snapshot.allPlayers
+});
+
+assert.ok(roster, 'Expected a valid 5×5 live-client roster.');
+assert.equal(roster.localSummonerName, 'Order 1');
+assert.equal(roster.allies.length, 5);
+assert.deepEqual(Object.keys(roster.allies[0]).sort(), [
+  'championName',
+  'mainRole',
+  'runes',
+  'summonerName',
+  'summonerSpells'
+]);
+assert.equal('tier' in roster.allies[0], false);
+assert.equal('winRate' in roster.allies[0], false);
+assert.equal('mastery' in roster.allies[0], false);
+assert.equal('recentMatches' in roster.allies[0], false);
+
 const incompleteScoreboard = normalizeLiveClientScoreboard({
   activePlayer: { active_player: { summonerName: 'Order 1' } },
   allPlayers: { all_players: allPlayers.slice(0, 9) }
 });
 
 assert.equal(incompleteScoreboard, null, 'Incomplete teams must not produce a partial scoreboard.');
-console.log('Overwolf scoreboard verification passed: wrapped JSON, 5×5 validation, trinket slot, and unknown gold/result.');
+
+const incompleteRoster = normalizeLiveClientRoster({
+  activePlayer: { active_player: { summonerName: 'Order 1' } },
+  allPlayers: { all_players: allPlayers.slice(0, 9) }
+});
+assert.equal(incompleteRoster, null, 'Incomplete teams must not produce a partial roster.');
+
+const duplicateRolePlayers = allPlayers.map((player) => ({ ...player }));
+duplicateRolePlayers[1].position = 'TOP';
+assert.equal(normalizeLiveClientRoster({
+  activePlayer: { active_player: { summonerName: 'Order 1' } },
+  allPlayers: { all_players: duplicateRolePlayers }
+}), null, 'Duplicate roles must not produce a roster.');
+
+const missingRolePlayers = allPlayers.map((player) => ({ ...player }));
+delete missingRolePlayers[2].position;
+assert.equal(normalizeLiveClientRoster({
+  activePlayer: { active_player: { summonerName: 'Order 1' } },
+  allPlayers: { all_players: missingRolePlayers }
+}), null, 'Missing roles must not produce a roster.');
+
+assert.equal(normalizeLiveClientRoster({
+  activePlayer: { active_player: { summonerName: 'Unknown local player' } },
+  allPlayers: { all_players: allPlayers }
+}), null, 'A missing local player must not produce a roster.');
+
+console.log('Overwolf scoreboard verification passed: wrapped JSON, strict 5×5 roster validation, role coverage, local-player validation, trinket slot, and unknown gold/result.');

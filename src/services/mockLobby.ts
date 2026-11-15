@@ -1,4 +1,4 @@
-import type { PlayerInfo } from '../store/lobbySlice';
+import type { PlayerInfo, PlayerRankTier, PlayerRecentMatch } from '../store/lobbySlice';
 import type { RankedStats, Summoner } from './riotApi';
 import type { CompletedMatchSummary } from '../store/gameSlice';
 import { getChampionsForRole, getChampionScenariosByRole, getDefaultRuneLoadout, getDefaultSummonerSpells, getDemoItemLoadout, type ChampionScenario } from './gameData';
@@ -292,7 +292,7 @@ const buildDemoProfileRecentMatches = () => {
 
 const formatDurationLabel = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-const buildDemoChampionPool = (role: PlayerInfo['mainRole'], demoRecentMatches: PlayerInfo['recentMatches'], scenario: ChampionScenario): DemoChampionStat[] => {
+const buildDemoChampionPool = (role: PlayerInfo['mainRole'], demoRecentMatches: PlayerRecentMatch[], scenario: ChampionScenario): DemoChampionStat[] => {
   const statRanges = roleMatchStatRanges[role];
   const champions = [
     ...scenario.champions,
@@ -316,7 +316,7 @@ const buildDemoRoleStats = (demoRole: PlayerInfo['mainRole']): DemoRoleStat[] =>
   }))
 );
 
-const buildDemoRecentMatchCards = (role: PlayerInfo['mainRole'], demoRecentMatches: PlayerInfo['recentMatches']): DemoRecentMatch[] => {
+const buildDemoRecentMatchCards = (role: PlayerInfo['mainRole'], demoRecentMatches: PlayerRecentMatch[]): DemoRecentMatch[] => {
   const statRanges = roleMatchStatRanges[role];
 
   return demoRecentMatches.map((match) => ({
@@ -331,7 +331,7 @@ const buildDemoRecentMatchCards = (role: PlayerInfo['mainRole'], demoRecentMatch
 };
 
 const buildCompletedMatchSummary = (player: PlayerInfo): CompletedMatchSummary => {
-  const latestMatch = player.recentMatches[0];
+  const latestMatch = player.recentMatches?.[0];
   const statRanges = roleMatchStatRanges[player.mainRole];
   const gameDurationSeconds = randomInt(statRanges.gameDuration[0], statRanges.gameDuration[1]);
   const cs = latestMatch?.cs ?? randomInt(statRanges.completedCs[0], statRanges.completedCs[1]);
@@ -542,7 +542,7 @@ const buildRandomizedDemoPlayer = (basePlayer: PlayerInfo, role: PlayerInfo['mai
   return {
     ...basePlayer,
     rank: randomFrom(['I', 'II', 'III', 'IV']),
-    tier: randomFrom(['GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND'] as PlayerInfo['tier'][]),
+    tier: randomFrom(['GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND'] as PlayerRankTier[]),
     lp: randomInt(0, 99),
     wins,
     losses,

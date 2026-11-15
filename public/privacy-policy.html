@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Sensei GG privacy policy." />
+    <title>Privacy Policy - Sensei GG</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f131a; color: #e5e7eb; }
+      body { margin: 0; line-height: 1.65; }
+      main { width: min(860px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 72px; }
+      h1, h2 { color: #f8fafc; line-height: 1.25; }
+      h1 { margin: 0 0 8px; font-size: clamp(2rem, 6vw, 3rem); }
+      h2 { margin-top: 38px; font-size: 1.35rem; }
+      p, li { color: #cbd5e1; }
+      a { color: #5eead4; }
+      .meta { color: #94a3b8; margin: 0; }
+      .notice { margin: 24px 0; padding: 16px 18px; border: 1px solid #334155; border-radius: 10px; background: #151c27; color: #dbeafe; }
+      code { color: #a7f3d0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p><a href="./">Back to Sensei GG</a> · <a href="terms-of-service.html">Terms of Service</a></p>
+      <h1>Sensei GG Privacy Policy</h1>
+      <p class="meta">Effective date: November 15, 2026</p>
+
+      <div class="notice">
+        Sensei GG is a League of Legends companion focused on permitted lobby context and post-game review. This policy describes the current application behavior. It does not authorize features that are unavailable in the released application.
+      </div>
+
+      <h2>1. Who is responsible</h2>
+      <p>Sensei GG is operated by its developer. For privacy questions or requests, contact <a href="mailto:orlovigoor@gmail.com">orlovigoor@gmail.com</a>.</p>
+
+      <h2>2. Data processed on your device</h2>
+      <p>Sensei GG processes the following data locally to provide its features:</p>
+      <ul>
+        <li>your selected window-size preference;</li>
+        <li>local subscription-state and usage-limit information required for the interface;</li>
+        <li>up to 30 saved post-game AI review entries when AI history is available, including the completed-match summary and generated review text;</li>
+        <li>during an active Overwolf session, permitted League of Legends live-client roster or completed-scoreboard data, such as Riot ID display name, champion, role, spells, runes, and post-game statistics.</li>
+      </ul>
+      <p>Window preferences, subscription state, and saved AI review history are stored in the application browser's local storage. Live roster and completed-scoreboard data are handled in the running session; Sensei GG does not itself write them to local storage.</p>
+
+      <h2>3. Data sent to external services</h2>
+      <p>Sensei GG uses external services only when the relevant feature is available and requested:</p>
+      <ul>
+        <li><strong>Riot Data Dragon.</strong> The app requests public static champion, item, rune, and image data. These requests do not include a player Riot ID.</li>
+        <li><strong>Riot Games API.</strong> If you deliberately search for a profile and a configured backend is available, the selected region and Riot ID are sent to that backend, which queries Riot Games API endpoints. The current application backend does not implement persistent storage of profile-search results.</li>
+        <li><strong>Post-game AI endpoint.</strong> Only after a match has ended and you request a review, a configured AI endpoint can receive the completed-match payload: champion, KDA, CS, duration, takedowns, roles, and limited roster context. In Ranked Solo/Duo, non-party player identities and protected profile values are removed before this payload is created. If no endpoint is configured, the review is generated locally and no AI request is made.</li>
+        <li><strong>Overwolf and Tebex subscriptions.</strong> If subscriptions are enabled in a future release, Overwolf and its subscription provider process purchase and entitlement information under their own terms and privacy notices. Sensei GG does not receive or store payment-card details.</li>
+      </ul>
+      <p>Network providers and the operators of these services may process connection data, such as IP address and request logs, under their own policies.</p>
+
+      <h2>4. What Sensei GG does not do</h2>
+      <ul>
+        <li>It does not embed Riot, AI-provider, or payment secrets in the distributed client.</li>
+        <li>It does not sell personal data or include a first-party advertising or behavioral-analytics SDK in the current application.</li>
+        <li>It does not use live roster data to reveal or look up non-party players in Ranked Solo/Duo.</li>
+        <li>It does not provide live tactical coaching, enemy cooldown timers, or other prohibited competitive information.</li>
+      </ul>
+
+      <h2>5. Retention and deletion</h2>
+      <p>Session-only game data ends when the application session or lobby state is cleared. You can delete saved AI review history from the application Settings screen. You can clear other local application data through your browser or Overwolf application storage controls. If a future server-side service adds persistent storage, this policy will be updated before that storage is enabled.</p>
+
+      <h2>6. Your choices</h2>
+      <p>Profile lookup requires a search you enter. AI endpoint use requires a post-game review request. You may choose not to use either feature. Depending on applicable law, you may also request information about or deletion of data handled by the operator by contacting the address above.</p>
+
+      <h2>7. Changes</h2>
+      <p>We may update this policy when Sensei GG changes. The effective date at the top will be updated, and material changes will be reflected in the public policy before the changed release is made available.</p>
+
+      <h2>8. Riot Games notice</h2>
+      <p>Sensei GG is not endorsed by Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</p>
+    </main>
+  </body>
+</html>

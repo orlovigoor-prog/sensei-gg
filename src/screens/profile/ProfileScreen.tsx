@@ -7,6 +7,7 @@ import { getChampionIconUrl, getDefaultRuneLoadout, getDefaultSummonerSpells, ge
 import type { RuneLoadout } from '../../services/gameData';
 import { getItemCatalogEntry, getItemIconUrl, resolveItemTooltipEntry, type ItemCatalogEntry } from '../../services/gameData/items';
 import { fetchSubscriptionServiceResponse } from '../../services/subscriptionDevTools';
+import { canLookupPlayer } from '../../services/playerPrivacyPolicy';
 import {
   reviewModeChampionPool,
   reviewModeRecentMatches,
@@ -150,7 +151,11 @@ const getKdaAccent = (match: ProfileRecentMatch) => {
   return kills + assists >= deaths ? '#f8fafc' : '#fca5a5';
 };
 
-export function ProfileScreen() {
+interface ProfileScreenProps {
+  reviewMode?: boolean;
+}
+
+export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [region, setRegion] = useState<SearchRegion>('ru');
   const [loading, setLoading] = useState(false);
@@ -214,10 +219,25 @@ export function ProfileScreen() {
 
   useEffect(() => {
     const handleExternalSearch = (event: Event) => {
-      const customEvent = event as CustomEvent<{ summonerName?: string; targetRegion?: SearchRegion }>;
-      const { summonerName, targetRegion } = customEvent.detail || {};
+      const customEvent = event as CustomEvent<{
+        summonerName?: string;
+        targetRegion?: SearchRegion;
+        gameMode?: Parameters<typeof canLookupPlayer>[0]['gameMode'];
+        reviewMode?: boolean;
+        isAlly?: boolean;
+        localSummonerName?: string | null;
+        partyMembers?: string[];
+      }>;
+      const { summonerName, targetRegion, gameMode, isAlly, localSummonerName, partyMembers } = customEvent.detail || {};
 
-      if (!summonerName) {
+      if (!summonerName || !gameMode || typeof isAlly !== 'boolean' || !canLookupPlayer({
+        summonerName,
+        gameMode,
+        reviewMode: customEvent.detail?.reviewMode,
+        isAlly,
+        localSummonerName,
+        partyMembers
+      })) {
         return;
       }
 
@@ -311,8 +331,8 @@ export function ProfileScreen() {
     setLoading(false);
   };
 
-  const isDemoProfile = !summoner;
-  const profile = summoner || reviewModeSummoner;
+  const isDemoProfile = reviewMode && !summoner;
+  const profile = summoner || (isDemoProfile ? reviewModeSummoner : null);
   const profileRank = rankedStats || (summoner ? unrankedStats : reviewModeRankedStats);
   const isUnrankedProfile = profileRank.tier === 'UNRANKED';
   const rankAccent = getTierAccent(profileRank.tier);
@@ -374,7 +394,7 @@ export function ProfileScreen() {
           )}
         </div>
 
-        <div style={{ background: 'linear-gradient(180deg, rgba(22, 29, 42, 0.96), rgba(15, 19, 26, 0.98))', border: '1px solid #1f2937', borderRadius: '16px', padding: '18px' }}>
+        {profile ? <div style={{ background: 'linear-gradient(180deg, rgba(22, 29, 42, 0.96), rgba(15, 19, 26, 0.98))', border: '1px solid #1f2937', borderRadius: '16px', padding: '18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginBottom: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center', minWidth: 0 }}>
               <img
@@ -388,6 +408,11 @@ export function ProfileScreen() {
                   <span style={{ padding: '4px 8px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', color: '#9ca3af', fontSize: '11px', fontWeight: 'bold' }}>
                     {region.toUpperCase()}
                   </span>
+                  {isDemoProfile && (
+                    <span style={{ padding: '4px 8px', borderRadius: '999px', background: 'rgba(234, 88, 12, 0.14)', border: '1px solid rgba(234, 88, 12, 0.35)', color: '#fdba74', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+                      REVIEW / DEMO DATA
+                    </span>
+                  )}
                 </div>
                 <div style={{ color: '#9ca3af', fontSize: '13px' }}>Уровень {profile.summonerLevel}</div>
               </div>
@@ -691,7 +716,11 @@ export function ProfileScreen() {
               </div>
             )}
           </div>
-        </div>
+        </div> : <div style={{ background: 'linear-gradient(180deg, rgba(22, 29, 42, 0.96), rgba(15, 19, 26, 0.98))', border: '1px solid #1f2937', borderRadius: '16px', padding: '32px', textAlign: 'center' }}>
+          <div style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.08em', marginBottom: '10px' }}>ПРОФИЛЬ ЕЩЁ НЕ ЗАГРУЖЕН</div>
+          <div style={{ color: '#f8fafc', fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Введи Riot ID, чтобы запросить реальные данные игрока.</div>
+          <div style={{ color: '#9ca3af', fontSize: '13px', lineHeight: 1.6 }}>Sensei GG не показывает демо-профиль как настоящий. Review Mode отдельно маркирует синтетические данные.</div>
+        </div>}
       </div>
     </div>
   );

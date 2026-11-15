@@ -1,7 +1,7 @@
-import type { PlayerInfo } from '../../store/lobbySlice';
+import type { PlayerRankTier } from '../../store/lobbySlice';
 import dataDragonConfig from '../../../game-data.config.json';
 
-export type RankTier = PlayerInfo['tier'] | 'UNRANKED';
+export type RankTier = PlayerRankTier | 'UNRANKED';
 
 // Static Riot reference data is deliberately pinned for reproducible UI assets and text.
 export const dragonVersion = dataDragonConfig.dataDragonVersion;

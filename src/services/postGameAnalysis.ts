@@ -1,12 +1,16 @@
 import type { CompletedMatchSummary } from '../store/gameSlice';
-import type { PlayerInfo } from '../store/lobbySlice';
+import type { GameMode, PlayerInfo } from '../store/lobbySlice';
 import type { StructuredAiReview } from '../store/gameSlice';
 import { getChampionCatalogEntry } from './gameData';
+import { canRevealPlayerIdentity } from './playerPrivacyPolicy';
 
 interface PostGameAnalysisContext {
   lastCompletedMatch: CompletedMatchSummary;
   allies: PlayerInfo[];
   enemies: PlayerInfo[];
+  gameMode?: GameMode;
+  localSummonerName?: string | null;
+  partyMembers?: string[];
   reviewMode?: boolean;
 }
 
@@ -32,24 +36,16 @@ const parseKda = (value: string | undefined) => {
 };
 
 const getPlayerGameSample = (player: PlayerInfo) => {
-  const latestMatch = player.recentMatches[0];
+  const latestMatch = player.recentMatches?.[0];
   const latestKda = parseKda(latestMatch?.kda);
 
   return {
     lane: player.mainRole,
-    kills: latestMatch?.k ?? latestKda.kills,
-    deaths: latestMatch?.d ?? latestKda.deaths,
-    assists: latestMatch?.a ?? latestKda.assists,
-    champion: latestMatch?.champion ?? 'Unknown'
+    kills: latestMatch?.k ?? (latestMatch?.kda ? latestKda.kills : undefined),
+    deaths: latestMatch?.d ?? (latestMatch?.kda ? latestKda.deaths : undefined),
+    assists: latestMatch?.a ?? (latestMatch?.kda ? latestKda.assists : undefined),
+    champion: player.championName ?? latestMatch?.champion
   };
-};
-
-const average = (values: number[]) => {
-  if (values.length === 0) {
-    return 0;
-  }
-
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
 const formatDuration = (seconds: number | null) => {
@@ -64,8 +60,14 @@ const formatDuration = (seconds: number | null) => {
 };
 
 const getWinRateGap = (allies: PlayerInfo[], enemies: PlayerInfo[]) => {
-  const allyAverageWinRate = Math.round(average(allies.map((player) => player.winRate)));
-  const enemyAverageWinRate = Math.round(average(enemies.map((player) => player.winRate)));
+  const allPlayers = [...allies, ...enemies];
+
+  if (allPlayers.length !== 10 || allPlayers.some((player) => typeof player.winRate !== 'number' || !Number.isFinite(player.winRate))) {
+    return null;
+  }
+
+  const allyAverageWinRate = Math.round(allies.reduce((sum, player) => sum + (player.winRate as number), 0) / allies.length);
+  const enemyAverageWinRate = Math.round(enemies.reduce((sum, player) => sum + (player.winRate as number), 0) / enemies.length);
 
   return {
     allyAverageWinRate,
@@ -85,11 +87,20 @@ const getLanePressureCallout = (allies: PlayerInfo[], enemies: PlayerInfo[]) => 
 
     const allySample = getPlayerGameSample(ally);
     const enemySample = getPlayerGameSample(enemy);
+    if (
+      allySample.kills === undefined
+      || allySample.deaths === undefined
+      || enemySample.kills === undefined
+      || enemySample.deaths === undefined
+    ) {
+      continue;
+    }
+
     const deathGap = allySample.deaths - enemySample.deaths;
     const killGap = enemySample.kills - allySample.kills;
 
     if (deathGap >= 3 || killGap >= 3) {
-      return `Линия ${lane.toLowerCase()} просела сильнее остальных: у ${enemy.summonerName} было больше пространства, чем у вашего оппонента по линии.`;
+      return `Линия ${lane.toLowerCase()} просела сильнее остальных: по подтверждённым постматчевым данным на ней был заметный разрыв.`;
     }
   }
 
@@ -201,7 +212,39 @@ const buildArchetypeHint = (archetype: string) => {
   }
 };
 
-export const buildPostGameAnalysisPayload = ({ lastCompletedMatch, allies, enemies, reviewMode = false }: PostGameAnalysisContext) => ({
+export const buildPostGameAnalysisPayload = ({
+  lastCompletedMatch,
+  allies,
+  enemies,
+  gameMode = 'NORMAL_5x5_DRAFT',
+  localSummonerName,
+  partyMembers = [],
+  reviewMode = false
+}: PostGameAnalysisContext) => {
+  const toSafePlayer = (player: PlayerInfo, isAlly: boolean) => {
+    const canReveal = canRevealPlayerIdentity({
+      gameMode,
+      reviewMode,
+      isAlly,
+      summonerName: player.summonerName,
+      localSummonerName,
+      partyMembers
+    });
+    const latestMatch = canReveal ? player.recentMatches?.[0] : undefined;
+
+    return {
+      summonerName: canReveal ? player.summonerName : null,
+      mainRole: player.mainRole,
+      championName: player.championName ?? latestMatch?.champion ?? null,
+      tier: canReveal ? player.tier ?? null : null,
+      lp: canReveal ? player.lp ?? null : null,
+      winRate: canReveal ? player.winRate ?? null : null,
+      recentChampion: latestMatch?.champion ?? null,
+      recentKda: latestMatch?.kda ?? null
+    };
+  };
+
+  return {
   match: {
     championName: lastCompletedMatch.championName,
     kills: lastCompletedMatch.kills,
@@ -215,33 +258,34 @@ export const buildPostGameAnalysisPayload = ({ lastCompletedMatch, allies, enemi
     endedAt: lastCompletedMatch.endedAt,
     kda: lastCompletedMatch.kda
   },
-  context: getWinRateGap(allies, enemies),
+  context: gameMode === 'RANKED_SOLO_5x5' && !reviewMode ? null : getWinRateGap(allies, enemies),
   lobby: {
-    allies: allies.map((player) => ({
-      summonerName: player.summonerName,
-      mainRole: player.mainRole,
-      tier: player.tier,
-      lp: player.lp,
-      winRate: player.winRate,
-      recentChampion: player.recentMatches[0]?.champion ?? null,
-      recentKda: player.recentMatches[0]?.kda ?? null
-    })),
-    enemies: enemies.map((player) => ({
-      summonerName: player.summonerName,
-      mainRole: player.mainRole,
-      tier: player.tier,
-      lp: player.lp,
-      winRate: player.winRate,
-      recentChampion: player.recentMatches[0]?.champion ?? null,
-      recentKda: player.recentMatches[0]?.kda ?? null
-    }))
+    allies: allies.map((player) => toSafePlayer(player, true)),
+    enemies: enemies.map((player) => toSafePlayer(player, false))
   },
   reviewMode
-});
+  };
+};
 
-export const generatePostGameAnalysis = ({ lastCompletedMatch, allies, enemies, reviewMode = false }: PostGameAnalysisContext) => {
+export const generatePostGameAnalysis = ({
+  lastCompletedMatch,
+  allies,
+  enemies,
+  gameMode = 'NORMAL_5x5_DRAFT',
+  localSummonerName,
+  partyMembers = [],
+  reviewMode = false
+}: PostGameAnalysisContext) => {
   const { championName, kills, deaths, assists, cs, gameDurationSeconds, csPerMinute, kda, takedowns } = lastCompletedMatch;
-  const selfPlayer = allies.find((player) => player.recentMatches[0]?.champion === championName) ?? allies.find((player) => player.summonerName === 'DemoProfilePlayer') ?? allies[0];
+  const selfPlayer = allies.find((player) => canRevealPlayerIdentity({
+    gameMode,
+    reviewMode,
+    isAlly: true,
+    summonerName: player.summonerName,
+    localSummonerName,
+    partyMembers
+  }) && player.championName === championName)
+    ?? (reviewMode ? allies.find((player) => player.summonerName === 'DemoProfilePlayer') ?? allies[0] : undefined);
   const role = selfPlayer?.mainRole ?? 'ADC';
   const roleLabel = getRoleLabel(role);
   const archetype = getChampionArchetype(championName, role);
@@ -258,12 +302,12 @@ export const generatePostGameAnalysis = ({ lastCompletedMatch, allies, enemies, 
   const strongCsPerMinute = csPerMinute !== null && csPerMinute >= 7;
   const durationLabel = formatDuration(gameDurationSeconds);
 
-  const { allyAverageWinRate, enemyAverageWinRate, delta } = getWinRateGap(allies, enemies);
+  const winRateGap = gameMode === 'RANKED_SOLO_5x5' && !reviewMode ? null : getWinRateGap(allies, enemies);
   const lanePressureCallout = getLanePressureCallout(allies, enemies);
   const roleSpecificFocus = buildRoleSpecificFocus({ role, archetype, highDeaths, lowFarm, strongFarm, teamPlay, weakCsPerMinute, carryTempo });
   const archetypeHint = buildArchetypeHint(archetype);
-  const teamContext = allyAverageWinRate || enemyAverageWinRate
-    ? `По лобби ваша команда входила примерно с ${allyAverageWinRate}% среднего WR против ${enemyAverageWinRate}% у соперника${Math.abs(delta) >= 4 ? `, разница была около ${Math.abs(delta)} п.п.` : ''}.`
+  const teamContext = winRateGap
+    ? `По лобби ваша команда входила примерно с ${winRateGap.allyAverageWinRate}% среднего WR против ${winRateGap.enemyAverageWinRate}% у соперника${Math.abs(winRateGap.delta) >= 4 ? `, разница была около ${Math.abs(winRateGap.delta)} п.п.` : ''}.`
     : 'Командный контекст по лобби ограничен, поэтому разбор опирается прежде всего на твои личные метрики.';
 
   const strength = carryTempo

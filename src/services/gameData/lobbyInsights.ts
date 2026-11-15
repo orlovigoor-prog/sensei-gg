@@ -2,8 +2,8 @@ import type { PlayerInfo } from '../../store/lobbySlice';
 import { fetchSubscriptionServiceJson } from '../subscriptionDevTools';
 import { patchTierVisuals, type PatchTier } from './core';
 
-export type LobbyRankBracket = 'emerald_plus' | 'platinum-plus' | 'diamond2-plus';
-export type LobbyDataRankBracket = LobbyRankBracket | 'all';
+export const LOBBY_META_RANK_BRACKET = 'all' as const;
+export type LobbyDataRankBracket = typeof LOBBY_META_RANK_BRACKET;
 export type LobbySignalQuality = 'strong' | 'medium' | 'tier-only' | 'none';
 
 export const MIN_RELIABLE_LOBBY_COUNTER_SAMPLE = 500;
@@ -70,12 +70,18 @@ interface BackendLobbyChampionInsightResponse {
   } | null;
 }
 
-export const fetchLobbyChampionInsight = async (
+const insightCache = new Map<string, LobbyChampionInsight | null>();
+const insightRequests = new Map<string, Promise<LobbyChampionInsight | null>>();
+
+const getInsightCacheKey = (championName: string, role: PlayerInfo['mainRole']) => (
+  `${championName.trim().toLocaleLowerCase()}:${role}`
+);
+
+const requestLobbyChampionInsight = async (
   championName: string,
-  role: PlayerInfo['mainRole'],
-  rankBracket: LobbyRankBracket = 'emerald_plus'
+  role: PlayerInfo['mainRole']
 ): Promise<LobbyChampionInsight | null> => {
-  const query = new URLSearchParams({ champion: championName, role, rank: rankBracket });
+  const query = new URLSearchParams({ champion: championName, role, rank: LOBBY_META_RANK_BRACKET });
   const response = await fetchSubscriptionServiceJson<BackendLobbyChampionInsightResponse>(`/api/lol/meta/champion-insight?${query.toString()}`);
   const insight = response?.insight;
 
@@ -99,4 +105,37 @@ export const fetchLobbyChampionInsight = async (
     sampleLabel: insight.sampleLabel || 'All ranks, Ranked Solo/Duo, current patch',
     signalQuality: insight.signalQuality || resolveLobbySignalQuality({ counters, globalWinRate: normalizedGlobalWinRate, patchTier })
   };
+};
+
+export const fetchLobbyChampionInsight = (
+  championName: string,
+  role: PlayerInfo['mainRole']
+): Promise<LobbyChampionInsight | null> => {
+  const cacheKey = getInsightCacheKey(championName, role);
+  if (insightCache.has(cacheKey)) {
+    return Promise.resolve(insightCache.get(cacheKey) ?? null);
+  }
+
+  const pendingRequest = insightRequests.get(cacheKey);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const request = requestLobbyChampionInsight(championName, role)
+    .then((insight) => {
+      insightCache.set(cacheKey, insight);
+      return insight;
+    })
+    .catch(() => null)
+    .finally(() => {
+      insightRequests.delete(cacheKey);
+    });
+
+  insightRequests.set(cacheKey, request);
+  return request;
+};
+
+export const clearLobbyChampionInsightCache = () => {
+  insightCache.clear();
+  insightRequests.clear();
 };

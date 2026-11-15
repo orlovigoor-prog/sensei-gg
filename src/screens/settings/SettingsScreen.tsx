@@ -1,4 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import type { AppDispatch } from '../../store';
+import { clearAiHistoryEntries } from '../../store/aiHistorySlice';
+import { clearAiReviewHistory } from '../../services/aiReviewHistoryStorage';
 import {
   applyWindowSizePreset,
   getStoredWindowSizePreset,
@@ -7,39 +11,7 @@ import {
   WINDOW_SIZE_STORAGE_KEY,
   type WindowSizePreset
 } from '../../services/windowSize';
-
-interface HotkeySettings {
-  toggleOverlay: string[];
-}
-
-const DEFAULT_HOTKEYS: HotkeySettings = {
-  toggleOverlay: ['Control', 'KeyX']
-};
-
-const getStoredHotkeys = (): HotkeySettings => {
-  try {
-    const savedHotkeys = localStorage.getItem('sensei_hotkeys');
-
-    if (!savedHotkeys) {
-      return DEFAULT_HOTKEYS;
-    }
-
-    const parsedHotkeys: unknown = JSON.parse(savedHotkeys);
-    if (
-      typeof parsedHotkeys === 'object'
-      && parsedHotkeys !== null
-      && 'toggleOverlay' in parsedHotkeys
-      && Array.isArray(parsedHotkeys.toggleOverlay)
-      && parsedHotkeys.toggleOverlay.every((key) => typeof key === 'string')
-    ) {
-      return { toggleOverlay: parsedHotkeys.toggleOverlay };
-    }
-  } catch (error) {
-    console.error('Failed to load hotkeys:', error);
-  }
-
-  return DEFAULT_HOTKEYS;
-};
+import { isOverwolfAvailable } from '../../services/overwolfBridge';
 
 const settingsCardStyle = {
   background: 'linear-gradient(180deg, rgba(22, 29, 42, 0.96), rgba(15, 19, 26, 0.98))',
@@ -65,69 +37,26 @@ const settingsSectionHintStyle = {
 } as const;
 
 export function SettingsScreen() {
-  const [hotkeys, setHotkeys] = useState<HotkeySettings>(getStoredHotkeys);
+  const dispatch = useDispatch<AppDispatch>();
   const [windowSizePreset, setWindowSizePreset] = useState<WindowSizePreset>(getStoredWindowSizePreset());
-  const [recordingKey, setRecordingKey] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [reviewHistoryCleared, setReviewHistoryCleared] = useState(false);
+  const overwolfAvailable = isOverwolfAvailable();
 
   // Сохранение настроек
   const saveSettings = () => {
-    localStorage.setItem('sensei_hotkeys', JSON.stringify(hotkeys));
     localStorage.setItem(WINDOW_SIZE_STORAGE_KEY, windowSizePreset);
     applyWindowSizePreset(windowSizePreset);
     window.dispatchEvent(new CustomEvent('sensei-window-size-updated', { detail: windowSizePreset }));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    
-    // Отправляем сообщение в background script для обновления слушателя
-    if ('Overwolf' in window) {
-      window.postMessage({ type: 'SENSEI_HOTKEYS_UPDATED', hotkeys }, '*');
-    }
   };
 
-  // Запись нажатия клавиши
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (recordingKey === null) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const key = e.code;
-    setHotkeys(prev => ({
-      ...prev,
-      [recordingKey]: [key]
-    }));
-    setRecordingKey(null);
-  }, [recordingKey]);
-
-  useEffect(() => {
-    if (recordingKey !== null) {
-      window.addEventListener('keydown', handleKeyDown, true);
-      return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }
-  }, [recordingKey, handleKeyDown]);
-
-  // Получение отображаемого имени клавиши
-  const getKeyDisplayName = (code: string): string => {
-    const keyMap: Record<string, string> = {
-      'Control': 'Ctrl',
-      'Alt': 'Alt',
-      'Shift': 'Shift',
-      'Meta': 'Win',
-      'KeyX': 'X',
-      'KeyC': 'C',
-      'KeyV': 'V',
-      'KeyB': 'B',
-      'Space': 'Пробел',
-      'Escape': 'Esc',
-      'Enter': 'Enter'
-    };
-    return keyMap[code] || code.replace('Key', '');
-  };
-
-  // Форматирование горячих клавиш для отображения
-  const formatHotkey = (keys: string[]): string => {
-    return keys.map(getKeyDisplayName).join(' + ');
+  const clearStoredAiReviews = () => {
+    clearAiReviewHistory();
+    dispatch(clearAiHistoryEntries());
+    setReviewHistoryCleared(true);
+    window.setTimeout(() => setReviewHistoryCleared(false), 2500);
   };
 
   return (
@@ -166,69 +95,27 @@ export function SettingsScreen() {
             Горячие клавиши
           </h3>
           <p style={settingsSectionHintStyle}>
-            Быстрый доступ к оверлею без переключения между окнами.
+            Назначение управляется только штатными настройками Overwolf для League of Legends.
           </p>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ 
-            display: 'block', 
-            color: '#9ca3af', 
-            fontSize: '14px', 
-            marginBottom: '10px' 
-          }}>
-            Открыть/закрыть оверлей
-          </label>
-          
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setRecordingKey('toggleOverlay')}
-              style={{
-                padding: '12px 20px',
-                background: recordingKey === 'toggleOverlay' 
-                  ? '#00ffcc' 
-                  : '#1f2937',
-                color: recordingKey === 'toggleOverlay' ? '#0f131a' : '#fff',
-                border: '1px solid #374151',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                flex: '1 1 220px',
-                width: '100%',
-                maxWidth: '280px',
-                textAlign: 'center'
-              }}
-            >
-              {recordingKey === 'toggleOverlay' 
-                ? 'Нажмите нужную комбинацию...' 
-                : formatHotkey(hotkeys.toggleOverlay)}
-            </button>
-            
-            <button
-              onClick={() => setHotkeys(prev => ({ ...prev, toggleOverlay: DEFAULT_HOTKEYS.toggleOverlay }))}
-              style={{
-                padding: '12px 16px',
-                background: 'rgba(139, 92, 246, 0.2)',
-                color: '#a855f7',
-                border: '1px solid #a855f7',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
-            >
-              Сброс
-            </button>
+        <div style={{ marginBottom: 0 }}>
+          <div style={{ padding: '12px', borderRadius: '10px', background: overwolfAvailable ? 'rgba(16, 185, 129, 0.08)' : 'rgba(148, 163, 184, 0.08)', border: `1px solid ${overwolfAvailable ? 'rgba(16, 185, 129, 0.28)' : 'rgba(148, 163, 184, 0.22)'}` }}>
+            <div style={{ color: '#f8fafc', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Показать или скрыть Sensei GG</div>
+            <div style={{ color: '#9ca3af', fontSize: '12px', lineHeight: 1.55 }}>
+              {overwolfAvailable
+                ? 'По умолчанию: Ctrl+X. Фактическая комбинация и её доступность определяются Overwolf; конфликт может оставить hotkey неназначенным.'
+                : 'В обычном браузере game-specific hotkey недоступен. Здесь не сохраняется имитация глобальной комбинации.'}
+            </div>
+            {overwolfAvailable && (
+              <button
+                onClick={() => window.location.assign('overwolf://settings/games-overlay?hotkey=sensei_toggle_overlay&gameId=5426')}
+                style={{ marginTop: '12px', padding: '9px 12px', background: '#1f2937', color: '#f8fafc', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+              >
+                Открыть настройки Overwolf
+              </button>
+            )}
           </div>
-          
-          <p style={{ 
-            margin: '10px 0 0 0', 
-            fontSize: '12px', 
-            color: '#6b7280' 
-          }}>
-            Подсказка: нажмите на кнопку и введите желаемую комбинацию клавиш
-          </p>
         </div>
       </div>
 
@@ -333,7 +220,7 @@ export function SettingsScreen() {
           </p>
         </div>
         
-        <div style={{ display: 'grid', gap: '10px', fontSize: '14px', color: '#9ca3af' }}>
+          <div style={{ display: 'grid', gap: '10px', fontSize: '14px', color: '#9ca3af' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(15, 19, 26, 0.72)', border: '1px solid #1f2937' }}>
             <span style={{ color: '#6b7280' }}>Версия</span>
             <strong style={{ color: '#f3f4f6', fontWeight: 600 }}>0.1.0</strong>
@@ -341,6 +228,26 @@ export function SettingsScreen() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(15, 19, 26, 0.72)', border: '1px solid #1f2937' }}>
             <span style={{ color: '#6b7280' }}>Разработчик</span>
             <strong style={{ color: '#f3f4f6', fontWeight: 600 }}>oLiERo / Sensei.GG</strong>
+          </div>
+          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(15, 19, 26, 0.72)', border: '1px solid #1f2937', display: 'grid', gap: '10px' }}>
+            <span style={{ color: '#6b7280' }}>Данные и документы</span>
+            <span style={{ fontSize: '12px', lineHeight: 1.55 }}>
+              Сохранённая история AI-разборов остаётся в локальном storage этого приложения. Её можно удалить в любой момент.
+            </span>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                onClick={clearStoredAiReviews}
+                style={{ padding: '8px 10px', background: '#1f2937', color: '#d1d5db', border: '1px solid #475569', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+              >
+                {reviewHistoryCleared ? 'История удалена' : 'Удалить историю AI-разборов'}
+              </button>
+              <a href="https://orlovigoor-prog.github.io/sensei-gg/privacy-policy.html" target="_blank" rel="noreferrer" style={{ color: '#5eead4', fontSize: '12px' }}>
+                Privacy Policy
+              </a>
+              <a href="https://orlovigoor-prog.github.io/sensei-gg/terms-of-service.html" target="_blank" rel="noreferrer" style={{ color: '#5eead4', fontSize: '12px' }}>
+                Terms of Service
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -360,7 +267,6 @@ export function SettingsScreen() {
       }}>
         <button
           onClick={() => {
-            setHotkeys(getStoredHotkeys());
             setWindowSizePreset(getStoredWindowSizePreset());
           }}
           style={{

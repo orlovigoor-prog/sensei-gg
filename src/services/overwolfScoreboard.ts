@@ -1,8 +1,8 @@
-import type { CompletedMatchScoreboard, CompletedScoreboardPlayer, PlayerInfo } from '../store/lobbySlice';
+import type { CompletedMatchScoreboard, CompletedScoreboardPlayer, PlayerInfo, PlayerRole } from '../store/lobbySlice';
 
 type UnknownRecord = Record<string, unknown>;
 
-const roleByLiveClientPosition: Record<string, PlayerInfo['mainRole']> = {
+const roleByLiveClientPosition: Record<string, PlayerRole> = {
   TOP: 'TOP',
   JUNGLE: 'JUNGLE',
   MIDDLE: 'MID',
@@ -91,7 +91,7 @@ const readNumber = (value: unknown): number | undefined => {
 
 const normalizeName = (value: string) => value.trim().toLocaleLowerCase();
 
-const normalizeRole = (value: unknown): PlayerInfo['mainRole'] | undefined => {
+const normalizeRole = (value: unknown): PlayerRole | undefined => {
   const position = readString(value)?.toUpperCase();
   return position ? roleByLiveClientPosition[position] : undefined;
 };
@@ -177,6 +177,13 @@ export interface LiveClientScoreboardSnapshot {
   allPlayers: unknown;
 }
 
+export interface LiveClientRosterSnapshot {
+  allies: PlayerInfo[];
+  enemies: PlayerInfo[];
+  localSummonerName: string;
+  source: 'overwolf-live-client-data';
+}
+
 export const extractLiveClientScoreboardSnapshot = (value: unknown): Partial<LiveClientScoreboardSnapshot> => {
   const liveClientData = readRecord(value);
 
@@ -223,5 +230,33 @@ export const normalizeLiveClientScoreboard = ({ activePlayer, allPlayers }: Live
     enemies,
     localSummonerName: localPlayer.player.summonerName,
     source: 'overwolf-live-client-data'
+  };
+};
+
+const hasCompleteRoleCoverage = (players: CompletedScoreboardPlayer[]) => {
+  const roles = players.map((player) => player.role);
+  return roles.length === 5 && roles.every((role): role is PlayerRole => role !== undefined) && new Set(roles).size === 5;
+};
+
+export const normalizeLiveClientRoster = (snapshot: LiveClientScoreboardSnapshot): LiveClientRosterSnapshot | null => {
+  const scoreboard = normalizeLiveClientScoreboard(snapshot);
+
+  if (!scoreboard || !hasCompleteRoleCoverage(scoreboard.allies) || !hasCompleteRoleCoverage(scoreboard.enemies)) {
+    return null;
+  }
+
+  const toPlayerInfo = (player: CompletedScoreboardPlayer): PlayerInfo => ({
+    summonerName: player.summonerName,
+    championName: player.championName,
+    mainRole: player.role as PlayerRole,
+    summonerSpells: player.summonerSpells,
+    runes: player.runes
+  });
+
+  return {
+    allies: scoreboard.allies.map(toPlayerInfo),
+    enemies: scoreboard.enemies.map(toPlayerInfo),
+    localSummonerName: scoreboard.localSummonerName,
+    source: scoreboard.source
   };
 };

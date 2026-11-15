@@ -1,181 +1,96 @@
-# 🚀 Инструкция по загрузке в Overwolf
+# Публикация и runtime-приёмка Sensei GG в Overwolf
 
-## Подготовка к публикации
+> Этот документ описывает только штатный путь Overwolf Native / Web App. Не используйте Developer Mode, unpacked extensions, неподписанные OPK или обход ограничений доступа.
 
-### 1. Сборка приложения
+## Текущий технический статус
 
-```bash
-npm run build
-```
+- Sensei GG является Overwolf Native Web App: в корневом `manifest.json` задано `"type": "WebApp"`.
+- Единственный manifest находится в корне проекта и копируется в release artifact Vite-конфигурацией.
+- В приложении есть desktop window, background lifecycle, game targeting для League of Legends (`5426`) и game-specific hotkey.
+- Исходники и browser/verifier-проверки уже можно проверять без production build. Их результаты не заменяют приёмку внутри Overwolf.
+- В репозитории нет установленной или опубликованной reviewer/store-версии Sensei GG. Поэтому реальный GEP, назначение hotkey и окна нельзя принять из браузера.
 
-Это создаст папку `dist/` со всеми файлами.
+## Обязательный путь к первой штатной проверке
 
-### 2. Структура для Overwolf
+### 1. Подать идею public app
 
-Файлы должны быть в папке `dist/`:
-```
-dist/
-├── index.html
-├── manifest.json          (Overwolf manifest)
-├── icon.png               (128x128 PNG иконка)
-└── assets/
-    └── *.js
-```
+Войдите в Overwolf Account и подайте app proposal через [форму Overwolf](https://dev.overwolf.com/app-idea-form).
 
-### 3. manifest.json для Overwolf
+В заявке укажите:
 
-Открыть `manifest.json` в корне проекта и убедиться:
+- **Framework:** Overwolf Native / Web App.
+- **Game:** League of Legends.
+- **Public value:** безопасный контекст лобби, privacy-aware представление участников и post-game review; приложение не даёт live coaching и не использует неразрешённые игровые данные.
+- **Riot compliance:** приложите `RIOT_REVIEW_GUIDE.md`, ограничения Solo/Duo privacy и принцип fail-closed для live roster.
+- **Visible UI:** desktop window существует и показывает приложение; это важно, потому что Overwolf не одобряет приложения, работающие только в background.
+- **Монетизация:** public app должен использовать официальные Overwolf Ads, Overwolf App Subscriptions на Tebex или оба механизма. На момент написания эта интеграция в Sensei GG ещё требует настройки store, plan ID и server-side webhook/entitlement flow; не заявляйте её завершённой раньше времени.
 
-```json
-{
-  "manifest_version": 1,
-  "type": "WebApp",
-  "meta": {
-    "name": "SenseiGG",
-    "version": "1.0.0.0",
-    "minimum-overwolf-version": "0.195.0",
-    "author": "Sensei",
-    "description": "League of Legends overlay with post-match analysis",
-    "icon": "icon.png"
-  },
-  "data": {
-    "start_window": "desktop",
-    "windows": {
-      "desktop": {
-        "file": "index.html",
-        "transparent": true,
-        "resizable": true,
-        "size": {
-          "width": 800,
-          "height": 600
-        }
-      }
-    }
-  },
-  "required_capabilities": ["windows"],
-  "overwolf_apis": [
-    "Windows",
-    "KeyboardShortcuts",
-    "GameEvents"
-  ]
-}
-```
+Одобрение идеи и выдача разрешённого developer access от DevRel — официальный процесс Overwolf, а не whitelist bypass. До него нельзя устанавливать локальный архив как тестовую версию.
 
-## Загрузка в Overwolf Developer Hub
+### 2. Закрыть release blockers до первой подачи сборки
 
-### Шаг 1: Зарегистрируйся как разработчик
+1. Настройте выбранный официальный механизм монетизации:
+   - для подписок — Tebex store, Overwolf subscription setup, premium plan ID и защищённую server-side обработку entitlement/webhook;
+   - либо добавьте и проверьте Overwolf Ads в соответствии с Advertising Policy.
+2. Убедитесь, что `meta.name` и `meta.author` не меняются между версиями: они определяют UID приложения.
+3. Package icons уже подготовлены в `public/` и указаны в canonical manifest:
+   - `icon.png` и `icon-gray.png`: PNG 256×256, каждый меньше 30 KB;
+   - `launcher-icon.ico`: ICO с размерами 16×16, 32×32, 48×48 и 256×256, меньше 150 KB.
+   При смене брендинга сохраните эти ограничения и обновите все три файла вместе.
+4. Перед созданием release candidate проверьте корневой `manifest.json` по актуальной [Overwolf schema](https://raw.githubusercontent.com/overwolf/community-gists/master/overwolf-manifest-schema.json).
+5. Сохраните evidence автоматических проверок из `DEVELOPMENT.md`, а также подготовьте скриншоты desktop window, hotkey settings и post-game flow.
 
-1. Перейди на https://overwolf.github.io/
-2. Нажми "Developer Hub" или "Sign In"
-3. Войди через Discord или GitHub
-4. Заполни профиль разработчика
+### Riot production application and site verification
 
-### Шаг 2: Создай новое приложение
+Для League of Legends Overwolf попросит приложить скриншот Riot production approval с тем же описанием продукта. Riot требует работающий публичный прототип, Privacy Policy, Terms of Service и verification token на доступном URL.
 
-1. В Developer Hub нажми **"Create New App"**
-2. Заполни форму:
-   - **App Name**: SenseiGG
-   - **App Type**: Overlay / Game Companion
-   - **Game**: League of Legends
-   - **Description**: LoL overlay with safe lobby tools and post-match analysis
+- Статический prototype: `https://orlovigoor-prog.github.io/sensei-gg/`.
+- Policy pages: `privacy-policy.html` и `terms-of-service.html` находятся в `public/` и публикуются вместе с Pages artifact.
+- Когда Riot Portal выдаст или подтвердит verification token, он должен быть в `public/riot.txt`; после GitHub Pages deploy проверочный URL будет `https://orlovigoor-prog.github.io/sensei-gg/riot.txt`.
+- Не размещайте Riot API key в `riot.txt`, source code, Vite variables или OPK. Ключ остаётся только на защищённом server-side runtime.
 
-### Шаг 3: Загрузи файлы
+### 3. Создать и подать release candidate
 
-1. В разделе **"App Files"** нажми **"Upload New Version"**
-2. Выбери папку `dist/` или ZIP архив с файлами
-3. Загрузи `icon.png` (128x128)
+Для этой ветки не запускайте production build и не изменяйте существующую ignored-директорию `dist`. Когда release candidate будет одобрен для упаковки, создайте его из чистого checkout в CI или отдельной release-рабочей копии.
 
-### Шаг 4: Настрой разрешения
+1. Соберите release artifact штатной командой проекта.
+2. Убедитесь, что artifact включает `manifest.json` в корне, entry HTML, bundle и все manifest assets.
+3. Упакуйте **содержимое** artifact в ZIP с обычным уровнем сжатия; `manifest.json` должен находиться в корне архива.
+4. Переименуйте архив в `.opk` и проверьте его через VirusTotal: Overwolf не принимает OPK с предупреждениями.
+5. Подайте актуальный OPK через [официальную форму первичной QA-подачи](https://wkf.ms/3KL8b1m), приложив описания, screenshots и policy evidence.
 
-В разделе **"Permissions"** укажи:
-- ✅ `windows` - для управления окнами
-- ✅ `keyboardShortcuts` - для горячих клавиш
-- ✅ `gameEvents` - для отслеживания игры
+Не устанавливайте этот локальный OPK двойным кликом, пока нет разрешённого штатного канала Overwolf: для неподготовленных/не-store OPK это требует developer whitelist и не является заменой QA-процесса.
 
-### Шаг 5: Отправь на проверку
+### 4. Использовать штатный Testing channel
 
-1. Перейди в раздел **"App Settings"**
-2. Заполни:
-   - Поддержка (email)
-   - Политика конфиденциальности
-   - Скриншоты приложения
-3. Нажми **"Submit for Review"**
+После успешной initial QA Overwolf выдаёт доступ к Developer Console. Там можно загрузить QA-approved build в **Testing channel** и установить его штатным способом по выданной Overwolf ссылке/каналу. Только после этого появляется допустимая среда для ручной runtime-приёмки без unpacked mode.
 
-## Тестирование в Developer Mode
+## Обязательная ручная runtime-приёмка
 
-### Установка тестовой версии
+На установленной через Testing channel или Store сборке проверьте:
 
-1. Открой Overwolf
-2. Нажми **F12** (или Alt+F12)
-3. Перейди в **"Developer Console"**
-4. Введи:
-   ```
-   overwolf.apps.settings.setDeveloperMode(true)
-   ```
+1. Ровно один background lifecycle controller и запуск canonical root manifest.
+2. Выданные GEP permissions и доступность requested League of Legends features.
+3. Назначение game-specific hotkey в настройках Overwolf, событие `onPressed` и переключение declared desktop window.
+4. Поведение overlay в full-screen и windowed League of Legends, включая Alt+Tab, DPI и разрешения из [чеклиста Overwolf](https://dev.overwolf.com/ow-native/guides/test-your-app/how-to-test-your-app).
+5. Live roster только при полном реальном 5×5 наборе с уникальными ролями и local player; при неполных данных — отсутствие частичного roster.
+6. Solo/Duo masking: non-party игроки не раскрываются и не открываются для lookup.
+7. Post-game scoreboard только из реальных данных; AI доступен только после игры.
+8. Отсутствие console errors, утечек background processes и неконтролируемого network traffic.
 
-### Запуск приложения
+Сохраните видео и screenshots этой проверки для QA и Riot review.
 
-**Способ 1: Через Overwolf**
-1. Перейди в "My Apps"
-2. Найди SenseiGG
-3. Нажми **"Run"**
+## Что не является допустимой проверкой
 
-**Способ 2: Через Developer Hub**
-1. В Developer Hub выбери своё приложение
-2. Нажми **"Run App"**
+- `Load unpacked extension`, Developer Mode, Developer client ради обхода ограничений или ручной whitelist bypass.
+- Установка старого `.zip`/`.opk` как замена Testing channel.
+- Проверка GEP, hotkey или roster в обычном браузере.
+- Выдача fixture/review data за реальные данные.
 
-## Горячие клавиши
+## Официальные источники
 
-| Комбинация | Действие |
-|------------|----------|
-| `Ctrl + X` | Открыть/закрыть оверлей |
-| `Ctrl + Shift + Z` | Режим разработчика (симуляции) |
-
-## Полезные команды
-
-### Перезагрузка приложения
-```
-Ctrl + R (в окне приложения)
-```
-
-### Открыть консоль разработчика
-```
-F12 (в окне приложения)
-```
-
-### Проверка manifest
-```
-В консоли:
-overwolf.apps.getInfo()
-```
-
-## Частые проблемы
-
-### ❌ "App not found"
-**Решение:** Проверь `manifest.json` в корне проекта
-
-### ❌ "Icon not loading"
-**Решение:** Убедись, что `icon.png` существует и 128x128
-
-### ❌ "Windows not opening"
-**Решение:** Проверь `start_window` в manifest
-
-### ❌ "API permissions denied"
-**Решение:** Добавь нужные API в `overwolf_apis`
-
-## Публикация в Store
-
-После одобрения проверки:
-1. Ты получишь email от Overwolf
-2. Приложение появится в Overwolf Store
-3. Пользователи смогут установить его
-
-## Поддержка
-
-- **Documentation**: https://overwolf.github.io/docs
-- **Discord**: https://discord.gg/overwolf
-- **Email**: developers@overwolf.com
-
----
-
-**Удачи с публикацией!** 🚀
+- [Overwolf Native overview](https://dev.overwolf.com/ow-native/getting-started/overview/)
+- [App idea and approval roadmap](https://dev.overwolf.com/ow-native/getting-started/project-roadmap)
+- [Release and QA process](https://dev.overwolf.com/ow-native/getting-started/release-your-app)
+- [Manifest validation](https://dev.overwolf.com/ow-native/reference/manifest/validate-your-manifest-json)
+- [Runtime testing checklist](https://dev.overwolf.com/ow-native/guides/test-your-app/how-to-test-your-app)

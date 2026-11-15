@@ -374,8 +374,6 @@ export interface AccountSessionPresetCatalogResponse {
   notes?: string[];
 }
 
-const DEFAULT_SUBSCRIPTION_SERVER_BASE_URL = 'http://127.0.0.1:8787';
-
 export const getSubscriptionServiceBaseUrl = () => {
   const reviewEndpoint = import.meta.env.VITE_AI_REVIEW_ENDPOINT;
 
@@ -383,11 +381,11 @@ export const getSubscriptionServiceBaseUrl = () => {
     try {
       return new URL(reviewEndpoint).origin;
     } catch {
-      return DEFAULT_SUBSCRIPTION_SERVER_BASE_URL;
+      return null;
     }
   }
 
-  return DEFAULT_SUBSCRIPTION_SERVER_BASE_URL;
+  return null;
 };
 
 const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 4000) => {
@@ -402,8 +400,14 @@ const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit = {}
 };
 
 export const fetchSubscriptionServiceJson = async <T>(path: string, init: RequestInit = {}, timeoutMs = 4000): Promise<T | null> => {
+  const baseUrl = getSubscriptionServiceBaseUrl();
+
+  if (!baseUrl) {
+    return null;
+  }
+
   try {
-    const response = await fetchWithTimeout(`${getSubscriptionServiceBaseUrl()}${path}`, init, timeoutMs);
+    const response = await fetchWithTimeout(`${baseUrl}${path}`, init, timeoutMs);
     if (!response.ok) {
       return null;
     }
@@ -415,8 +419,14 @@ export const fetchSubscriptionServiceJson = async <T>(path: string, init: Reques
 };
 
 export const fetchSubscriptionServiceResponse = async (path: string, init: RequestInit = {}, timeoutMs = 4000): Promise<Response | null> => {
+  const baseUrl = getSubscriptionServiceBaseUrl();
+
+  if (!baseUrl) {
+    return null;
+  }
+
   try {
-    return await fetchWithTimeout(`${getSubscriptionServiceBaseUrl()}${path}`, init, timeoutMs);
+    return await fetchWithTimeout(`${baseUrl}${path}`, init, timeoutMs);
   } catch {
     return null;
   }

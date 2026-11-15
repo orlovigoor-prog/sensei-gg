@@ -1,17 +1,44 @@
 {
-  "manifest_version": 2,
-  "type": "web-app",
+  "manifest_version": 1,
+  "type": "WebApp",
   "meta": {
     "name": "SenseiGG",
     "version": "1.0.0.0",
     "minimum-overwolf-version": "0.195.0",
     "author": "Sensei",
     "description": "League of Legends companion for permitted lobby context and post-game performance review.",
-    "icon": "icon.png"
+    "icon": "icon.png",
+    "icon_gray": "icon-gray.png",
+    "launcher_icon": "launcher-icon.ico"
   },
+  "permissions": [
+    "GameInfo",
+    "Hotkeys",
+    "Profile",
+    "Subscription",
+    "Web"
+  ],
   "data": {
-    "start_window": "desktop",
+    "start_window": "background",
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [5426]
+    },
+    "game_events": [5426],
+    "hotkeys": {
+      "sensei_toggle_overlay": {
+        "title": "Показать или скрыть Sensei GG",
+        "action-type": "custom",
+        "default": "Ctrl+X",
+        "passthrough": false
+      }
+    },
     "windows": {
+      "background": {
+        "file": "index.html",
+        "desktop_only": true,
+        "is_background_page": true
+      },
       "desktop": {
         "file": "index.html",
         "transparent": true,
@@ -31,11 +58,5 @@
         "start_position": "centered"
       }
     }
-  },
-  "required_capabilities": ["windows"],
-  "overwolf_apis": [
-    "Windows",
-    "KeyboardShortcuts",
-    "Profile"
-  ]
+  }
 }

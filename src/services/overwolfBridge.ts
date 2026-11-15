@@ -1,6 +1,6 @@
 /// <reference types="@overwolf/types" />
 
-import type { CompletedMatchScoreboard, GameMode, LobbyPhase } from '../store/lobbySlice';
+import type { CompletedMatchScoreboard, GameMode, LiveRoster, LobbyPhase } from '../store/lobbySlice';
 
 export const LOL_GAME_ID = 5426;
 export const OVERWOLF_BRIDGE_MESSAGE_ID = 'sensei-overwolf-bridge';
@@ -39,6 +39,13 @@ export type OverwolfBridgeMessage =
   | {
       type: 'completed-scoreboard';
       payload: CompletedMatchScoreboard;
+    }
+  | {
+      type: 'live-roster';
+      payload: LiveRoster;
+    }
+  | {
+      type: 'clear-live-roster';
     }
   | {
       type: 'status';
@@ -150,6 +157,29 @@ export const restoreDesktopWindow = () => {
     if (result.success) {
       overwolf.windows.restore(result.window.id);
     }
+  });
+};
+
+export const toggleDesktopWindow = () => {
+  if (!isOverwolfAvailable()) {
+    return;
+  }
+
+  overwolf.windows.obtainDeclaredWindow('desktop', (result) => {
+    if (!result.success) {
+      return;
+    }
+
+    overwolf.windows.getWindowState(result.window.id, (state) => {
+      const windowState = (state as unknown as { window_state?: string }).window_state;
+
+      if (windowState === 'normal' || windowState === 'maximized') {
+        overwolf.windows.hide(result.window.id, () => undefined);
+        return;
+      }
+
+      overwolf.windows.restore(result.window.id, () => undefined);
+    });
   });
 };
 
