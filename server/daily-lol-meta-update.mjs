@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fetchCurrentGamePatch, isCompleteCurrentPatchSnapshot } from './lol-meta-patch.mjs';
+import { syncPublicLolMetaSnapshots } from './sync-public-lol-meta.mjs';
 
 const ROOT = process.cwd();
 const DEFAULT_RIOT_REALM = process.env.LOL_META_RIOT_REALM || 'na';
@@ -243,7 +244,8 @@ export const runDailyMetaUpdate = async ({
   updateConfig = updateDataDragonConfig,
   runCommand = runProcess,
   createCommands = createRefreshCommands,
-  assertDataDragonAvailable = assertDataDragonReleaseAvailable
+  assertDataDragonAvailable = assertDataDragonReleaseAvailable,
+  syncPublicMeta = syncPublicLolMetaSnapshots
 } = {}) => {
   const currentGamePatch = await resolveCurrentGamePatch({ realm: riotRealm });
   const state = await loadState(paths);
@@ -287,6 +289,7 @@ export const runDailyMetaUpdate = async ({
     ...refreshedState,
     currentGamePatch
   });
+  const publicMetaSync = await syncPublicMeta({ currentGamePatch });
 
   return {
     status: 'updated',
@@ -295,7 +298,8 @@ export const runDailyMetaUpdate = async ({
     decision,
     finalDecision,
     configChanged,
-    dataDragonAvailability
+    dataDragonAvailability,
+    publicMetaSync
   };
 };
 

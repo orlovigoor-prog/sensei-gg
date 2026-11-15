@@ -121,7 +121,8 @@ const changedBuildResult = await runDailyMetaUpdate({
     changedBuildCommands.push(command.label);
   },
   createCommands: () => [{ label: 'tier refresh' }, { label: 'counterpick refresh' }],
-  assertDataDragonAvailable: async ({ version, locale }) => ({ version, locale, championCount: 170, itemCount: 200 })
+  assertDataDragonAvailable: async ({ version, locale }) => ({ version, locale, championCount: 170, itemCount: 200 }),
+  syncPublicMeta: async () => ({ changed: true })
 });
 assert.equal(changedBuildResult.status, 'updated');
 assert.equal(changedBuildResult.configChanged, true);
@@ -155,7 +156,8 @@ await assert.rejects(
     updateConfig: async () => false,
     runCommand: async () => {},
     createCommands: () => [],
-    assertDataDragonAvailable: async () => ({ championCount: 170, itemCount: 200 })
+    assertDataDragonAvailable: async () => ({ championCount: 170, itemCount: 200 }),
+    syncPublicMeta: async () => ({ changed: true })
   }).then(() => {
     incompletePublicationReached = true;
   }),

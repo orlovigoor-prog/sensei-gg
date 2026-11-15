@@ -1,0 +1,373 @@
+{
+  "version": 3,
+  "game": "league-of-legends",
+  "queue": "ranked-solo-duo",
+  "rankBracket": "all",
+  "rankLabel": "All ranks",
+  "patch": "16.22",
+  "patchBuild": "16.22.1",
+  "patchSource": {
+    "provider": "riot-data-dragon-realm",
+    "realm": "na",
+    "url": "https://ddragon.leagueoflegends.com/realms/na.json",
+    "observedAt": "2026-11-14T05:07:08.418Z"
+  },
+  "updatedAt": "2026-11-14T05:07:09.594Z",
+  "source": {
+    "provider": "lolalytics-tier-list",
+    "url": "https://lolalytics.com/lol/tierlist/?tier=all&patch=16.22&view=grid",
+    "mode": "backend-snapshot",
+    "refreshStrategy": "per-game-patch",
+    "note": "Internal backend tier-list snapshot. Do not render this label in the client UI. Runtime client scraping is intentionally disabled."
+  },
+  "roles": {
+    "TOP": {
+      "sourceRows": 60,
+      "tiers": {
+        "S+": [
+          "Irelia",
+          "Zac",
+          "Zed"
+        ],
+        "S": [
+          "Fiora",
+          "Zoe"
+        ],
+        "S-": [
+          "Aurelion Sol",
+          "Gangplank",
+          "Mordekaiser",
+          "Singed"
+        ],
+        "A+": [
+          "Kayle",
+          "Lissandra",
+          "Malphite",
+          "Sion",
+          "Teemo",
+          "Zaahen"
+        ],
+        "A": [
+          "Aurora",
+          "Cho'Gath",
+          "Garen",
+          "Ornn",
+          "Poppy",
+          "Viktor"
+        ],
+        "A-": [
+          "Akshan",
+          "Anivia",
+          "Camille",
+          "Dr. Mundo",
+          "Olaf",
+          "Shen"
+        ],
+        "B+": [
+          "Akali",
+          "Darius",
+          "Kled",
+          "Naafiri",
+          "Tryndamere",
+          "Urgot",
+          "Volibear",
+          "Yone"
+        ],
+        "B": [
+          "Gwen",
+          "Jax",
+          "Rek'Sai",
+          "Renekton",
+          "Tahm Kench"
+        ]
+      }
+    },
+    "JUNGLE": {
+      "sourceRows": 60,
+      "tiers": {
+        "S+": [
+          "Cho'Gath",
+          "Wukong"
+        ],
+        "S": [
+          "Lillia",
+          "Master Yi",
+          "Zac"
+        ],
+        "S-": [
+          "Shyvana",
+          "Viego"
+        ],
+        "A+": [
+          "Bel'Veth",
+          "Darius",
+          "Ekko",
+          "Zaahen"
+        ],
+        "A": [
+          "Briar",
+          "Elise",
+          "Jax",
+          "Kayn",
+          "Sion",
+          "Tryndamere"
+        ],
+        "A-": [
+          "Karthus",
+          "Olaf",
+          "Rek'Sai",
+          "Taliyah",
+          "Talon",
+          "Warwick"
+        ],
+        "B+": [
+          "Aatrox",
+          "Fiddlesticks",
+          "Graves",
+          "JarvanIV",
+          "Sejuani",
+          "XinZhao"
+        ],
+        "B": [
+          "Amumu",
+          "Gragas",
+          "Hecarim",
+          "Naafiri",
+          "Nunu & Willump",
+          "Rammus",
+          "Shen",
+          "Udyr",
+          "Volibear"
+        ],
+        "B-": [
+          "Fizz",
+          "LeeSin",
+          "Maokai",
+          "Poppy"
+        ],
+        "C+": [
+          "Ivern",
+          "Kha'Zix",
+          "Nidalee"
+        ]
+      }
+    },
+    "MID": {
+      "sourceRows": 60,
+      "tiers": {
+        "S+": [
+          "Ekko",
+          "Yone"
+        ],
+        "S": [
+          "Ahri",
+          "Aurelion Sol",
+          "Hwei",
+          "Katarina"
+        ],
+        "S-": [
+          "Veigar",
+          "Vladimir"
+        ],
+        "A+": [
+          "Lux",
+          "Swain",
+          "Tryndamere",
+          "TwistedFate",
+          "Xerath",
+          "Zilean"
+        ],
+        "A": [
+          "Fizz",
+          "LeBlanc",
+          "Lissandra",
+          "Sion",
+          "Vel'Koz",
+          "Vex",
+          "Viktor"
+        ],
+        "A-": [
+          "Gragas",
+          "Singed",
+          "Syndra"
+        ],
+        "B+": [
+          "Diana",
+          "Garen",
+          "Kassadin",
+          "Kayle",
+          "Malphite",
+          "Malzahar",
+          "Pantheon",
+          "Talon"
+        ],
+        "B": [
+          "Akali",
+          "Akshan",
+          "Aurora",
+          "Cho'Gath",
+          "Heimerdinger",
+          "Irelia",
+          "Naafiri",
+          "Riven",
+          "Sylas",
+          "Taliyah"
+        ],
+        "B-": [
+          "Annie",
+          "Qiyana",
+          "Zed",
+          "Zoe"
+        ]
+      }
+    },
+    "ADC": {
+      "sourceRows": 52,
+      "tiers": {
+        "S+": [
+          "Katarina"
+        ],
+        "S": [
+          "Karthus",
+          "Zeri"
+        ],
+        "S-": [
+          "Aurelion Sol",
+          "Hwei"
+        ],
+        "A+": [
+          "Jhin",
+          "Swain"
+        ],
+        "A": [
+          "Jinx",
+          "Kog'Maw",
+          "Veigar",
+          "Yasuo"
+        ],
+        "A-": [
+          "Vel'Koz",
+          "Vladimir",
+          "Xayah"
+        ],
+        "B+": [
+          "Lux",
+          "Miss Fortune",
+          "Sivir",
+          "Smolder",
+          "Twitch"
+        ],
+        "B": [
+          "Aphelios",
+          "Kai'Sa",
+          "Kalista",
+          "Nilah",
+          "Senna",
+          "Tristana",
+          "Xerath"
+        ],
+        "B-": [
+          "Samira"
+        ],
+        "C+": [
+          "Brand",
+          "Corki",
+          "Draven",
+          "Ziggs"
+        ],
+        "C": [
+          "Ashe",
+          "Cassiopeia",
+          "Seraphine"
+        ],
+        "C-": [
+          "Caitlyn",
+          "Vayne"
+        ],
+        "D+": [
+          "Lucian"
+        ],
+        "D": [
+          "Ezreal"
+        ],
+        "D-": [
+          "Varus"
+        ]
+      }
+    },
+    "SUPPORT": {
+      "sourceRows": 60,
+      "tiers": {
+        "S+": [
+          "Nami",
+          "Thresh"
+        ],
+        "S": [
+          "Alistar",
+          "Janna",
+          "Rell",
+          "Senna"
+        ],
+        "S-": [
+          "Rakan",
+          "Sona",
+          "Zilean",
+          "Zyra"
+        ],
+        "A+": [
+          "Blitzcrank",
+          "Leona",
+          "Soraka",
+          "Vel'Koz"
+        ],
+        "A": [
+          "Braum",
+          "Poppy",
+          "Seraphine",
+          "Taric"
+        ],
+        "A-": [
+          "Elise",
+          "Lux",
+          "Milio",
+          "Morgana",
+          "Xerath"
+        ],
+        "B+": [
+          "Lulu",
+          "Maokai",
+          "Pyke"
+        ],
+        "B": [
+          "Brand",
+          "Nidalee",
+          "Renata Glasc",
+          "Swain"
+        ],
+        "B-": [
+          "Amumu",
+          "Bard",
+          "Karma",
+          "Nautilus",
+          "Pantheon",
+          "Tahm Kench"
+        ]
+      }
+    }
+  },
+  "coverage": {
+    "expectedRoles": 5,
+    "filledRoles": 5,
+    "publishedRoleRows": 206,
+    "incompleteSourceRoles": 0,
+    "emptyPublishedRoles": 0,
+    "duplicateTierRows": 0,
+    "invalidTierRows": 0,
+    "metadataValid": true,
+    "completeCoverage": true,
+    "incompleteSourceRolesSample": [],
+    "emptyPublishedRolesSample": [],
+    "duplicateTierRowsSample": [],
+    "invalidTierRowsSample": []
+  }
+}

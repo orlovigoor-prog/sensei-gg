@@ -55,7 +55,7 @@ jobs:
         id: changes
         run: |
           git diff --check
-          if git diff --quiet -- game-data.config.json server/lol-meta-snapshot.mjs server/data/lol-counterpicks.json; then
+          if git diff --quiet -- game-data.config.json server/lol-meta-snapshot.mjs server/data/lol-counterpicks.json public/meta/tier-list.json public/meta/counterpicks.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -81,3 +81,5 @@ jobs:
             game-data.config.json
             server/lol-meta-snapshot.mjs
             server/data/lol-counterpicks.json
+            public/meta/tier-list.json
+            public/meta/counterpicks.json

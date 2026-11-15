@@ -270,7 +270,7 @@ src/
 
 ### Dev режим:
 1. Запусти `npm run dev`
-2. Открой URL Vite в обычном браузере для нейтрального fallback; без `VITE_AI_REVIEW_ENDPOINT` не должно быть localhost/API-запросов и обращения к `overwolf`.
+2. Открой URL Vite в обычном браузере: без `VITE_AI_REVIEW_ENDPOINT` нет localhost-запросов и обращения к `overwolf`. Лобби читает только опубликованные CI-снимки tier/counterpick, после сверки patch/build с Riot Data Dragon realm; при недоступном или несовпадающем снимке мета остаётся скрытой.
 3. Нажми `Ctrl+Shift+Z` для Review Mode / dev-панели
 4. Используй симуляцию лобби для тестов. Review Mode остается временным демонстрационным слоем и должен быть удален после green light от Riot/Overwolf для реальных тестов.
 5. Перед изменениями в demo lobby запускай `npm run verify:lobby-domain`, чтобы проверить role-aware пулы и наличие counterpick rows.
