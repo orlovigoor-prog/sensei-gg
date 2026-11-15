@@ -1,4 +1,5 @@
 import type { PlayerInfo } from '../../store/lobbySlice';
+import { isPublicReviewMode } from '../publicReviewMode';
 import { fetchSubscriptionServiceJson } from '../subscriptionDevTools';
 import { canChampionPlayRole } from './championRoles';
 import { patchTierVisuals, type PatchTier } from './core';
@@ -281,6 +282,10 @@ const requestLobbyChampionInsight = async (
   championName: string,
   role: PlayerInfo['mainRole']
 ): Promise<LobbyChampionInsight | null> => {
+  if (isPublicReviewMode()) {
+    return getStaticLobbyChampionInsight(championName, role);
+  }
+
   const query = new URLSearchParams({ champion: championName, role, rank: LOBBY_META_RANK_BRACKET });
   const response = await fetchSubscriptionServiceJson<BackendLobbyChampionInsightResponse>(`/api/lol/meta/champion-insight?${query.toString()}`);
   const insight = response?.insight;

@@ -1,4 +1,5 @@
 import { buildSubscriptionEntitlements, type SenseiSubscriptionEntitlements } from './subscriptionEntitlements';
+import { isPublicReviewMode } from './publicReviewMode';
 
 export type SubscriptionDevPlan = 'free' | 'premium';
 
@@ -375,6 +376,10 @@ export interface AccountSessionPresetCatalogResponse {
 }
 
 export const getSubscriptionServiceBaseUrl = () => {
+  if (isPublicReviewMode()) {
+    return null;
+  }
+
   const reviewEndpoint = import.meta.env.VITE_AI_REVIEW_ENDPOINT;
 
   if (typeof reviewEndpoint === 'string' && reviewEndpoint.trim().length > 0) {

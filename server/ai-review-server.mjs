@@ -6,6 +6,19 @@ import { DATA_DRAGON_VERSION } from './game-data-config.mjs';
 import { fetchCurrentGamePatch, isCompleteCurrentPatchSnapshot } from './lol-meta-patch.mjs';
 import { lolMetaSnapshot } from './lol-meta-snapshot.mjs';
 import {
+  createAllowedOrigins,
+  createExpiringCache,
+  createSlidingWindowRateLimiter,
+  getAllowedCorsOrigin,
+  isCrossSiteBrowserRequest,
+  isLoopbackHost,
+  MAX_JSON_BODY_BYTES,
+  MAX_RIOT_ID_LENGTH,
+  PROFILE_SEARCH_CACHE_MS,
+  PROFILE_SEARCH_RATE_LIMIT,
+  RIOT_REQUEST_TIMEOUT_MS
+} from './api-server-security.mjs';
+import {
   accountSessionScenarioFixtures,
   foundationScenarioFixtures,
   foundationOrchestrationFixtures,
@@ -45,6 +58,7 @@ loadEnvFile();
 
 const PORT = Number.parseInt(process.env.AI_REVIEW_PORT || '8787', 10);
 const HOST = process.env.AI_REVIEW_HOST || '127.0.0.1';
+const ALLOWED_ORIGINS = createAllowedOrigins(process.env.SENSEI_ALLOWED_ORIGINS);
 const COUNTERPICK_DATABASE_PATH = path.resolve(process.cwd(), 'server/data/lol-counterpicks.json');
 const CHAMPION_ROLE_MATRIX_PATH = path.resolve(process.cwd(), 'src/services/gameData/champion-role-matrix.json');
 const API_KEY = process.env.AI_PROVIDER_API_KEY || '';
@@ -58,6 +72,18 @@ const SUBSCRIPTION_PROVIDER = process.env.SUBSCRIPTION_PROVIDER || 'overwolf-teb
 const SUBSCRIPTION_STORE_ID = process.env.OVERWOLF_SUBSCRIPTION_STORE_ID || '';
 const SUBSCRIPTION_PREMIUM_PLAN_ID = Number.parseInt(process.env.OVERWOLF_SUBSCRIPTION_PREMIUM_PLAN_ID || '0', 10);
 const SUBSCRIPTION_DEV_PLAN = process.env.SUBSCRIPTION_DEV_PLAN === 'premium' ? 'premium' : 'free';
+
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error('AI_REVIEW_PORT must be an integer between 1 and 65535.');
+}
+
+if (!isLoopbackHost(HOST)) {
+  throw new Error('AI_REVIEW_HOST must stay on a loopback address (127.0.0.1, ::1, or localhost). This development server is not a production backend.');
+}
+
+const profileSearchCache = createExpiringCache({ ttlMs: PROFILE_SEARCH_CACHE_MS });
+const profileSearchRateLimiter = createSlidingWindowRateLimiter(PROFILE_SEARCH_RATE_LIMIT);
+const profileSearchInFlight = new Map();
 
 const subscriptionDevState = {
   plan: SUBSCRIPTION_DEV_PLAN,
@@ -971,24 +997,102 @@ const guardProviderReview = (providerReview, fallbackReview) => {
 };
 
 const sendJson = (res, statusCode, body) => {
-  res.writeHead(statusCode, {
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-  });
+    'Cache-Control': 'no-store'
+  };
+
+  if (res.senseiCorsOrigin) {
+    headers['Access-Control-Allow-Origin'] = res.senseiCorsOrigin;
+    headers.Vary = 'Origin';
+  }
+
+  res.writeHead(statusCode, headers);
   res.end(JSON.stringify(body));
 };
 
+const sendNoContent = (res) => {
+  const headers = {
+    'Access-Control-Allow-Origin': res.senseiCorsOrigin,
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '600',
+    Vary: 'Origin'
+  };
+
+  res.writeHead(204, headers);
+  res.end();
+};
+
+const applyRequestOriginPolicy = (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOrigin = getAllowedCorsOrigin(origin, ALLOWED_ORIGINS);
+
+  if (origin !== undefined && !allowedOrigin) {
+    sendJson(res, 403, { ok: false, error: 'Origin is not allowed.' });
+    return false;
+  }
+
+  if (origin === undefined && isCrossSiteBrowserRequest(req.headers['sec-fetch-site'])) {
+    sendJson(res, 403, { ok: false, error: 'Cross-site browser requests are not allowed.' });
+    return false;
+  }
+
+  if (allowedOrigin) {
+    res.senseiCorsOrigin = allowedOrigin;
+  }
+
+  return true;
+};
+
+const isAllowedCorsPreflight = (req) => {
+  const requestedMethod = typeof req.headers['access-control-request-method'] === 'string'
+    ? req.headers['access-control-request-method'].toUpperCase()
+    : '';
+  const requestedHeaders = typeof req.headers['access-control-request-headers'] === 'string'
+    ? req.headers['access-control-request-headers'].split(',').map((header) => header.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  return ['GET', 'POST', 'DELETE'].includes(requestedMethod)
+    && requestedHeaders.every((header) => header === 'content-type');
+};
+
+const createPayloadTooLargeError = () => {
+  const error = new Error('Request body is too large.');
+  error.name = 'PayloadTooLargeError';
+  return error;
+};
+
+const getRequestBodyErrorStatus = (error, fallbackStatus) => error?.name === 'PayloadTooLargeError' ? 413 : fallbackStatus;
+
 const readJsonBody = async (req) => {
+  const contentLength = Number.parseInt(req.headers['content-length'] || '0', 10);
+  if (Number.isFinite(contentLength) && contentLength > MAX_JSON_BODY_BYTES) {
+    throw createPayloadTooLargeError();
+  }
+
   const chunks = [];
+  let totalBytes = 0;
 
   for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > MAX_JSON_BODY_BYTES) {
+      throw createPayloadTooLargeError();
+    }
+
     chunks.push(chunk);
   }
 
   const raw = Buffer.concat(chunks).toString('utf8');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error('Request body must be valid JSON.');
+  }
 };
 
 const riotPlatformHosts = {
@@ -1027,29 +1131,33 @@ const normalizeRiotRegion = (value) => {
 };
 
 const fetchRiotJson = async ({ host, pathname }) => {
-  const response = await fetch(`https://${host}${pathname}`, {
-    headers: {
-      'X-Riot-Token': RIOT_API_KEY
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), RIOT_REQUEST_TIMEOUT_MS);
+  let response;
+
+  try {
+    response = await fetch(`https://${host}${pathname}`, {
+      headers: {
+        'X-Riot-Token': RIOT_API_KEY
+      },
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error('Riot API request timed out.');
+      timeoutError.statusCode = 504;
+      throw timeoutError;
     }
-  });
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
-    const responseText = await response.text();
-    let responseBody = null;
-
-    if (isNonEmptyString(responseText)) {
-      try {
-        responseBody = JSON.parse(responseText);
-      } catch {
-        responseBody = responseText.trim();
-      }
-    }
-
-    const error = new Error(`Riot API request failed with status ${response.status}`);
+    await response.text();
+    const error = new Error('Riot API request failed.');
     error.statusCode = response.status;
-    error.riotBody = responseBody;
-    error.riotHost = host;
-    error.riotPathname = pathname;
     throw error;
   }
 
@@ -1238,7 +1346,140 @@ const normalizeChampionMastery = (entry, championIdNameMap) => ({
   lastPlayTime: Number(entry?.lastPlayTime || 0)
 });
 
-const handleRiotProfileSearch = async (req, res, requestUrl) => {
+const loadRiotProfile = async ({ region, gameName, tagLine }) => {
+  const accountHost = riotAccountHosts[region];
+  const platformHost = riotPlatformHosts[region];
+  const matchHost = riotAccountHosts[region];
+
+  try {
+    const account = await fetchRiotJson({
+      host: accountHost,
+      pathname: `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`
+    });
+
+    const summoner = await fetchRiotJson({
+      host: platformHost,
+      pathname: `/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(account.puuid)}`
+    });
+
+    const matchHistoryPromise = (async () => {
+      try {
+        const matchIds = await fetchRiotJson({
+          host: matchHost,
+          pathname: `/lol/match/v5/matches/by-puuid/${encodeURIComponent(account.puuid)}/ids?start=0&count=3`
+        });
+
+        if (!Array.isArray(matchIds) || matchIds.length === 0) {
+          return { recentMatches: [], championPool: [], profileSummary: null };
+        }
+
+        const matchDetails = await Promise.all(
+          matchIds.map((matchId) => fetchRiotJson({
+            host: matchHost,
+            pathname: `/lol/match/v5/matches/${encodeURIComponent(matchId)}`
+          }))
+        );
+
+        return {
+          recentMatches: matchDetails
+            .map((match) => normalizeProfileRecentMatch(match, account.puuid))
+            .filter(Boolean),
+          championPool: buildChampionPoolFromMatches(matchDetails, account.puuid),
+          profileSummary: buildProfileSummaryFromMatches(matchDetails, account.puuid)
+        };
+      } catch {
+        console.warn('Riot match history was unavailable for a profile search.');
+        return { recentMatches: [], championPool: [], profileSummary: null };
+      }
+    })();
+
+    const championMasteryPromise = (async () => {
+      try {
+        const [masteryEntries, championIdNameMap] = await Promise.all([
+          fetchRiotJson({
+            host: platformHost,
+            pathname: `/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(account.puuid)}/top?count=5`
+          }),
+          fetchChampionIdNameMap()
+        ]);
+
+        return Array.isArray(masteryEntries)
+          ? masteryEntries.map((entry) => normalizeChampionMastery(entry, championIdNameMap))
+          : [];
+      } catch {
+        console.warn('Riot champion mastery was unavailable for a profile search.');
+        return [];
+      }
+    })();
+
+    const rankedStatsPromise = fetchRiotJson({
+      host: platformHost,
+      pathname: `/lol/league/v4/entries/by-puuid/${encodeURIComponent(summoner.puuid)}`
+    }).catch((error) => {
+      if (error?.statusCode === 404) {
+        return [];
+      }
+
+      throw error;
+    });
+
+    const [{ recentMatches, championPool, profileSummary }, championMasteries, rankedStats] = await Promise.all([
+      matchHistoryPromise,
+      championMasteryPromise,
+      rankedStatsPromise
+    ]);
+
+    const soloRank = Array.isArray(rankedStats)
+      ? rankedStats.find((item) => item?.queueType === 'RANKED_SOLO_5x5') || null
+      : null;
+
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        region,
+        summoner: {
+          ...summoner,
+          name: account.gameName || summoner.name
+        },
+        riotId: {
+          gameName: account.gameName || gameName,
+          tagLine: account.tagLine || tagLine
+        },
+        rankedStats: soloRank,
+        recentMatches,
+        championMasteries,
+        championPool,
+        profileSummary
+      }
+    };
+  } catch (error) {
+    const statusCode = error?.statusCode;
+    const diagnostics = {
+      upstreamStatus: Number.isFinite(statusCode) ? statusCode : null
+    };
+
+    if (statusCode === 404) {
+      return { statusCode: 404, body: { ok: false, error: 'Игрок не найден.', diagnostics } };
+    }
+
+    if (statusCode === 401) {
+      return { statusCode: 502, body: { ok: false, error: 'Поиск профиля временно недоступен из-за ошибки авторизации сервиса.', diagnostics } };
+    }
+
+    if (statusCode === 403) {
+      return { statusCode: 502, body: { ok: false, error: 'Поиск профиля временно недоступен из-за ограничения доступа сервиса.', diagnostics } };
+    }
+
+    if (statusCode === 429) {
+      return { statusCode: 429, body: { ok: false, error: 'Превышен лимит запросов Riot API. Подождите минуту.', diagnostics } };
+    }
+
+    return { statusCode: 502, body: { ok: false, error: 'Поиск профиля временно недоступен. Попробуйте позже.', diagnostics } };
+  }
+};
+
+const handleRiotProfileSearch = async (res, requestUrl) => {
   if (!RIOT_API_KEY) {
     sendJson(res, 503, {
       ok: false,
@@ -1258,10 +1499,10 @@ const handleRiotProfileSearch = async (req, res, requestUrl) => {
     return;
   }
 
-  if (!riotId) {
+  if (!riotId || riotId.length > MAX_RIOT_ID_LENGTH) {
     sendJson(res, 400, {
       ok: false,
-      error: 'Нужно указать Riot ID в формате Name#TAG.'
+      error: 'Нужно указать Riot ID в формате Name#TAG длиной не более 100 символов.'
     });
     return;
   }
@@ -1278,159 +1519,40 @@ const handleRiotProfileSearch = async (req, res, requestUrl) => {
     return;
   }
 
-  const accountHost = riotAccountHosts[region];
-  const platformHost = riotPlatformHosts[region];
-  const matchHost = riotAccountHosts[region];
+  const cacheKey = `${region}:${gameName.toLowerCase()}#${tagLine.toLowerCase()}`;
+  const cachedProfile = profileSearchCache.get(cacheKey);
+  if (cachedProfile) {
+    sendJson(res, cachedProfile.statusCode, cachedProfile.body);
+    return;
+  }
 
-  try {
-    const account = await fetchRiotJson({
-      host: accountHost,
-      pathname: `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`
-    });
-
-    const summoner = await fetchRiotJson({
-      host: platformHost,
-      pathname: `/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(account.puuid)}`
-    });
-
-    let recentMatches = [];
-    let championMasteries = [];
-    let championPool = [];
-    let profileSummary = null;
-
-    try {
-      const matchIds = await fetchRiotJson({
-        host: matchHost,
-        pathname: `/lol/match/v5/matches/by-puuid/${encodeURIComponent(account.puuid)}/ids?start=0&count=5`
-      });
-
-      if (Array.isArray(matchIds) && matchIds.length > 0) {
-        const matchDetails = await Promise.all(
-          matchIds.map((matchId) => fetchRiotJson({
-            host: matchHost,
-            pathname: `/lol/match/v5/matches/${encodeURIComponent(matchId)}`
-          }))
-        );
-
-        recentMatches = matchDetails
-          .map((match) => normalizeProfileRecentMatch(match, account.puuid))
-          .filter(Boolean);
-        championPool = buildChampionPoolFromMatches(matchDetails, account.puuid);
-        profileSummary = buildProfileSummaryFromMatches(matchDetails, account.puuid);
-      }
-    } catch (error) {
-      console.warn('Failed to fetch Riot match history for profile search:', error);
-    }
-
-    try {
-      const [masteryEntries, championIdNameMap] = await Promise.all([
-        fetchRiotJson({
-          host: platformHost,
-          pathname: `/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(account.puuid)}/top?count=5`
-        }),
-        fetchChampionIdNameMap()
-      ]);
-
-      if (Array.isArray(masteryEntries)) {
-        championMasteries = masteryEntries.map((entry) => normalizeChampionMastery(entry, championIdNameMap));
-      }
-    } catch (error) {
-      console.warn('Failed to fetch Riot champion mastery for profile search:', error);
-    }
-
-    let rankedStats = [];
-
-    try {
-      rankedStats = await fetchRiotJson({
-        host: platformHost,
-        pathname: `/lol/league/v4/entries/by-puuid/${encodeURIComponent(summoner.puuid)}`
-      });
-    } catch (error) {
-      if (error?.statusCode !== 404) {
-        throw error;
-      }
-    }
-
-    const soloRank = Array.isArray(rankedStats)
-      ? rankedStats.find((item) => item?.queueType === 'RANKED_SOLO_5x5') || null
-      : null;
-
-    sendJson(res, 200, {
-      ok: true,
-      region,
-      summoner: {
-        ...summoner,
-        name: account.gameName || summoner.name
-      },
-      riotId: {
-        gameName: account.gameName || gameName,
-        tagLine: account.tagLine || tagLine
-      },
-      rankedStats: soloRank,
-      recentMatches,
-      championMasteries,
-      championPool,
-      profileSummary
-    });
-  } catch (error) {
-    const statusCode = error?.statusCode;
-    const riotBody = error?.riotBody;
-    const riotStatusMessage = typeof riotBody?.status?.message === 'string'
-      ? riotBody.status.message
-      : typeof riotBody === 'string'
-        ? riotBody
-        : null;
-    const diagnostics = {
-      upstreamStatus: Number.isFinite(statusCode) ? statusCode : null,
-      upstreamMessage: riotStatusMessage,
-      requestRegion: region,
-      requestRiotId: `${gameName}#${tagLine}`,
-      requestPath: error?.riotPathname || null,
-      requestHost: error?.riotHost || null
-    };
-
-    if (statusCode === 404) {
-      sendJson(res, 404, {
-        ok: false,
-        error: 'Игрок не найден.',
-        diagnostics
-      });
-      return;
-    }
-
-    if (statusCode === 401) {
-      sendJson(res, 502, {
-        ok: false,
-        error: 'Riot API отклонил запрос без валидной авторизации. Проверь, что backend читает актуальный RIOT_API_KEY без лишних символов.',
-        diagnostics
-      });
-      return;
-    }
-
-    if (statusCode === 403) {
-      sendJson(res, 502, {
-        ok: false,
-        error: 'Riot API отклонил ключ. Обычно это invalid или blocked API key на стороне Riot.',
-        diagnostics
-      });
-      return;
-    }
-
-    if (statusCode === 429) {
+  let profileRequest = profileSearchInFlight.get(cacheKey);
+  if (!profileRequest) {
+    const rateLimit = profileSearchRateLimiter.consume();
+    if (!rateLimit.allowed) {
       sendJson(res, 429, {
         ok: false,
-        error: 'Превышен лимит запросов Riot API. Подождите минуту.',
-        diagnostics
+        error: 'Слишком много поисковых запросов. Подождите минуту и повторите попытку.',
+        retryAfterSeconds: Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000))
       });
       return;
     }
 
-    const message = error instanceof Error ? error.message : 'Unknown Riot API error';
-    sendJson(res, 502, {
-      ok: false,
-      error: message,
-      diagnostics
-    });
+    profileRequest = loadRiotProfile({ region, gameName, tagLine });
+    profileSearchInFlight.set(cacheKey, profileRequest);
+  }
+
+  try {
+    const profileResponse = await profileRequest;
+    if (profileResponse.statusCode === 200) {
+      profileSearchCache.set(cacheKey, profileResponse);
+    }
+
+    sendJson(res, profileResponse.statusCode, profileResponse.body);
+  } finally {
+    if (profileSearchInFlight.get(cacheKey) === profileRequest) {
+      profileSearchInFlight.delete(cacheKey);
+    }
   }
 };
 
@@ -1601,38 +1723,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const requestUrl = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
+  if (!applyRequestOriginPolicy(req, res)) {
+    return;
+  }
+
+  const requestUrl = new URL(req.url, `http://${HOST}:${PORT}`);
 
   if (req.method === 'OPTIONS') {
-    sendJson(res, 204, {});
+    if (!res.senseiCorsOrigin || !isAllowedCorsPreflight(req)) {
+      sendJson(res, 403, { ok: false, error: 'CORS preflight is not allowed.' });
+      return;
+    }
+
+    sendNoContent(res);
     return;
   }
 
   if (req.method === 'GET' && req.url === '/health') {
     sendJson(res, 200, {
       ok: true,
-      providerConfigured: Boolean(API_KEY),
-      model: MODEL,
-      openRouterConfigured: Boolean(OPENROUTER_API_KEY),
-      openRouterModel: OPENROUTER_MODEL,
-      riotApiConfigured: Boolean(RIOT_API_KEY),
-      subscriptions: {
-        provider: SUBSCRIPTION_PROVIDER,
-        storeIdConfigured: Boolean(SUBSCRIPTION_STORE_ID),
-        premiumPlanConfigured: Number.isFinite(SUBSCRIPTION_PREMIUM_PLAN_ID) && SUBSCRIPTION_PREMIUM_PLAN_ID > 0,
-        devPlan: getEffectiveSubscriptionDevState().plan,
-        devScenario: getEffectiveSubscriptionDevState().scenario
-      },
-      aiHistory: {
-        persistence: getAiHistoryFoundationState().persistence,
-        syncReady: getAiHistoryFoundationState().syncReady,
-        premiumRequired: getAiHistoryFoundationState().premiumRequired
-      },
-      premiumCapabilities: {
-        progressionSyncReady: getEffectivePremiumCapabilitiesDevState().progressionSyncReady,
-        weeklyReportsSyncReady: getEffectivePremiumCapabilitiesDevState().weeklyReportsSyncReady,
-        scenario: getEffectivePremiumCapabilitiesDevState().scenario
-      }
+      scope: 'local-development'
     });
     return;
   }
@@ -1643,7 +1753,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && requestUrl.pathname === '/api/riot/profile-search') {
-    await handleRiotProfileSearch(req, res, requestUrl);
+    await handleRiotProfileSearch(res, requestUrl);
     return;
   }
 
@@ -1692,7 +1802,7 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid dev subscription state payload';
-      sendJson(res, 400, { ok: false, error: message });
+      sendJson(res, getRequestBodyErrorStatus(error, 400), { ok: false, error: message });
     }
     return;
   }
@@ -1796,7 +1906,7 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid account session dev state payload';
-      sendJson(res, 400, { ok: false, error: message });
+      sendJson(res, getRequestBodyErrorStatus(error, 400), { ok: false, error: message });
     }
     return;
   }
@@ -1829,7 +1939,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, applyFoundationScenarioFixture(body));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid foundation fixture payload';
-      sendJson(res, 400, { ok: false, error: message });
+      sendJson(res, getRequestBodyErrorStatus(error, 400), { ok: false, error: message });
     }
     return;
   }
@@ -1841,7 +1951,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, response.ok === false ? 400 : 200, response);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid foundation orchestration payload';
-      sendJson(res, 400, { ok: false, error: message });
+      sendJson(res, getRequestBodyErrorStatus(error, 400), { ok: false, error: message });
     }
     return;
   }
@@ -1853,7 +1963,7 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, response.ok === false ? 400 : 200, response);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid foundation sync matrix payload';
-      sendJson(res, 400, { ok: false, error: message });
+      sendJson(res, getRequestBodyErrorStatus(error, 400), { ok: false, error: message });
     }
     return;
   }
@@ -1902,7 +2012,7 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid premium capabilities dev state payload';
-      sendJson(res, 400, { ok: false, error: message });
+      sendJson(res, getRequestBodyErrorStatus(error, 400), { ok: false, error: message });
     }
     return;
   }
@@ -1973,7 +2083,7 @@ const server = http.createServer(async (req, res) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    sendJson(res, 500, { error: message });
+    sendJson(res, getRequestBodyErrorStatus(error, 500), { error: message });
   }
 });
 

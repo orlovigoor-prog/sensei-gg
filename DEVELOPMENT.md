@@ -20,6 +20,8 @@ RIOT_API_KEY=RGAPI-your-key-here
 
 Пользовательский ввод ключа из интерфейса отключен, клиент не должен использовать `VITE_RIOT_API_KEY`.
 
+`npm run ai:server` намеренно запускается только на loopback (`127.0.0.1`, `::1` или `localhost`) и завершится с ошибкой при внешнем `AI_REVIEW_HOST`. Не публикуйте этот development server: он содержит локальные foundation/dev-state маршруты и не имеет production-аутентификации. Для дополнительного доверенного origin укажите точный URL через `SENSEI_ALLOWED_ORIGINS` (через запятую, без wildcard); обычные Vite loopback origins уже разрешены.
+
 ### Запуск:
 ```bash
 npm run dev
@@ -32,7 +34,7 @@ npm run ai:server
 
 Сервер поддерживает:
 - `POST /api/review` для post-game AI review
-- `GET /api/riot/profile-search?region=ru&summonerName=nickname` для безопасного profile lookup через локальный backend
+- `GET /api/riot/profile-search?region=ru&riotId=Name%23TAG` для безопасного profile lookup через локальный backend; запросы ограничены, одинаковые успешные ответы кратко кэшируются, а внутренние пути и сообщения Riot клиенту не выдаются
 - `GET /api/lol/meta/champion-insight?champion=Aatrox&role=TOP` для серверного снимка тира и контрпиков; endpoint принудительно использует `rank=all`, Ranked Solo/Duo и current-patch contract, а без доступного снимка клиент не подменяет данные демо-каталогом
 - `GET /api/subscription/config` для scaffolding Overwolf/Tebex integration
 - `GET /api/subscription/entitlements` для локального dev entitlement state
@@ -136,6 +138,12 @@ curl -X POST http://127.0.0.1:8787/api/account-session/dev-state -H "Content-Typ
 npm run build
 ```
 
+### Статический Public Review Mode на GitHub Pages
+
+`deploy-pages.yml` задаёт только публичный compile-time boolean `VITE_PUBLIC_REVIEW_MODE=true`. При этом флаге и отсутствии Overwolf браузер автоматически загружает новый синтетический 5×5 сценарий, оставляет видимую маркировку `PUBLIC REVIEW MODE · SYNTHETIC DATA`, даёт переключать фазы и запускать локальный post-game разбор.
+
+Это демонстрация UI и policy flow, а не production backend и не live game session. В этом режиме профиль показывает только synthetic data, а форма Riot ID lookup не рендерится и не обрабатывает внешние команды: GitHub Pages не выполняет запросы к Riot API, localhost или скрытому proxy. Реальный lookup возможен только с отдельно настроенным защищённым backend вне статического Pages.
+
 ### Обновление мета-снимка
 
 Статические ресурсы Riot Data Dragon и мета-статистика обновляются раздельно. `dataDragonVersion` в `game-data.config.json` задаёт иконки и локализованные описания. Актуальность tier- и counterpick-снимков определяется официальным Riot Data Dragon realm: его build (например, `16.22.1`) нормализуется до игрового patch (`16.22`) и передаётся в Lolalytics как `patch=16.22`. Realm по умолчанию — `na`; для серверного окружения его можно явно задать через `LOL_META_RIOT_REALM`.
@@ -162,6 +170,7 @@ npm run verify:meta-patch
 
 ```bash
 npm run verify:daily-lol-meta-update
+npm run verify:api-security
 npm run meta:daily-update -- --dry-run
 npm run meta:daily-update
 ```
@@ -190,6 +199,8 @@ npm run verify:foundation-all
 ```bash
 npx tsc -b
 npm run lint
+npm run verify:api-security
+npm run verify:public-review-mode
 npm run verify:overwolf-scoreboard
 npm run verify:player-privacy
 npm run verify:game-data
@@ -242,6 +253,8 @@ npm run verify:daily-lol-meta-update
 - ✅ Проверяй `.gitignore` перед коммитом
 - ✅ Используй серверный прокси для production
 - ✅ Реализуй кэширование для снижения нагрузки
+- ✅ Для локального proxy разрешай только точные доверенные origins и loopback bind
+- ✅ Перед public deployment отделяй dev-state маршруты от production backend и добавляй аутентификацию
 
 ---
 
@@ -271,7 +284,7 @@ src/
 ### Dev режим:
 1. Запусти `npm run dev`
 2. Открой URL Vite в обычном браузере: без `VITE_AI_REVIEW_ENDPOINT` нет localhost-запросов и обращения к `overwolf`. Лобби читает только опубликованные CI-снимки tier/counterpick, после сверки patch/build с Riot Data Dragon realm; при недоступном или несовпадающем снимке мета остаётся скрытой.
-3. Нажми `Ctrl+Shift+Z` для Review Mode / dev-панели
+3. Нажми `Ctrl+Shift+Z` для локального Review Mode / dev-панели. В опубликованной GitHub Pages версии этот режим запускается автоматически и постоянно помечен как synthetic.
 4. Используй симуляцию лобби для тестов. Review Mode остается временным демонстрационным слоем и должен быть удален после green light от Riot/Overwolf для реальных тестов.
 5. Перед изменениями в demo lobby запускай `npm run verify:lobby-domain`, чтобы проверить role-aware пулы и наличие counterpick rows.
 

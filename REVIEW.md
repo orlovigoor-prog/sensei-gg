@@ -24,6 +24,12 @@ Sensei GG is a League of Legends companion focused on low-noise pre-game visibil
 - post-game AI review after a match has ended;
 - a clearly labelled synthetic Review Mode for repeatable UI review.
 
+## Public static review flow
+
+Open https://orlovigoor-prog.github.io/sensei-gg/. GitHub Pages starts a visible **PUBLIC REVIEW MODE · SYNTHETIC DATA** scenario automatically: the roster, profile, match events and post-game data are test data, not a live game session or a real player profile.
+
+Use the visible Review Mode panel to inspect the 5×5 screen, switch between lobby, in-game and post-game phases, then generate the local post-game review. The AI flow is deliberately post-game only. Riot ID lookup is intentionally unavailable on this static page, so it cannot send a reviewer input to Riot API, localhost or a hidden proxy.
+
 ## Local review flow
 
 Use Node.js 18 or newer. Run the server and Vite in separate terminals:
@@ -54,7 +60,7 @@ The in-app phase mapping is `champ-select` to `Лобби`, `loading` and `in-ga
 
 ## Known review limitations
 
-- GitHub Pages is static hosting only and is not a substitute for the local review flow; without an explicitly configured endpoint, browser fallback is neutral and makes no local-server requests.
+- GitHub Pages is static hosting only. It provides the repeatable synthetic Public Review Mode described above; it does not provide a live Riot profile backend or production API runtime.
 - The canonical root manifest declares the background page, League of Legends targeting, required permissions and the `sensei_toggle_overlay` custom hotkey. Actual GEP events, live-client availability and hotkey assignment must still be checked manually in a real Overwolf runtime; this repository does not claim a Store-ready binary from browser checks alone.
 - A submitter contact must be supplied in the Riot or Overwolf submission form; placeholder contact details are deliberately not published in this repository.
 

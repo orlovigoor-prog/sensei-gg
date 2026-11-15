@@ -33,12 +33,7 @@ interface RiotProfileSearchResponse {
   };
   error?: string;
   diagnostics?: {
-    upstreamStatus: number | null;
-    upstreamMessage: string | null;
-    requestRegion: SearchRegion;
-    requestRiotId: string;
-    requestPath: string | null;
-    requestHost: string | null;
+    upstreamStatus?: number | null;
   };
 }
 
@@ -153,9 +148,10 @@ const getKdaAccent = (match: ProfileRecentMatch) => {
 
 interface ProfileScreenProps {
   reviewMode?: boolean;
+  publicReviewMode?: boolean;
 }
 
-export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
+export function ProfileScreen({ reviewMode = false, publicReviewMode = false }: ProfileScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [region, setRegion] = useState<SearchRegion>('ru');
   const [loading, setLoading] = useState(false);
@@ -168,6 +164,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
   const [hoveredItem, setHoveredItem] = useState<HoveredItemState | null>(null);
   const [resolvedItemTooltips, setResolvedItemTooltips] = useState<Record<number, ItemCatalogEntry>>({});
   const [error, setError] = useState('');
+  const liveProfileSearchDisabled = publicReviewMode;
 
   const hoveredItemDetails = hoveredItem
     ? resolvedItemTooltips[hoveredItem.itemId] ?? getItemCatalogEntry(hoveredItem.itemId) ?? null
@@ -218,6 +215,10 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
   }, [recentMatches, resolvedItemTooltips]);
 
   useEffect(() => {
+    if (liveProfileSearchDisabled) {
+      return;
+    }
+
     const handleExternalSearch = (event: Event) => {
       const customEvent = event as CustomEvent<{
         summonerName?: string;
@@ -254,10 +255,15 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
 
     window.addEventListener('sensei-search-player', handleExternalSearch);
     return () => window.removeEventListener('sensei-search-player', handleExternalSearch);
-  }, []);
+  }, [liveProfileSearchDisabled]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (liveProfileSearchDisabled) {
+      return;
+    }
+
     if (!searchQuery.trim()) {
       return;
     }
@@ -310,10 +316,6 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
           setError(payload?.error || 'Поиск временно недоступен. Попробуй ещё раз позже.');
         }
 
-        if (payload?.diagnostics?.upstreamStatus) {
-          console.warn('Riot profile search diagnostics', payload.diagnostics);
-        }
-
         setLoading(false);
         return;
       }
@@ -349,11 +351,18 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
             <div>
               <h2 style={{ color: '#f3efe7', margin: '0 0 6px 0', fontSize: '22px' }}>Профиль игрока</h2>
               <p style={{ margin: 0, color: '#6b7280', fontSize: '13px', lineHeight: 1.6 }}>
-                Найди игрока, оцени текущую форму, пул чемпионов и последние матчи.
+                {liveProfileSearchDisabled
+                  ? 'Синтетический профиль для public review; это не реальный игрок и не live-сессия.'
+                  : 'Найди игрока, оцени текущую форму, пул чемпионов и последние матчи.'}
               </p>
             </div>
           </div>
 
+          {liveProfileSearchDisabled ? (
+            <div data-public-review-profile-search-disabled="true" style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(234, 88, 12, 0.1)', border: '1px solid rgba(234, 88, 12, 0.32)', color: '#fdba74', fontSize: '13px', lineHeight: 1.55 }}>
+              Live Riot ID search disabled on the static reviewer page. Реальный поиск профиля доступен только через отдельный защищённый backend и не выполняется с GitHub Pages.
+            </div>
+          ) : (
           <form data-profile-search-form="true" onSubmit={handleSearch} style={{ display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr) 120px', gap: '10px', alignItems: 'center' }}>
             <select
               value={region}
@@ -386,6 +395,7 @@ export function ProfileScreen({ reviewMode = false }: ProfileScreenProps) {
               {loading ? 'Поиск...' : 'Найти'}
             </button>
           </form>
+          )}
 
           {error && (
             <div style={{ marginTop: '12px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.32)', color: '#fca5a5', fontSize: '13px' }}>

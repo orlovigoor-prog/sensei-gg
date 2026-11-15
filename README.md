@@ -3,6 +3,7 @@
 **Русский** | **English**
 
 > **Riot / external review:** start with [REVIEW.md](REVIEW.md). The public source repository is https://github.com/orlovigoor-prog/sensei-gg and the public prototype is https://orlovigoor-prog.github.io/sensei-gg/.
+> The public prototype is a static **Review Mode**: it starts with a labelled synthetic 5×5 scenario, includes phase controls and a local post-game review flow, and intentionally has no live Riot ID lookup.
 >
 > **Legal:** [Privacy Policy](https://orlovigoor-prog.github.io/sensei-gg/privacy-policy.html) and [Terms of Service](https://orlovigoor-prog.github.io/sensei-gg/terms-of-service.html).
 >
@@ -51,6 +52,12 @@
 - Несколько пресетов размера окна
 - Полупрозрачный фон
 - Не перекрывает игровой интерфейс
+
+### 🌐 Публичная страница для review
+- GitHub Pages запускается как явно маркированный **Public Review Mode** с синтетическими 5×5 roster, profile и match events
+- Панель Review Mode позволяет переключать демонстрационные фазы и сгенерировать локальный post-game разбор
+- Это не live-матч и не реальный профиль: live Riot ID search на статической странице отключён намеренно
+- Реальный profile lookup требует отдельный защищённый backend; Pages не хранит ключи и не обращается к localhost или Riot API
 
 ---
 
@@ -161,13 +168,16 @@ sensei-gg/
 
 - Для локальной разработки Riot API ключ хранится только в `.env` и читается локальным backend
 - Пользователь не имеет доступа к Riot API ключу через интерфейс приложения
-- Для production нужен серверный или платформенный способ хранения ключа
+- Локальный server привязан только к loopback, разрешает только точные локальные/настроенные origins и не использует wildcard CORS
+- Profile proxy ограничивает частоту запросов, кратко кэширует успешные совпадающие запросы и не отдаёт клиенту внутренние host/path или сообщения Riot
+- Этот server — development-инструмент с dev-state маршрутами, а не готовый production backend; для production нужен отдельный аутентифицированный HTTPS backend или платформенный способ хранения ключа
 - Клиент не ходит в Riot API напрямую: профильный поиск идет через локальный backend proxy
 - Все данные Riot profile lookup получаются через локальный backend без раскрытия ключа в клиенте
 - AI-блок используется для постматч-разбора, а не для live-советов во время активной игры
 - В Ranked Solo/Duo в champ select нельзя раскрывать имена непартийных союзников
 - В Ranked Solo/Duo non-party ally и enemy не получают lookup; их имена маскируются во всех не-demo состояниях
 - Обычный браузер без `VITE_AI_REVIEW_ENDPOINT` остаётся автономным: не делает localhost/API-запросов и не обращается к `overwolf`
+- GitHub Pages собирается CI с публичным boolean `VITE_PUBLIC_REVIEW_MODE=true`: он включает только синтетический UI-сценарий, не является секретом и не разрешает Riot API/profile lookup
 - Соответствие [Riot Games Developer Policy](https://developer.riotgames.com/policies/general)
 
 ---

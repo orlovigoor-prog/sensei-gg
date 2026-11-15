@@ -1,5 +1,6 @@
 import { buildPostGameAnalysisPayload, generateStructuredPostGameAnalysis, type PostGameAnalysisContext } from './postGameAnalysis';
 import type { StructuredAiReview } from '../store/gameSlice';
+import { isPublicReviewMode } from './publicReviewMode';
 
 interface AiReviewResponse {
   review?: {
@@ -38,6 +39,10 @@ const normalizeStructuredReview = (data: AiReviewResponse): StructuredAiReview |
 };
 
 const getAiReviewEndpoint = () => {
+  if (isPublicReviewMode()) {
+    return null;
+  }
+
   const endpoint = import.meta.env.VITE_AI_REVIEW_ENDPOINT;
   return typeof endpoint === 'string' && endpoint.trim().length > 0 ? endpoint.trim() : null;
 };

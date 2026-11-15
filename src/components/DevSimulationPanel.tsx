@@ -87,7 +87,7 @@ export function DevSimulationPanel({
             ))}
           </div>
           <div style={{ marginTop: '10px', padding: '9px 10px', borderRadius: '8px', background: 'rgba(17, 24, 39, 0.7)', border: '1px solid rgba(251, 146, 60, 0.2)', color: '#9ca3af', fontSize: '11px', lineHeight: 1.45 }}>
-            Review Mode не должен восприниматься как реальный матч. Он нужен, чтобы показать Riot и Overwolf навигацию, safe UX и постматч-сценарии без доступа к настоящей игровой сессии.
+            Review Mode не должен восприниматься как реальный матч. Для постматч-разбора переключите сценарий на «Итоги», затем нажмите «Постматч-разбор». Данные и события остаются синтетическими.
           </div>
         </>
       )}

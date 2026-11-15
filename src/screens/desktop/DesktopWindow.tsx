@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { AppDispatch, RootState } from '../../store';
 import { startGame, mutateStats, endGame, resetGame, setAiLoading, setAiAdvice, setAiReview } from '../../store/gameSlice';
@@ -15,6 +15,7 @@ import { getStoredWindowSizePreset, getWindowSizeOption, type WindowSizePreset }
 import { requestPostGameAnalysis } from '../../services/aiReviewGateway';
 import { SENSEI_SEARCH_PLAYER_EVENT } from '../../services/appCommands';
 import { appendAiReviewHistoryEntry, buildAiReviewHistoryEntry, getStoredAiReviewHistory } from '../../services/aiReviewHistoryStorage';
+import { isPublicReviewMode } from '../../services/publicReviewMode';
 import {
   bootstrapSubscriptionFoundation,
   getSubscriptionPurchaseFlowSnapshot,
@@ -66,6 +67,7 @@ const DESIGN_HEIGHT = 900;
 
 export function DesktopWindow() {
   const dispatch = useDispatch<AppDispatch>();
+  const publicReviewMode = isPublicReviewMode();
   const { aiAdvice, aiReview, isLoadingAi, isInGame, lastCompletedMatch } = useSelector(
     (state: RootState) => state.game
   );
@@ -83,11 +85,12 @@ export function DesktopWindow() {
   } = useSelector((state: RootState) => state.subscription);
 
   const [activeTab, setActiveTab] = useState<'match' | 'profile' | 'ai' | 'settings'>('match');
-  const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
-  const [isDevPanelExpanded, setIsDevPanelExpanded] = useState<boolean>(true);
+  const [showDevPanel, setShowDevPanel] = useState<boolean>(() => publicReviewMode);
+  const [isDevPanelExpanded, setIsDevPanelExpanded] = useState<boolean>(() => publicReviewMode);
   const [windowSizePreset, setWindowSizePreset] = useState<WindowSizePreset>(getStoredWindowSizePreset());
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [reviewScenario, setReviewScenario] = useState(() => createReviewModeScenario());
+  const publicScenarioBootstrapped = useRef(false);
   const aiSourceMeta = aiReview ? getAiSourceMeta(aiReview.source) : null;
 
   const lobbyStatusLabel = !isInLobby
@@ -103,13 +106,19 @@ export function DesktopWindow() {
   }, [showDevPanel]);
 
   const handleToggleDevPanel = useCallback(() => {
+    if (publicReviewMode) {
+      setShowDevPanel(true);
+      setIsDevPanelExpanded(activeTab === 'match');
+      return;
+    }
+
     const nextShowDevPanel = !showDevPanel;
     setShowDevPanel(nextShowDevPanel);
 
     if (nextShowDevPanel) {
       setIsDevPanelExpanded(activeTab === 'match');
     }
-  }, [activeTab, showDevPanel]);
+  }, [activeTab, publicReviewMode, showDevPanel]);
 
   const handleBridgeGameStart = useCallback(() => {
     selectActiveTab('match');
@@ -167,24 +176,48 @@ export function DesktopWindow() {
     }
   };
 
-  const handleSimulateLobby = () => {
-    const nextScenario = createReviewModeScenario();
-    setReviewScenario(nextScenario);
+  const loadReviewScenario = useCallback((scenario: typeof reviewScenario) => {
     dispatch(setLobby({
       gameMode: 'RANKED_SOLO_5x5',
-      allies: nextScenario.players.slice(0, 5),
-      enemies: nextScenario.players.slice(5, 10),
+      allies: scenario.players.slice(0, 5),
+      enemies: scenario.players.slice(5, 10),
       phase: 'champ-select',
-      partyMembers: nextScenario.partyMembers
+      partyMembers: scenario.partyMembers
     }));
-  };
+  }, [dispatch]);
+
+  const handleSimulateLobby = useCallback(() => {
+    const nextScenario = createReviewModeScenario();
+    setReviewScenario(nextScenario);
+    dispatch(resetGame());
+    loadReviewScenario(nextScenario);
+  }, [dispatch, loadReviewScenario]);
 
   const handleResetReviewMode = () => {
+    if (publicReviewMode) {
+      handleSimulateLobby();
+      return;
+    }
+
     dispatch(resetGame());
     dispatch(clearLobby());
   };
 
   useEffect(() => {
+    if (!publicReviewMode || publicScenarioBootstrapped.current) {
+      return;
+    }
+
+    publicScenarioBootstrapped.current = true;
+    dispatch(resetGame());
+    loadReviewScenario(reviewScenario);
+  }, [dispatch, loadReviewScenario, publicReviewMode, reviewScenario]);
+
+  useEffect(() => {
+    if (publicReviewMode) {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       console.log('Key pressed:', e.key, 'Ctrl:', e.ctrlKey, 'Shift:', e.shiftKey);
       
@@ -196,7 +229,7 @@ export function DesktopWindow() {
     };
   window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [handleToggleDevPanel]);
+  }, [handleToggleDevPanel, publicReviewMode]);
 
   // Слушатель события переключения на вкладку поиска игрока
   useEffect(() => {
@@ -393,6 +426,13 @@ export function DesktopWindow() {
         </div>
       </div>
 
+      {publicReviewMode && (
+        <div data-public-review-banner="true" style={{ marginBottom: '12px', padding: '11px 14px', borderRadius: '12px', background: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.42)', color: '#d1d5db', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong style={{ color: '#fdba74', fontSize: '12px', letterSpacing: '0.06em' }}>PUBLIC REVIEW MODE · SYNTHETIC DATA</strong>
+          <span style={{ fontSize: '12px', lineHeight: 1.45 }}>Статическая демонстрация UI и policy flow: это не live-матч, а поиск Riot ID на Pages намеренно отключён.</span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ padding: '6px 10px', borderRadius: '999px', background: 'rgba(0, 255, 204, 0.08)', border: '1px solid rgba(0, 255, 204, 0.3)', color: '#00ffcc', fontSize: '12px', fontWeight: 'bold' }}>
           {lobbyStatusLabel}
@@ -422,7 +462,7 @@ export function DesktopWindow() {
 
       {/* ВКЛАДКА: ПРОФИЛЬ */}
       {activeTab === 'profile' && (
-        <ProfileScreen reviewMode={showDevPanel} />
+        <ProfileScreen reviewMode={showDevPanel} publicReviewMode={publicReviewMode} />
       )}
 
       {/* ВКЛАДКА: НАСТРОЙКИ */}
