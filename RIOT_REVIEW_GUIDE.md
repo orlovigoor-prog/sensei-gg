@@ -36,6 +36,7 @@ Sensei GG не пытается давать запрещенные live-под�
 - Позволяет искать только разрешённый профиль игрока.
 - Показывает ранг и связанные данные профиля.
 - В review/demo-сценариях демо-данные явно помечены как демо.
+- Публичная GitHub Pages-версия до одобрения production key намеренно показывает только labelled synthetic profile и не отправляет Riot ID в сеть. Riot не разрешает публичное использование development key; production HTTPS backend и его activation gates описаны в [PRODUCTION_PROFILE_BACKEND.md](PRODUCTION_PROFILE_BACKEND.md).
 
 ### 3. Post-game AI review
 - AI review доступен только после завершения матча.
@@ -73,9 +74,9 @@ Sensei GG не пытается давать запрещенные live-под�
 4. Проверить, что в Ranked Solo/Duo lookup непартийных союзников не используется.
 
 ### Сценарий B. Profile flow
-1. Открыть экран профиля.
-2. Проверить поиск игрока.
-3. Если открыт demo-profile, убедиться, что он явно помечен как демо.
+1. На публичной странице открыть экран профиля.
+2. Убедиться, что synthetic profile явно помечен как demo, а Riot ID lookup объяснён как disabled до production-key approval.
+3. После отдельного production backend deployment проверить lookup только по утверждённому production review-сценарию и без раскрытия ключа.
 
 ### Сценарий C. Post-game AI review
 1. Довести матч до post-game состояния или включить Review Mode.
@@ -112,8 +113,9 @@ Sensei GG is a League of Legends overlay focused on safe lobby visibility, playe
 
 ## Почему production review имеет смысл
 
-- Dev key недостаточен для стабильной проверки сценариев.
-- Для нормального review нужен предсказуемый доступ к Riot API.
+- Riot допускает работающий prototype или clear mock-up для review, но запрещает public consumption через personal/development key.
+- Dev key недостаточен для стабильной проверки сценариев и не может обслуживать public Pages lookup.
+- После approval production backend даст предсказуемый доступ к Riot API без раскрытия ключа в клиенте.
 - Приложение строится вокруг безопасного UX, где ценность находится в post-game разборе, а не в live advantage.
 
 ## Перед отправкой на review проверить еще раз

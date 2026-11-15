@@ -30,6 +30,8 @@ Open https://orlovigoor-prog.github.io/sensei-gg/. GitHub Pages starts a visible
 
 Use the visible Review Mode panel to inspect the 5×5 screen, switch between lobby, in-game and post-game phases, then generate the local post-game review. The AI flow is deliberately post-game only. Riot ID lookup is intentionally unavailable on this static page, so it cannot send a reviewer input to Riot API, localhost or a hidden proxy.
 
+This is intentional while the Riot production application is pending: Riot does not permit public consumption through a personal/development key. A production HTTPS profile backend will be considered only after production-key approval; its required security and activation gates are documented in [PRODUCTION_PROFILE_BACKEND.md](PRODUCTION_PROFILE_BACKEND.md).
+
 ## Local review flow
 
 Use Node.js 18 or newer. Run the server and Vite in separate terminals:
